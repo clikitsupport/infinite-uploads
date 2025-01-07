@@ -2,7 +2,7 @@
 
 Requires at least: 5.3
 Tested up to: 6.6
-Stable tag: 2.0.2
+Stable tag: 2.0.3
 Requires PHP: 7.0
 Contributors: uglyrobot, jdailey
 Tags: cloud storage, media cloud, encoding, offload, video, streaming, s3, google cloud storage, spaces, storage, cdn, cloud sync
@@ -156,6 +156,10 @@ There are plugins for that, but they all have expensive per-site or per-file ann
 Finally, while the per/GB prices of cloud storage may seem cheap, there are all the hidden costs you don't realize like class A/B/C/D API transaction costs, and bandwidth x3 (to cloud > to cdn > to user). Bandwidth costs alone can often total 8x more than your storage bill!
 Infinite Uploads makes the power of the cloud simple and affordable for non-cloud architects like you.
 
+= How can I report security bugs? =
+
+You can report security bugs through the Patchstack Vulnerability Disclosure Program. The Patchstack team help validate, triage and handle any security vulnerabilities. [Report a security vulnerability.](https://patchstack.com/database/wordpress/plugin/infinite-uploads/vdp)
+
 
 == Screenshots ==
 
@@ -169,6 +173,10 @@ Infinite Uploads makes the power of the cloud simple and affordable for non-clou
 8. Create a custom CDN URL, track storage, and free up space.
 
 == Changelog ==
+
+2.0.3 - 2025-01-07
+----------------------------------------------------------------------
+- FAQ updated for security bug reporting
 
 2.0.2 - 2024-07-03
 ----------------------------------------------------------------------
