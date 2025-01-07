@@ -8,14 +8,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # Step 1: Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v2
 
+      # Step 2: Install Subversion (SVN)
+      - name: Install Subversion
+        run: sudo apt-get update && sudo apt-get install subversion -y
+
+      # Step 3: Build the plugin
       - name: Build the plugin
         run: |
           npm install
           npm run build
 
+      # Step 4: Deploy to WordPress.org Plugin Repository
       - name: WordPress Plugin Deploy
         id: deploy
         uses: 10up/action-wordpress-plugin-deploy@stable
@@ -25,6 +32,7 @@ jobs:
           SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
           SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
 
+      # Step 5: Upload release asset
       - name: Upload release asset
         uses: actions/upload-release-asset@v1
         env:
