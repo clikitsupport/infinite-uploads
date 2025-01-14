@@ -9,24 +9,24 @@ const path = require('path');
 const defaultConfig = require('@wordpress/scripts/config/webpack.config.js');
 
 // Add configuration for react-jsx-runtime polyfill
-const reactJSXRuntimePolyfill = {
-  entry: {
-    'react-jsx-runtime': {
-      import: 'react/jsx-runtime',
-    },
-  },
-  output: {
-    path: path.resolve(__dirname, 'assets/js'),
-    filename: 'react-jsx-runtime.js',
-    library: {
-      name: 'ReactJSXRuntime',
-      type: 'window',
-    },
-  },
-  externals: {
-    react: 'React', // Use React provided by WordPress
-  },
-};
+// const reactJSXRuntimePolyfill = {
+//   entry: {
+//     'react-jsx-runtime': {
+//       import: 'react/jsx-runtime',
+//     },
+//   },
+//   output: {
+//     path: path.resolve(__dirname, 'assets/js'),
+//     filename: 'react-jsx-runtime.js',
+//     library: {
+//       name: 'ReactJSXRuntime',
+//       type: 'window',
+//     },
+//   },
+//   externals: {
+//     react: 'React', // Use React provided by WordPress
+//   },
+// };
 
 module.exports = {
   ...defaultConfig,
@@ -40,5 +40,5 @@ module.exports = {
     },
 
   },
-  ...reactJSXRuntimePolyfill, // Include polyfill configuration
+ //...reactJSXRuntimePolyfill, // Include polyfill configuration
 };

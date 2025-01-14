@@ -2,7 +2,7 @@
 
 Requires at least: 5.3
 Tested up to: 6.6
-Stable tag: 2.0.5
+Stable tag: 2.0.6
 Requires PHP: 7.0
 Contributors: uglyrobot, jdailey
 Tags: cloud storage, media cloud, encoding, offload, video, streaming, s3, google cloud storage, spaces, storage, cdn, cloud sync
@@ -173,6 +173,10 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 8. Create a custom CDN URL, track storage, and free up space.
 
 == Changelog ==
+
+2.0.6 - 2025-01-14
+----------------------------------------------------------------------
+- @wordpress/scripts ^27.9.0
 
 2.0.5 - 2025-01-14
 ----------------------------------------------------------------------
