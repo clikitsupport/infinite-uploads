@@ -514,6 +514,7 @@ export default function VideoModal({
 																e.target.checked
 															)
 														}
+														style={{ display: 'none' }} // Hides the preload checkbox
 													/>
 												</Form>
 											</Col>

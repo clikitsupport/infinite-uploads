@@ -514,18 +514,27 @@ class Infinite_Uploads_Video {
 		$atts = shortcode_atts(
 			[
 				'id'       => '',
-				'autoplay' => false,
-				'loop'     => false,
-				'muted'    => false,
-				'preload'  => true,
+				'autoplay' => 'false',
+				'loop'     => 'false',
+				'muted'    => 'false',
+				'preload'  => 'true',
 			],
 			$atts,
 			'infinite-uploads-vid'
 		);
 
+		// Force preload to always be "true"
+		$atts['preload'] = 'true';
+
 		$video_url = esc_url_raw( sprintf( 'https://iframe.mediadelivery.net/embed/%d/%s', $this->get_config( 'library_id' ), $atts['id'] ) );
 
 		unset( $atts['id'] );
+
+		// Ensure autoplay is always set to "false" if not explicitly defined
+		if ( ! isset( $atts['autoplay'] ) ) {
+			$atts['autoplay'] = 'false';
+		}
+
 		$video_url = add_query_arg(
 			$atts,
 			$video_url
@@ -536,7 +545,7 @@ class Infinite_Uploads_Video {
 
 		return <<<HTML
 		<figure class="wp-block-video">
-			<div style="position: relative;padding-top: 56.25%;min-width: var(--wp--style--global--content-size);"><iframe src="$video_url" loading="lazy" style="border: none; position: absolute; top: 0; height: 100%; width: 100%;" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" allowfullscreen="true"></iframe></div>
+			<div style="position: relative;padding-top: 56.25%;"><iframe src="$video_url" loading="lazy" style="border: none; position: absolute; top: 0; height: 100%; width: 100%;" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" allowfullscreen="true"></iframe></div>
 		</figure>
 		HTML;
 
