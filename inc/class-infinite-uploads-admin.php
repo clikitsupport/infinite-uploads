@@ -26,7 +26,8 @@ class Infinite_Uploads_Admin {
 		if ( is_multisite() ) {
 			//multisite
 			add_action( 'network_admin_menu', [ &$this, 'admin_menu' ] );
-			add_action( 'load-settings_page_infinite_uploads', [ &$this, 'intercept_auth' ] );
+			//add_action( 'load-settings_page_infinite_uploads', [ &$this, 'intercept_auth' ] );
+			add_action( 'load-toplevel_page_infinite_uploads', [ &$this, 'intercept_auth' ] );
 			add_filter( 'network_admin_plugin_action_links_infinite-uploads/infinite-uploads.php', [ &$this, 'plugins_list_links' ] );
 		} else {
 			//single site
