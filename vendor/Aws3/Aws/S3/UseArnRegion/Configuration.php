@@ -1,19 +1,22 @@
 <?php
-
-namespace UglyRobot\Infinite_Uploads\Aws\S3\UseArnRegion;
+namespace ClikIT\Infinite_Uploads\Aws\S3\UseArnRegion;
 
 use Aws;
-use UglyRobot\Infinite_Uploads\Aws\S3\UseArnRegion\Exception\ConfigurationException;
-class Configuration implements \UglyRobot\Infinite_Uploads\Aws\S3\UseArnRegion\ConfigurationInterface
+use ClikIT\Infinite_Uploads\Aws\S3\UseArnRegion\Exception\ConfigurationException;
+
+class Configuration implements ConfigurationInterface
 {
     private $useArnRegion;
+
     public function __construct($useArnRegion)
     {
-        $this->useArnRegion = \UglyRobot\Infinite_Uploads\Aws\boolean_value($useArnRegion);
+        $this->useArnRegion = \ClikIT\Infinite_Uploads\Aws\boolean_value($useArnRegion);
         if (is_null($this->useArnRegion)) {
-            throw new \UglyRobot\Infinite_Uploads\Aws\S3\UseArnRegion\Exception\ConfigurationException("'use_arn_region' config option" . " must be a boolean value.");
+            throw new ConfigurationException("'use_arn_region' config option"
+                . " must be a boolean value.");
         }
     }
+
     /**
      * {@inheritdoc}
      */
@@ -21,11 +24,14 @@ class Configuration implements \UglyRobot\Infinite_Uploads\Aws\S3\UseArnRegion\C
     {
         return $this->useArnRegion;
     }
+
     /**
      * {@inheritdoc}
      */
     public function toArray()
     {
-        return ['use_arn_region' => $this->isUseArnRegion()];
+        return [
+            'use_arn_region' => $this->isUseArnRegion(),
+        ];
     }
 }

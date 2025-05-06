@@ -1,0 +1,51 @@
+<?php
+namespace ClikIT\Infinite_Uploads\Aws\SupplyChain;
+
+use ClikIT\Infinite_Uploads\Aws\AwsClient;
+
+/**
+ * This client is used to interact with the **AWS Supply Chain** service.
+ * @method \ClikIT\Infinite_Uploads\Aws\Result createBillOfMaterialsImportJob(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise createBillOfMaterialsImportJobAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result createDataIntegrationFlow(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise createDataIntegrationFlowAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result createDataLakeDataset(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise createDataLakeDatasetAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result createInstance(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise createInstanceAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result deleteDataIntegrationFlow(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise deleteDataIntegrationFlowAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result deleteDataLakeDataset(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise deleteDataLakeDatasetAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result deleteInstance(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise deleteInstanceAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result getBillOfMaterialsImportJob(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise getBillOfMaterialsImportJobAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result getDataIntegrationFlow(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise getDataIntegrationFlowAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result getDataLakeDataset(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise getDataLakeDatasetAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result getInstance(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise getInstanceAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listDataIntegrationFlows(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listDataIntegrationFlowsAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listDataLakeDatasets(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listDataLakeDatasetsAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listInstances(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listInstancesAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listTagsForResource(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listTagsForResourceAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result sendDataIntegrationEvent(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise sendDataIntegrationEventAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result tagResource(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise tagResourceAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result untagResource(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise untagResourceAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result updateDataIntegrationFlow(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise updateDataIntegrationFlowAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result updateDataLakeDataset(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise updateDataLakeDatasetAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result updateInstance(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise updateInstanceAsync(array $args = [])
+ */
+class SupplyChainClient extends AwsClient {}

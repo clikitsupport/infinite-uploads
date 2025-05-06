@@ -1,17 +1,22 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws\S3\RegionalEndpoint;
 
-namespace UglyRobot\Infinite_Uploads\Aws\S3\RegionalEndpoint;
-
-class Configuration implements \UglyRobot\Infinite_Uploads\Aws\S3\RegionalEndpoint\ConfigurationInterface
+class Configuration implements ConfigurationInterface
 {
     private $endpointsType;
-    public function __construct($endpointsType)
+    private $isFallback;
+
+    public function __construct($endpointsType, $isFallback = false)
     {
         $this->endpointsType = strtolower($endpointsType);
+        $this->isFallback = $isFallback;
         if (!in_array($this->endpointsType, ['legacy', 'regional'])) {
-            throw new \InvalidArgumentException("Configuration parameter must either be 'legacy' or 'regional'.");
+            throw new \InvalidArgumentException(
+                "Configuration parameter must either be 'legacy' or 'regional'."
+            );
         }
     }
+
     /**
      * {@inheritdoc}
      */
@@ -19,11 +24,19 @@ class Configuration implements \UglyRobot\Infinite_Uploads\Aws\S3\RegionalEndpoi
     {
         return $this->endpointsType;
     }
+
     /**
      * {@inheritdoc}
      */
     public function toArray()
     {
-        return ['endpoints_type' => $this->getEndpointsType()];
+        return [
+            'endpoints_type' => $this->getEndpointsType()
+        ];
+    }
+
+    public function isFallback()
+    {
+        return $this->isFallback;
     }
 }

@@ -1,22 +1,27 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws\Api\Parser;
 
-namespace UglyRobot\Infinite_Uploads\Aws\Api\Parser;
+use Aws\Api\DateTimeResult;
+use ClikIT\Infinite_Uploads\Aws\Api\Shape;
+use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
 
-use UglyRobot\Infinite_Uploads\Aws\Api\DateTimeResult;
-use UglyRobot\Infinite_Uploads\Aws\Api\Shape;
-use UglyRobot\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
 trait MetadataParserTrait
 {
     /**
      * Extract a single header from the response into the result.
      */
-    protected function extractHeader($name, \UglyRobot\Infinite_Uploads\Aws\Api\Shape $shape, \UglyRobot\Infinite_Uploads\Psr\Http\Message\ResponseInterface $response, &$result)
-    {
+    protected function extractHeader(
+        $name,
+        Shape $shape,
+        ResponseInterface $response,
+        &$result
+    ) {
         $value = $response->getHeaderLine($shape['locationName'] ?: $name);
+
         switch ($shape->getType()) {
             case 'float':
             case 'double':
-                $value = (double) $value;
+                $value = (float) $value;
                 break;
             case 'long':
                 $value = (int) $value;
@@ -29,7 +34,10 @@ trait MetadataParserTrait
                 break;
             case 'timestamp':
                 try {
-                    $value = \UglyRobot\Infinite_Uploads\Aws\Api\DateTimeResult::fromTimestamp($value, !empty($shape['timestampFormat']) ? $shape['timestampFormat'] : null);
+                    $value = DateTimeResult::fromTimestamp(
+                        $value,
+                        !empty($shape['timestampFormat']) ? $shape['timestampFormat'] : null
+                    );
                     break;
                 } catch (\Exception $e) {
                     // If the value cannot be parsed, then do not add it to the
@@ -42,17 +50,24 @@ trait MetadataParserTrait
                 }
                 break;
         }
+
         $result[$name] = $value;
     }
+
     /**
      * Extract a map of headers with an optional prefix from the response.
      */
-    protected function extractHeaders($name, \UglyRobot\Infinite_Uploads\Aws\Api\Shape $shape, \UglyRobot\Infinite_Uploads\Psr\Http\Message\ResponseInterface $response, &$result)
-    {
+    protected function extractHeaders(
+        $name,
+        Shape $shape,
+        ResponseInterface $response,
+        &$result
+    ) {
         // Check if the headers are prefixed by a location name
         $result[$name] = [];
         $prefix = $shape['locationName'];
         $prefixLen = strlen($prefix);
+
         foreach ($response->getHeaders() as $k => $values) {
             if (!$prefixLen) {
                 $result[$name][$k] = implode(', ', $values);
@@ -61,11 +76,15 @@ trait MetadataParserTrait
             }
         }
     }
+
     /**
      * Places the status code of the response into the result array.
      */
-    protected function extractStatus($name, \UglyRobot\Infinite_Uploads\Psr\Http\Message\ResponseInterface $response, array &$result)
-    {
+    protected function extractStatus(
+        $name,
+        ResponseInterface $response,
+        array &$result
+    ) {
         $result[$name] = (int) $response->getStatusCode();
     }
 }

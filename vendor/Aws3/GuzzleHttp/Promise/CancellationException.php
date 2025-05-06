@@ -1,10 +1,12 @@
 <?php
 
-namespace UglyRobot\Infinite_Uploads\GuzzleHttp\Promise;
+declare(strict_types=1);
+
+namespace ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 
 /**
  * Exception that is set as the reason for a promise that has been cancelled.
  */
-class CancellationException extends \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\RejectionException
+class CancellationException extends RejectionException
 {
 }

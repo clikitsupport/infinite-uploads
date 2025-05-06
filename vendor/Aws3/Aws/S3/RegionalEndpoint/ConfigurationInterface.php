@@ -1,6 +1,5 @@
 <?php
-
-namespace UglyRobot\Infinite_Uploads\Aws\S3\RegionalEndpoint;
+namespace ClikIT\Infinite_Uploads\Aws\S3\RegionalEndpoint;
 
 /**
  * Provides access to S3 regional endpoints configuration options: endpoints_type
@@ -13,6 +12,7 @@ interface ConfigurationInterface
      * @return string
      */
     public function getEndpointsType();
+
     /**
      * Returns the configuration as an associative array
      *

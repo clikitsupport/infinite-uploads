@@ -1,8 +1,8 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws\Crypto;
 
-namespace UglyRobot\Infinite_Uploads\Aws\Crypto;
+use ClikIT\Infinite_Uploads\Aws\Kms\KmsClient;
 
-use UglyRobot\Infinite_Uploads\Aws\Kms\KmsClient;
 /**
  * Uses KMS to supply materials for encrypting and decrypting data.
  *
@@ -13,33 +13,53 @@ use UglyRobot\Infinite_Uploads\Aws\Kms\KmsClient;
  *
  * @deprecated
  */
-class KmsMaterialsProvider extends \UglyRobot\Infinite_Uploads\Aws\Crypto\MaterialsProvider implements \UglyRobot\Infinite_Uploads\Aws\Crypto\MaterialsProviderInterface
+class KmsMaterialsProvider extends MaterialsProvider implements MaterialsProviderInterface
 {
     const WRAP_ALGORITHM_NAME = 'kms';
+
     private $kmsClient;
     private $kmsKeyId;
+
     /**
      * @param KmsClient $kmsClient A KMS Client for use encrypting and
      *                             decrypting keys.
      * @param string $kmsKeyId The private KMS key id to be used for encrypting
      *                         and decrypting keys.
      */
-    public function __construct(\UglyRobot\Infinite_Uploads\Aws\Kms\KmsClient $kmsClient, $kmsKeyId = null)
-    {
+    public function __construct(
+        KmsClient $kmsClient,
+        $kmsKeyId = null
+    ) {
         $this->kmsClient = $kmsClient;
         $this->kmsKeyId = $kmsKeyId;
     }
-    public function fromDecryptionEnvelope(\UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope $envelope)
+
+    public function fromDecryptionEnvelope(MetadataEnvelope $envelope)
     {
-        if (empty($envelope[\UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope::MATERIALS_DESCRIPTION_HEADER])) {
+        if (empty($envelope[MetadataEnvelope::MATERIALS_DESCRIPTION_HEADER])) {
             throw new \RuntimeException('Not able to detect the materials description.');
         }
-        $materialsDescription = json_decode($envelope[\UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope::MATERIALS_DESCRIPTION_HEADER], true);
-        if (empty($materialsDescription['kms_cmk_id']) && empty($materialsDescription['aws:x-amz-cek-alg'])) {
-            throw new \RuntimeException('Not able to detect kms_cmk_id (legacy' . ' implementation) or aws:x-amz-cek-alg (current implementation)' . ' from kms materials description.');
+
+        $materialsDescription = json_decode(
+            $envelope[MetadataEnvelope::MATERIALS_DESCRIPTION_HEADER],
+            true
+        );
+
+        if (empty($materialsDescription['kms_cmk_id'])
+            && empty($materialsDescription['aws:x-amz-cek-alg'])) {
+            throw new \RuntimeException('Not able to detect kms_cmk_id (legacy'
+                . ' implementation) or aws:x-amz-cek-alg (current implementation)'
+                . ' from kms materials description.');
         }
-        return new self($this->kmsClient, isset($materialsDescription['kms_cmk_id']) ? $materialsDescription['kms_cmk_id'] : null);
+
+        return new self(
+            $this->kmsClient,
+            isset($materialsDescription['kms_cmk_id'])
+                ? $materialsDescription['kms_cmk_id']
+                : null
+        );
     }
+
     /**
      * The KMS key id for use in matching this Provider to its keys,
      * consistently with other SDKs as 'kms_cmk_id'.
@@ -50,10 +70,12 @@ class KmsMaterialsProvider extends \UglyRobot\Infinite_Uploads\Aws\Crypto\Materi
     {
         return ['kms_cmk_id' => $this->kmsKeyId];
     }
+
     public function getWrapAlgorithmName()
     {
         return self::WRAP_ALGORITHM_NAME;
     }
+
     /**
      * Takes a content encryption key (CEK) and description to return an encrypted
      * key by using KMS' Encrypt API.
@@ -68,9 +90,14 @@ class KmsMaterialsProvider extends \UglyRobot\Infinite_Uploads\Aws\Crypto\Materi
      */
     public function encryptCek($unencryptedCek, $materialDescription)
     {
-        $encryptedDataKey = $this->kmsClient->encrypt(['Plaintext' => $unencryptedCek, 'KeyId' => $this->kmsKeyId, 'EncryptionContext' => $materialDescription]);
+        $encryptedDataKey = $this->kmsClient->encrypt([
+            'Plaintext' => $unencryptedCek,
+            'KeyId' => $this->kmsKeyId,
+            'EncryptionContext' => $materialDescription
+        ]);
         return base64_encode($encryptedDataKey['CiphertextBlob']);
     }
+
     /**
      * Takes an encrypted content encryption key (CEK) and material description
      * for use decrypting the key by using KMS' Decrypt API.
@@ -84,7 +111,11 @@ class KmsMaterialsProvider extends \UglyRobot\Infinite_Uploads\Aws\Crypto\Materi
      */
     public function decryptCek($encryptedCek, $materialDescription)
     {
-        $result = $this->kmsClient->decrypt(['CiphertextBlob' => $encryptedCek, 'EncryptionContext' => $materialDescription]);
+        $result = $this->kmsClient->decrypt([
+            'CiphertextBlob' => $encryptedCek,
+            'EncryptionContext' => $materialDescription
+        ]);
+
         return $result['Plaintext'];
     }
 }

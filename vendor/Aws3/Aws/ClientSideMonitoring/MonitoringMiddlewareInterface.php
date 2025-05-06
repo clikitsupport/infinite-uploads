@@ -1,24 +1,28 @@
 <?php
 
-namespace UglyRobot\Infinite_Uploads\Aws\ClientSideMonitoring;
+namespace ClikIT\Infinite_Uploads\Aws\ClientSideMonitoring;
 
-use UglyRobot\Infinite_Uploads\Aws\CommandInterface;
-use UglyRobot\Infinite_Uploads\Aws\Exception\AwsException;
-use UglyRobot\Infinite_Uploads\Aws\ResultInterface;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\Request;
-use UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface;
+use ClikIT\Infinite_Uploads\Aws\CommandInterface;
+use ClikIT\Infinite_Uploads\Aws\Exception\AwsException;
+use ClikIT\Infinite_Uploads\Aws\ResultInterface;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\Request;
+use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
+
 /**
  * @internal
  */
 interface MonitoringMiddlewareInterface
 {
+
     /**
      * Data for event properties to be sent to the monitoring agent.
      *
      * @param RequestInterface $request
      * @return array
      */
-    public static function getRequestData(\UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request);
+    public static function getRequestData(RequestInterface $request);
+
+
     /**
      * Data for event properties to be sent to the monitoring agent.
      *
@@ -26,5 +30,6 @@ interface MonitoringMiddlewareInterface
      * @return array
      */
     public static function getResponseData($klass);
-    public function __invoke(\UglyRobot\Infinite_Uploads\Aws\CommandInterface $cmd, \UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request);
+
+    public function __invoke(CommandInterface $cmd, RequestInterface $request);
 }

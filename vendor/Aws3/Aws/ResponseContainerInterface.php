@@ -1,8 +1,9 @@
 <?php
 
-namespace UglyRobot\Infinite_Uploads\Aws;
+namespace ClikIT\Infinite_Uploads\Aws;
 
-use UglyRobot\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
+use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
+
 interface ResponseContainerInterface
 {
     /**

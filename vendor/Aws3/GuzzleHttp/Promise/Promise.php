@@ -1,13 +1,17 @@
 <?php
 
-namespace UglyRobot\Infinite_Uploads\GuzzleHttp\Promise;
+declare(strict_types=1);
+
+namespace ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 
 /**
  * Promises/A+ implementation that avoids recursion when possible.
  *
- * @link https://promisesaplus.com/
+ * @see https://promisesaplus.com/
+ *
+ * @final
  */
-class Promise implements \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface
+class Promise implements PromiseInterface
 {
     private $state = self::PENDING;
     private $result;
@@ -15,41 +19,55 @@ class Promise implements \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\PromiseI
     private $waitFn;
     private $waitList;
     private $handlers = [];
+
     /**
      * @param callable $waitFn   Fn that when invoked resolves the promise.
      * @param callable $cancelFn Fn that when invoked cancels the promise.
      */
-    public function __construct(callable $waitFn = null, callable $cancelFn = null)
-    {
+    public function __construct(
+        ?callable $waitFn = null,
+        ?callable $cancelFn = null
+    ) {
         $this->waitFn = $waitFn;
         $this->cancelFn = $cancelFn;
     }
-    public function then(callable $onFulfilled = null, callable $onRejected = null)
-    {
+
+    public function then(
+        ?callable $onFulfilled = null,
+        ?callable $onRejected = null
+    ): PromiseInterface {
         if ($this->state === self::PENDING) {
-            $p = new \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\Promise(null, [$this, 'cancel']);
+            $p = new Promise(null, [$this, 'cancel']);
             $this->handlers[] = [$p, $onFulfilled, $onRejected];
             $p->waitList = $this->waitList;
             $p->waitList[] = $this;
+
             return $p;
         }
+
         // Return a fulfilled promise and immediately invoke any callbacks.
         if ($this->state === self::FULFILLED) {
-            $promise = \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\Create::promiseFor($this->result);
+            $promise = Create::promiseFor($this->result);
+
             return $onFulfilled ? $promise->then($onFulfilled) : $promise;
         }
+
         // It's either cancelled or rejected, so return a rejected promise
         // and immediately invoke any callbacks.
-        $rejection = \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\Create::rejectionFor($this->result);
+        $rejection = Create::rejectionFor($this->result);
+
         return $onRejected ? $rejection->then(null, $onRejected) : $rejection;
     }
-    public function otherwise(callable $onRejected)
+
+    public function otherwise(callable $onRejected): PromiseInterface
     {
         return $this->then(null, $onRejected);
     }
-    public function wait($unwrap = true)
+
+    public function wait(bool $unwrap = true)
     {
         $this->waitIfPending();
+
         if ($this->result instanceof PromiseInterface) {
             return $this->result->wait($unwrap);
         }
@@ -58,19 +76,23 @@ class Promise implements \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\PromiseI
                 return $this->result;
             }
             // It's rejected so "unwrap" and throw an exception.
-            throw \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\Create::exceptionFor($this->result);
+            throw Create::exceptionFor($this->result);
         }
     }
-    public function getState()
+
+    public function getState(): string
     {
         return $this->state;
     }
-    public function cancel()
+
+    public function cancel(): void
     {
         if ($this->state !== self::PENDING) {
             return;
         }
+
         $this->waitFn = $this->waitList = null;
+
         if ($this->cancelFn) {
             $fn = $this->cancelFn;
             $this->cancelFn = null;
@@ -78,36 +100,42 @@ class Promise implements \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\PromiseI
                 $fn();
             } catch (\Throwable $e) {
                 $this->reject($e);
-            } catch (\Exception $e) {
-                $this->reject($e);
             }
         }
+
         // Reject the promise only if it wasn't rejected in a then callback.
         /** @psalm-suppress RedundantCondition */
         if ($this->state === self::PENDING) {
-            $this->reject(new \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\CancellationException('Promise has been cancelled'));
+            $this->reject(new CancellationException('Promise has been cancelled'));
         }
     }
-    public function resolve($value)
+
+    public function resolve($value): void
     {
         $this->settle(self::FULFILLED, $value);
     }
-    public function reject($reason)
+
+    public function reject($reason): void
     {
         $this->settle(self::REJECTED, $reason);
     }
-    private function settle($state, $value)
+
+    private function settle(string $state, $value): void
     {
         if ($this->state !== self::PENDING) {
             // Ignore calls with the same resolution.
             if ($state === $this->state && $value === $this->result) {
                 return;
             }
-            throw $this->state === $state ? new \LogicException("The promise is already {$state}.") : new \LogicException("Cannot change a {$this->state} promise to {$state}");
+            throw $this->state === $state
+                ? new \LogicException("The promise is already {$state}.")
+                : new \LogicException("Cannot change a {$this->state} promise to {$state}");
         }
+
         if ($value === $this) {
             throw new \LogicException('Cannot fulfill or reject a promise with itself');
         }
+
         // Clear out the state of the promise but stash the handlers.
         $this->state = $state;
         $this->result = $value;
@@ -115,35 +143,41 @@ class Promise implements \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\PromiseI
         $this->handlers = null;
         $this->waitList = $this->waitFn = null;
         $this->cancelFn = null;
+
         if (!$handlers) {
             return;
         }
+
         // If the value was not a settled promise or a thenable, then resolve
         // it in the task queue using the correct ID.
         if (!is_object($value) || !method_exists($value, 'then')) {
             $id = $state === self::FULFILLED ? 1 : 2;
             // It's a success, so resolve the handlers in the queue.
-            \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\Utils::queue()->add(static function () use($id, $value, $handlers) {
+            Utils::queue()->add(static function () use ($id, $value, $handlers): void {
                 foreach ($handlers as $handler) {
                     self::callHandler($id, $value, $handler);
                 }
             });
-        } elseif ($value instanceof Promise && \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\Is::pending($value)) {
+        } elseif ($value instanceof Promise && Is::pending($value)) {
             // We can just merge our handlers onto the next promise.
             $value->handlers = array_merge($value->handlers, $handlers);
         } else {
             // Resolve the handlers when the forwarded promise is resolved.
-            $value->then(static function ($value) use($handlers) {
-                foreach ($handlers as $handler) {
-                    self::callHandler(1, $value, $handler);
+            $value->then(
+                static function ($value) use ($handlers): void {
+                    foreach ($handlers as $handler) {
+                        self::callHandler(1, $value, $handler);
+                    }
+                },
+                static function ($reason) use ($handlers): void {
+                    foreach ($handlers as $handler) {
+                        self::callHandler(2, $reason, $handler);
+                    }
                 }
-            }, static function ($reason) use($handlers) {
-                foreach ($handlers as $handler) {
-                    self::callHandler(2, $reason, $handler);
-                }
-            });
+            );
         }
     }
+
     /**
      * Call a stack of handlers using a specific callback index and value.
      *
@@ -151,15 +185,17 @@ class Promise implements \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\PromiseI
      * @param mixed $value   Value to pass to the callback.
      * @param array $handler Array of handler data (promise and callbacks).
      */
-    private static function callHandler($index, $value, array $handler)
+    private static function callHandler(int $index, $value, array $handler): void
     {
         /** @var PromiseInterface $promise */
         $promise = $handler[0];
+
         // The promise may have been cancelled or resolved before placing
         // this thunk in the queue.
-        if (\UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\Is::settled($promise)) {
+        if (Is::settled($promise)) {
             return;
         }
+
         try {
             if (isset($handler[$index])) {
                 /*
@@ -180,11 +216,10 @@ class Promise implements \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\PromiseI
             }
         } catch (\Throwable $reason) {
             $promise->reject($reason);
-        } catch (\Exception $reason) {
-            $promise->reject($reason);
         }
     }
-    private function waitIfPending()
+
+    private function waitIfPending(): void
     {
         if ($this->state !== self::PENDING) {
             return;
@@ -194,21 +229,27 @@ class Promise implements \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\PromiseI
             $this->invokeWaitList();
         } else {
             // If there's no wait function, then reject the promise.
-            $this->reject('Cannot wait on a promise that has ' . 'no internal wait function. You must provide a wait ' . 'function when constructing the promise to be able to ' . 'wait on a promise.');
+            $this->reject('Cannot wait on a promise that has '
+                .'no internal wait function. You must provide a wait '
+                .'function when constructing the promise to be able to '
+                .'wait on a promise.');
         }
-        \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\Utils::queue()->run();
+
+        Utils::queue()->run();
+
         /** @psalm-suppress RedundantCondition */
         if ($this->state === self::PENDING) {
             $this->reject('Invoking the wait callback did not resolve the promise');
         }
     }
-    private function invokeWaitFn()
+
+    private function invokeWaitFn(): void
     {
         try {
             $wfn = $this->waitFn;
             $this->waitFn = null;
             $wfn(true);
-        } catch (\Exception $reason) {
+        } catch (\Throwable $reason) {
             if ($this->state === self::PENDING) {
                 // The promise has not been resolved yet, so reject the promise
                 // with the exception.
@@ -220,15 +261,18 @@ class Promise implements \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\PromiseI
             }
         }
     }
-    private function invokeWaitList()
+
+    private function invokeWaitList(): void
     {
         $waitList = $this->waitList;
         $this->waitList = null;
+
         foreach ($waitList as $result) {
             do {
                 $result->waitIfPending();
                 $result = $result->result;
             } while ($result instanceof Promise);
+
             if ($result instanceof PromiseInterface) {
                 $result->wait(false);
             }

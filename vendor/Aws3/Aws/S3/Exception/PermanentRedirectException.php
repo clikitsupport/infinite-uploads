@@ -1,7 +1,4 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws\S3\Exception;
 
-namespace UglyRobot\Infinite_Uploads\Aws\S3\Exception;
-
-class PermanentRedirectException extends \UglyRobot\Infinite_Uploads\Aws\S3\Exception\S3Exception
-{
-}
+class PermanentRedirectException extends S3Exception {}

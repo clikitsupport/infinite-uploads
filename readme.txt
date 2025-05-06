@@ -2,7 +2,7 @@
 
 Requires at least: 5.3
 Tested up to: 6.6
-Stable tag: 2.0.8
+Stable tag: 2.0.7
 Requires PHP: 7.0
 Contributors: uglyrobot, jdailey
 Tags: cloud storage, media cloud, encoding, offload, video, streaming, s3, google cloud storage, spaces, storage, cdn, cloud sync
@@ -174,10 +174,6 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Changelog ==
 
-2.0.8 - 2025-02-28
-----------------------------------------------------------------------
-- Fix for Multisite
-
 2.0.7 - 2025-01-30
 ----------------------------------------------------------------------
 - Fix for video container CSS
@@ -276,7 +272,7 @@ Infinite Uploads is a premium cloud storage provider and content delivery networ
 Learn how to get the most out of your cloud-hosted files on our blog:
 [Infinite Uploads Blog, Tips, Tricks, How-tos, and News](https://infiniteuploads.com/blog/?utm_source=wordpress.org&utm_medium=readme&utm_campaign=iup_readme&utm_term=blog)
 
-[Contribute to the plugin's development on Github!](https://github.com/uglyrobot/infinite-uploads/)
+[Contribute to the plugin's development on Github!](https://github.com/clikitsupport/infinite-uploads)
 
 Want to use your WordPress site to train an AI chatbot to provide instant answers to your customers? Check out our sister project [DocsBot AI](https://docsbot.ai/?utm_source=wordpress.org&utm_medium=readme&utm_campaign=iu_readme)!
 

@@ -1,11 +1,13 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws\Arn;
 
-namespace UglyRobot\Infinite_Uploads\Aws\Arn;
+use ClikIT\Infinite_Uploads\Aws\Arn\S3\AccessPointArn as S3AccessPointArn;
+use ClikIT\Infinite_Uploads\Aws\Arn\ObjectLambdaAccessPointArn;
+use ClikIT\Infinite_Uploads\Aws\Arn\S3\MultiRegionAccessPointArn;
+use ClikIT\Infinite_Uploads\Aws\Arn\S3\OutpostsBucketArn;
+use Aws\Arn\S3\RegionalBucketArn;
+use ClikIT\Infinite_Uploads\Aws\Arn\S3\OutpostsAccessPointArn;
 
-use UglyRobot\Infinite_Uploads\Aws\Arn\S3\AccessPointArn as S3AccessPointArn;
-use UglyRobot\Infinite_Uploads\Aws\Arn\S3\OutpostsBucketArn;
-use UglyRobot\Infinite_Uploads\Aws\Arn\S3\RegionalBucketArn;
-use UglyRobot\Infinite_Uploads\Aws\Arn\S3\OutpostsAccessPointArn;
 /**
  * This class provides functionality to parse ARN strings and return a
  * corresponding ARN object. ARN-parsing logic may be subject to change in the
@@ -21,8 +23,9 @@ class ArnParser
      */
     public static function isArn($string)
     {
-        return strpos($string, 'arn:') === 0;
+        return $string !== null && strpos($string, 'arn:') === 0;
     }
+
     /**
      * Parses a string and returns an instance of ArnInterface. Returns a
      * specific type of Arn object if it has a specific class representation
@@ -33,26 +36,34 @@ class ArnParser
      */
     public static function parse($string)
     {
-        $data = \UglyRobot\Infinite_Uploads\Aws\Arn\Arn::parse($string);
+        $data = Arn::parse($string);
+        if ($data['service'] === 's3-object-lambda') {
+            return new ObjectLambdaAccessPointArn($string);
+        }
         $resource = self::explodeResourceComponent($data['resource']);
         if ($resource[0] === 'outpost') {
             if (isset($resource[2]) && $resource[2] === 'bucket') {
-                return new \UglyRobot\Infinite_Uploads\Aws\Arn\S3\OutpostsBucketArn($string);
+                return new OutpostsBucketArn($string);
             }
             if (isset($resource[2]) && $resource[2] === 'accesspoint') {
-                return new \UglyRobot\Infinite_Uploads\Aws\Arn\S3\OutpostsAccessPointArn($string);
+                return new OutpostsAccessPointArn($string);
             }
+        }
+        if (empty($data['region'])) {
+            return new MultiRegionAccessPointArn($string);
         }
         if ($resource[0] === 'accesspoint') {
             if ($data['service'] === 's3') {
-                return new \UglyRobot\Infinite_Uploads\Aws\Arn\S3\AccessPointArn($string);
+                return new S3AccessPointArn($string);
             }
-            return new \UglyRobot\Infinite_Uploads\Aws\Arn\AccessPointArn($string);
+            return new AccessPointArn($string);
         }
-        return new \UglyRobot\Infinite_Uploads\Aws\Arn\Arn($data);
+
+        return new Arn($data);
     }
+
     private static function explodeResourceComponent($resource)
     {
-        return preg_split("/[\\/:]/", $resource);
+        return preg_split("/[\/:]/", $resource);
     }
 }

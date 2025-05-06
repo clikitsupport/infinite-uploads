@@ -1,27 +1,31 @@
 <?php
 
-namespace UglyRobot\Infinite_Uploads\Aws\ClientSideMonitoring;
+namespace ClikIT\Infinite_Uploads\Aws\ClientSideMonitoring;
 
-use UglyRobot\Infinite_Uploads\Aws\CommandInterface;
-use UglyRobot\Infinite_Uploads\Aws\Exception\AwsException;
-use UglyRobot\Infinite_Uploads\Aws\MonitoringEventsInterface;
-use UglyRobot\Infinite_Uploads\Aws\ResponseContainerInterface;
-use UglyRobot\Infinite_Uploads\Aws\ResultInterface;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Promise;
-use UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface;
-use UglyRobot\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
+use ClikIT\Infinite_Uploads\Aws\CommandInterface;
+use ClikIT\Infinite_Uploads\Aws\Exception\AwsException;
+use ClikIT\Infinite_Uploads\Aws\MonitoringEventsInterface;
+use ClikIT\Infinite_Uploads\Aws\ResponseContainerInterface;
+use ClikIT\Infinite_Uploads\Aws\ResultInterface;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
+use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
+
 /**
  * @internal
  */
-abstract class AbstractMonitoringMiddleware implements \UglyRobot\Infinite_Uploads\Aws\ClientSideMonitoring\MonitoringMiddlewareInterface
+abstract class AbstractMonitoringMiddleware
+    implements MonitoringMiddlewareInterface
 {
     private static $socket;
+
     private $nextHandler;
     private $options;
     protected $credentialProvider;
     protected $region;
     protected $service;
-    protected static function getAwsExceptionHeader(\UglyRobot\Infinite_Uploads\Aws\Exception\AwsException $e, $headerName)
+
+    protected static function getAwsExceptionHeader(AwsException $e, $headerName)
     {
         $response = $e->getResponse();
         if ($response !== null) {
@@ -32,13 +36,15 @@ abstract class AbstractMonitoringMiddleware implements \UglyRobot\Infinite_Uploa
         }
         return null;
     }
-    protected static function getResultHeader(\UglyRobot\Infinite_Uploads\Aws\ResultInterface $result, $headerName)
+
+    protected static function getResultHeader(ResultInterface $result, $headerName)
     {
         if (isset($result['@metadata']['headers'][$headerName])) {
             return $result['@metadata']['headers'][$headerName];
         }
         return null;
     }
+
     protected static function getExceptionHeader(\Exception $e, $headerName)
     {
         if ($e instanceof ResponseContainerInterface) {
@@ -52,6 +58,7 @@ abstract class AbstractMonitoringMiddleware implements \UglyRobot\Infinite_Uploa
         }
         return null;
     }
+
     /**
      * Constructor stores the passed in handler and options.
      *
@@ -61,14 +68,20 @@ abstract class AbstractMonitoringMiddleware implements \UglyRobot\Infinite_Uploa
      * @param $region
      * @param $service
      */
-    public function __construct(callable $handler, callable $credentialProvider, $options, $region, $service)
-    {
+    public function __construct(
+        callable $handler,
+        callable $credentialProvider,
+        $options,
+        $region,
+        $service
+    ) {
         $this->nextHandler = $handler;
         $this->credentialProvider = $credentialProvider;
         $this->options = $options;
         $this->region = $region;
         $this->service = $service;
     }
+
     /**
      * Standard invoke pattern for middleware execution to be implemented by
      * child classes.
@@ -77,55 +90,87 @@ abstract class AbstractMonitoringMiddleware implements \UglyRobot\Infinite_Uploa
      * @param  RequestInterface $request
      * @return Promise\PromiseInterface
      */
-    public function __invoke(\UglyRobot\Infinite_Uploads\Aws\CommandInterface $cmd, \UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request)
+    public function __invoke(CommandInterface $cmd, RequestInterface $request)
     {
         $handler = $this->nextHandler;
         $eventData = null;
         $enabled = $this->isEnabled();
+
         if ($enabled) {
             $cmd['@http']['collect_stats'] = true;
-            $eventData = $this->populateRequestEventData($cmd, $request, $this->getNewEvent($cmd, $request));
+            $eventData = $this->populateRequestEventData(
+                $cmd,
+                $request,
+                $this->getNewEvent($cmd, $request)
+            );
         }
-        $g = function ($value) use($eventData, $enabled) {
+
+        $g = function ($value) use ($eventData, $enabled) {
             if ($enabled) {
-                $eventData = $this->populateResultEventData($value, $eventData);
+                $eventData = $this->populateResultEventData(
+                    $value,
+                    $eventData
+                );
                 $this->sendEventData($eventData);
+
                 if ($value instanceof MonitoringEventsInterface) {
                     $value->appendMonitoringEvent($eventData);
                 }
             }
             if ($value instanceof \Exception || $value instanceof \Throwable) {
-                return \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\rejection_for($value);
+                return Promise\Create::rejectionFor($value);
             }
             return $value;
         };
-        return \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\promise_for($handler($cmd, $request))->then($g, $g);
+
+        return Promise\Create::promiseFor($handler($cmd, $request))->then($g, $g);
     }
+
     private function getClientId()
     {
         return $this->unwrappedOptions()->getClientId();
     }
-    private function getNewEvent(\UglyRobot\Infinite_Uploads\Aws\CommandInterface $cmd, \UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request)
-    {
-        $event = ['Api' => $cmd->getName(), 'ClientId' => $this->getClientId(), 'Region' => $this->getRegion(), 'Service' => $this->getService(), 'Timestamp' => (int) floor(microtime(true) * 1000), 'UserAgent' => substr($request->getHeaderLine('User-Agent') . ' ' . \UglyRobot\Infinite_Uploads\Aws\default_user_agent(), 0, 256), 'Version' => 1];
+
+    private function getNewEvent(
+        CommandInterface $cmd,
+        RequestInterface $request
+    ) {
+        $event = [
+            'Api' => $cmd->getName(),
+            'ClientId' => $this->getClientId(),
+            'Region' => $this->getRegion(),
+            'Service' => $this->getService(),
+            'Timestamp' => (int) floor(microtime(true) * 1000),
+            'UserAgent' => substr(
+                $request->getHeaderLine('User-Agent') . ' ' . \Aws\default_user_agent(),
+                0,
+                256
+            ),
+            'Version' => 1
+        ];
         return $event;
     }
+
     private function getHost()
     {
         return $this->unwrappedOptions()->getHost();
     }
+
     private function getPort()
     {
         return $this->unwrappedOptions()->getPort();
     }
+
     private function getRegion()
     {
         return $this->region;
     }
+
     private function getService()
     {
         return $this->service;
     }
+
     /**
      * Returns enabled flag from options, unwrapping options if necessary.
      *
@@ -135,6 +180,7 @@ abstract class AbstractMonitoringMiddleware implements \UglyRobot\Infinite_Uploa
     {
         return $this->unwrappedOptions()->isEnabled();
     }
+
     /**
      * Returns $eventData array with information from the request and command.
      *
@@ -143,8 +189,11 @@ abstract class AbstractMonitoringMiddleware implements \UglyRobot\Infinite_Uploa
      * @param array $event
      * @return array
      */
-    protected function populateRequestEventData(\UglyRobot\Infinite_Uploads\Aws\CommandInterface $cmd, \UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request, array $event)
-    {
+    protected function populateRequestEventData(
+        CommandInterface $cmd,
+        RequestInterface $request,
+        array $event
+    ) {
         $dataFormat = static::getRequestData($request);
         foreach ($dataFormat as $eventKey => $value) {
             if ($value !== null) {
@@ -153,6 +202,7 @@ abstract class AbstractMonitoringMiddleware implements \UglyRobot\Infinite_Uploa
         }
         return $event;
     }
+
     /**
      * Returns $eventData array with information from the response, including
      * the calculation for attempt latency.
@@ -161,8 +211,10 @@ abstract class AbstractMonitoringMiddleware implements \UglyRobot\Infinite_Uploa
      * @param array $event
      * @return array
      */
-    protected function populateResultEventData($result, array $event)
-    {
+    protected function populateResultEventData(
+        $result,
+        array $event
+    ) {
         $dataFormat = static::getResponseData($result);
         foreach ($dataFormat as $eventKey => $value) {
             if ($value !== null) {
@@ -171,6 +223,27 @@ abstract class AbstractMonitoringMiddleware implements \UglyRobot\Infinite_Uploa
         }
         return $event;
     }
+
+
+    /**
+     * Checks if the socket is created. If PHP version is greater or equals to 8 then,
+     * it will check if the var is instance of \Socket otherwise it will check if is
+     * a resource.
+     *
+     * @return bool Returns true if the socket is created, false otherwise.
+     */
+    private function isSocketCreated(): bool
+    {
+        // Before version 8, sockets are resources
+        // After version 8, sockets are instances of Socket
+        if (PHP_MAJOR_VERSION >= 8) {
+            $socketClass = '\Socket';
+            return self::$socket instanceof $socketClass;
+        } else {
+            return is_resource(self::$socket);
+        }
+    }
+
     /**
      * Creates a UDP socket resource and stores it with the class, or retrieves
      * it if already instantiated and connected. Handles error-checking and
@@ -182,13 +255,18 @@ abstract class AbstractMonitoringMiddleware implements \UglyRobot\Infinite_Uploa
      */
     private function prepareSocket($forceNewConnection = false)
     {
-        if (!is_resource(self::$socket) || $forceNewConnection || socket_last_error(self::$socket)) {
+        if (!$this->isSocketCreated()
+            || $forceNewConnection
+            || socket_last_error(self::$socket)
+        ) {
             self::$socket = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
             socket_clear_error(self::$socket);
             socket_connect(self::$socket, $this->getHost(), $this->getPort());
         }
+
         return self::$socket;
     }
+
     /**
      * Sends formatted monitoring event data via the UDP socket connection to
      * the CSM agent endpoint.
@@ -206,6 +284,7 @@ abstract class AbstractMonitoringMiddleware implements \UglyRobot\Infinite_Uploa
         }
         return $result;
     }
+
     /**
      * Unwraps options, if needed, and returns them.
      *
@@ -213,12 +292,16 @@ abstract class AbstractMonitoringMiddleware implements \UglyRobot\Infinite_Uploa
      */
     private function unwrappedOptions()
     {
-        if (!$this->options instanceof ConfigurationInterface) {
+        if (!($this->options instanceof ConfigurationInterface)) {
             try {
-                $this->options = \UglyRobot\Infinite_Uploads\Aws\ClientSideMonitoring\ConfigurationProvider::unwrap($this->options);
+                $this->options = ConfigurationProvider::unwrap($this->options);
             } catch (\Exception $e) {
                 // Errors unwrapping CSM config defaults to disabling it
-                $this->options = new \UglyRobot\Infinite_Uploads\Aws\ClientSideMonitoring\Configuration(false, \UglyRobot\Infinite_Uploads\Aws\ClientSideMonitoring\ConfigurationProvider::DEFAULT_HOST, \UglyRobot\Infinite_Uploads\Aws\ClientSideMonitoring\ConfigurationProvider::DEFAULT_PORT);
+                $this->options = new Configuration(
+                    false,
+                    ConfigurationProvider::DEFAULT_HOST,
+                    ConfigurationProvider::DEFAULT_PORT
+                );
             }
         }
         return $this->options;

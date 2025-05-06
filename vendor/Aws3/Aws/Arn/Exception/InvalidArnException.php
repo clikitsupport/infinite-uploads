@@ -1,10 +1,7 @@
 <?php
-
-namespace UglyRobot\Infinite_Uploads\Aws\Arn\Exception;
+namespace ClikIT\Infinite_Uploads\Aws\Arn\Exception;
 
 /**
  * Represents a failed attempt to construct an Arn
  */
-class InvalidArnException extends \RuntimeException
-{
-}
+class InvalidArnException extends \RuntimeException {}

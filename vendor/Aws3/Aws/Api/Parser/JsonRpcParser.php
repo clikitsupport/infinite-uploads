@@ -1,36 +1,82 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws\Api\Parser;
 
-namespace UglyRobot\Infinite_Uploads\Aws\Api\Parser;
+use ClikIT\Infinite_Uploads\Aws\Api\Operation;
+use ClikIT\Infinite_Uploads\Aws\Api\StructureShape;
+use ClikIT\Infinite_Uploads\Aws\Api\Service;
+use ClikIT\Infinite_Uploads\ClikIT\Infinite_Uploads\Aws\Result;
+use ClikIT\Infinite_Uploads\Aws\CommandInterface;
+use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
+use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
 
-use UglyRobot\Infinite_Uploads\Aws\Api\StructureShape;
-use UglyRobot\Infinite_Uploads\Aws\Api\Service;
-use UglyRobot\Infinite_Uploads\Aws\Result;
-use UglyRobot\Infinite_Uploads\Aws\CommandInterface;
-use UglyRobot\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
-use UglyRobot\Infinite_Uploads\Psr\Http\Message\StreamInterface;
 /**
  * @internal Implements JSON-RPC parsing (e.g., DynamoDB)
  */
-class JsonRpcParser extends \UglyRobot\Infinite_Uploads\Aws\Api\Parser\AbstractParser
+class JsonRpcParser extends AbstractParser
 {
     use PayloadParserTrait;
+
     /**
      * @param Service    $api    Service description
      * @param JsonParser $parser JSON body builder
      */
-    public function __construct(\UglyRobot\Infinite_Uploads\Aws\Api\Service $api, \UglyRobot\Infinite_Uploads\Aws\Api\Parser\JsonParser $parser = null)
+    public function __construct(Service $api, ?JsonParser $parser = null)
     {
         parent::__construct($api);
-        $this->parser = $parser ?: new \UglyRobot\Infinite_Uploads\Aws\Api\Parser\JsonParser();
+        $this->parser = $parser ?: new JsonParser();
     }
-    public function __invoke(\UglyRobot\Infinite_Uploads\Aws\CommandInterface $command, \UglyRobot\Infinite_Uploads\Psr\Http\Message\ResponseInterface $response)
-    {
+
+    public function __invoke(
+        CommandInterface $command,
+        ResponseInterface $response
+    ) {
         $operation = $this->api->getOperation($command->getName());
-        $result = null === $operation['output'] ? null : $this->parseMemberFromStream($response->getBody(), $operation->getOutput(), $response);
-        return new \UglyRobot\Infinite_Uploads\Aws\Result($result ?: []);
+
+        return $this->parseResponse($response, $operation);
     }
-    public function parseMemberFromStream(\UglyRobot\Infinite_Uploads\Psr\Http\Message\StreamInterface $stream, \UglyRobot\Infinite_Uploads\Aws\Api\StructureShape $member, $response)
+
+    /**
+     * This method parses a response based on JSON RPC protocol.
+     *
+     * @param ResponseInterface $response the response to parse.
+     * @param Operation $operation the operation which holds information for
+     *        parsing the response.
+     *
+     * @return Result
+     */
+    private function parseResponse(ResponseInterface $response, Operation $operation)
     {
+        if (null === $operation['output']) {
+            return new Result([]);
+        }
+
+        $outputShape = $operation->getOutput();
+        foreach ($outputShape->getMembers() as $memberName => $memberProps) {
+            if (!empty($memberProps['eventstream'])) {
+                return new Result([
+                    $memberName => new EventParsingIterator(
+                        $response->getBody(),
+                        $outputShape->getMember($memberName),
+                        $this
+                    )
+                ]);
+            }
+        }
+
+        $result = $this->parseMemberFromStream(
+                $response->getBody(),
+                $operation->getOutput(),
+                $response
+            );
+
+        return new Result(is_null($result) ? [] : $result);
+    }
+
+    public function parseMemberFromStream(
+        StreamInterface $stream,
+        StructureShape $member,
+        $response
+    ) {
         return $this->parser->parse($member, $this->parseJson($stream, $response));
     }
 }

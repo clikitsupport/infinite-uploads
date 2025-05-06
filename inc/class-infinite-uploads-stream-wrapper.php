@@ -1,16 +1,16 @@
 <?php
 
 
-use UglyRobot\Infinite_Uploads\Aws\S3\S3ClientInterface;
-use UglyRobot\Infinite_Uploads\Aws\CacheInterface;
-use UglyRobot\Infinite_Uploads\Aws\LruArrayCache;
-use UglyRobot\Infinite_Uploads\Aws\Result;
-use UglyRobot\Infinite_Uploads\Aws\S3\Exception\S3Exception;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\Stream;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\CachingStream;
-use UglyRobot\Infinite_Uploads\Psr\Http\Message\StreamInterface;
-use UglyRobot\Infinite_Uploads\Aws;
+use ClikIT\Infinite_Uploads\Aws\S3\S3ClientInterface;
+use ClikIT\Infinite_Uploads\Aws\CacheInterface;
+use ClikIT\Infinite_Uploads\Aws\LruArrayCache;
+use ClikIT\Infinite_Uploads\Aws\Result;
+use ClikIT\Infinite_Uploads\Aws\S3\Exception\S3Exception;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\Stream;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\CachingStream;
+use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
+use ClikIT\Infinite_Uploads\Aws;
 
 /**
  * Amazon S3 stream wrapper to use "iu://<bucket>/<key>" files with PHP
@@ -1099,7 +1099,7 @@ class Infinite_Uploads_Stream_Wrapper {
 		$this->debug( 'ListObjects', $op['Prefix'] );
 		// Filter our "/" keys added by the console as directories, and ensure
 		// that if a filter function is provided that it passes the filter.
-		$this->objectIterator = \UglyRobot\Infinite_Uploads\Aws\flatmap(
+		$this->objectIterator = \ClikIT\Infinite_Uploads\Aws\flatmap(
 			$this->getClient()->getPaginator( 'ListObjects', $op ),
 			function ( Result $result ) use ( $filterFn ) {
 				$contentsAndPrefixes = $result->search( '[Contents[], CommonPrefixes[]][]' );

@@ -1,8 +1,8 @@
 <?php
 
-use UglyRobot\Infinite_Uploads\Aws\S3\S3Client;
-use UglyRobot\Infinite_Uploads\Aws\Multipart\UploadState;
-use UglyRobot\Infinite_Uploads\Aws\ResultInterface;
+use ClikIT\Infinite_Uploads\Aws\S3\S3Client;
+use ClikIT\Infinite_Uploads\Aws\Multipart\UploadState;
+use ClikIT\Infinite_Uploads\Aws\ResultInterface;
 
 class Infinite_Uploads {
 
@@ -274,7 +274,7 @@ class Infinite_Uploads {
 	}
 
 	/**
-	 * @return UglyRobot\Infinite_Uploads\Aws\S3\S3Client
+	 * @return ClikIT\Infinite_Uploads\Aws\S3\S3Client
 	 */
 	public function s3() {
 
@@ -306,7 +306,7 @@ class Infinite_Uploads {
 		}
 
 		/**
-		 * Filter the parameters passed when creating the Aws\S3\S3Client via the AWS PHP SDK.
+		 * Filter the parameters passed when creating the  via the AWS PHP SDK.
 		 * See; https://docs.aws.amazon.com/sdk-for-php/v3/developer-guide/guide_configuration.html
 		 *
 		 * @param  {array} $params S3Client::_construct() parameters.

@@ -1,6 +1,5 @@
 <?php
-
-namespace UglyRobot\Infinite_Uploads\JmesPath;
+namespace JmesPath;
 
 /**
  * Returns data from the input array that matches a JMESPath expression.
@@ -10,9 +9,9 @@ namespace UglyRobot\Infinite_Uploads\JmesPath;
  *
  * @return mixed
  */
-if (!function_exists(__NAMESPACE__ . '\\search')) {
+if (!function_exists(__NAMESPACE__ . '\search')) {
     function search($expression, $data)
     {
-        return \UglyRobot\Infinite_Uploads\JmesPath\Env::search($expression, $data);
+        return Env::search($expression, $data);
     }
 }

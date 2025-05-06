@@ -1,9 +1,9 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws;
 
-namespace UglyRobot\Infinite_Uploads\Aws;
+use ClikIT\Infinite_Uploads\Psr\Http\Message\UriInterface;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 
-use UglyRobot\Infinite_Uploads\Psr\Http\Message\UriInterface;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 /**
  * Represents an AWS client.
  */
@@ -22,6 +22,7 @@ interface AwsClientInterface
      * @throws \Exception
      */
     public function __call($name, array $arguments);
+
     /**
      * Create a command for an operation name.
      *
@@ -40,6 +41,7 @@ interface AwsClientInterface
      * @throws \InvalidArgumentException if no command can be found by name
      */
     public function getCommand($name, array $args = []);
+
     /**
      * Execute a single command.
      *
@@ -48,18 +50,20 @@ interface AwsClientInterface
      * @return ResultInterface
      * @throws \Exception
      */
-    public function execute(\UglyRobot\Infinite_Uploads\Aws\CommandInterface $command);
+    public function execute(CommandInterface $command);
+
     /**
      * Execute a command asynchronously.
      *
      * @param CommandInterface $command Command to execute
      *
-     * @return \GuzzleHttp\Promise\PromiseInterface
+     * @return \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface
      */
-    public function executeAsync(\UglyRobot\Infinite_Uploads\Aws\CommandInterface $command);
+    public function executeAsync(CommandInterface $command);
+
     /**
      * Returns a promise that is fulfilled with an
-     * {@see \Aws\Credentials\CredentialsInterface} object.
+     * {@see \ClikIT\Infinite_Uploads\Aws\Credentials\CredentialsInterface} object.
      *
      * If you need the credentials synchronously, then call the wait() method
      * on the returned promise.
@@ -67,24 +71,28 @@ interface AwsClientInterface
      * @return PromiseInterface
      */
     public function getCredentials();
+
     /**
      * Get the region to which the client is configured to send requests.
      *
      * @return string
      */
     public function getRegion();
+
     /**
      * Gets the default endpoint, or base URL, used by the client.
      *
      * @return UriInterface
      */
     public function getEndpoint();
+
     /**
      * Get the service description associated with the client.
      *
-     * @return \Aws\Api\Service
+     * @return \ClikIT\Infinite_Uploads\Aws\Api\Service
      */
     public function getApi();
+
     /**
      * Get a client configuration value.
      *
@@ -93,6 +101,7 @@ interface AwsClientInterface
      * @return mixed|null
      */
     public function getConfig($option = null);
+
     /**
      * Get the handler list used to transfer commands.
      *
@@ -102,6 +111,7 @@ interface AwsClientInterface
      * @return HandlerList
      */
     public function getHandlerList();
+
     /**
      * Get a resource iterator for the specified operation.
      *
@@ -112,16 +122,18 @@ interface AwsClientInterface
      * @throws \UnexpectedValueException if the iterator config is invalid.
      */
     public function getIterator($name, array $args = []);
+
     /**
      * Get a result paginator for the specified operation.
      *
      * @param string $name   Name of the operation used for iterator
      * @param array  $args   Command args to be used with each command
      *
-     * @return \Aws\ResultPaginator
+     * @return \ClikIT\Infinite_Uploads\Aws\ResultPaginator
      * @throws \UnexpectedValueException if the iterator config is invalid.
      */
     public function getPaginator($name, array $args = []);
+
     /**
      * Wait until a resource is in a particular state.
      *
@@ -135,6 +147,7 @@ interface AwsClientInterface
      * @throws \UnexpectedValueException if the waiter is invalid.
      */
     public function waitUntil($name, array $args = []);
+
     /**
      * Get a waiter that waits until a resource is in a particular state.
      *
@@ -149,7 +162,7 @@ interface AwsClientInterface
      *                              by the waiter. Waiter configuration options
      *                              can be provided in an associative array in
      *                              the @waiter key.
-     * @return \Aws\Waiter
+     * @return \ClikIT\Infinite_Uploads\Aws\Waiter
      * @throws \UnexpectedValueException if the waiter is invalid.
      */
     public function getWaiter($name, array $args = []);

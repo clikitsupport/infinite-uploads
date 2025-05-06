@@ -1,6 +1,6 @@
 <?php
 
-use UglyRobot\Infinite_Uploads\GuzzleHttp;
+use ClikIT\Infinite_Uploads\GuzzleHttp;
 
 class Infinite_Uploads_Video {
 

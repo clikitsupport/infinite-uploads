@@ -1,15 +1,19 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws;
 
-namespace UglyRobot\Infinite_Uploads\Aws;
+use ClikIT\Infinite_Uploads\Aws\Api\Service;
+use ClikIT\Infinite_Uploads\Aws\Api\Validator;
+use ClikIT\Infinite_Uploads\Aws\Credentials\CredentialsInterface;
+use ClikIT\Infinite_Uploads\Aws\EndpointV2\EndpointProviderV2;
+use ClikIT\Infinite_Uploads\Aws\Exception\AwsException;
+use ClikIT\Infinite_Uploads\Aws\Signature\S3ExpressSignature;
+use ClikIT\Infinite_Uploads\Aws\Token\TokenAuthorization;
+use ClikIT\Infinite_Uploads\Aws\Token\TokenInterface;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\LazyOpenStream;
+use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
 
-use UglyRobot\Infinite_Uploads\Aws\Api\Service;
-use UglyRobot\Infinite_Uploads\Aws\Api\Validator;
-use UglyRobot\Infinite_Uploads\Aws\Credentials\CredentialsInterface;
-use UglyRobot\Infinite_Uploads\Aws\Exception\AwsException;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Promise;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\LazyOpenStream;
-use UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface;
 final class Middleware
 {
     /**
@@ -22,20 +26,60 @@ final class Middleware
      *
      * @return callable
      */
-    public static function sourceFile(\UglyRobot\Infinite_Uploads\Aws\Api\Service $api, $bodyParameter = 'Body', $sourceParameter = 'SourceFile')
-    {
-        return function (callable $handler) use($api, $bodyParameter, $sourceParameter) {
-            return function (\UglyRobot\Infinite_Uploads\Aws\CommandInterface $command, \UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request = null) use($handler, $api, $bodyParameter, $sourceParameter) {
+    public static function sourceFile(
+        Service $api,
+        $bodyParameter = 'Body',
+        $sourceParameter = 'SourceFile'
+    ) {
+        return function (callable $handler) use (
+            $api,
+            $bodyParameter,
+            $sourceParameter
+        ) {
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null)
+            use (
+                $handler,
+                $api,
+                $bodyParameter,
+                $sourceParameter
+            ) {
                 $operation = $api->getOperation($command->getName());
                 $source = $command[$sourceParameter];
-                if ($source !== null && $operation->getInput()->hasMember($bodyParameter)) {
-                    $command[$bodyParameter] = new \UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\LazyOpenStream($source, 'r');
+
+                if ($source !== null
+                    && $operation->getInput()->hasMember($bodyParameter)
+                ) {
+                    $lazyOpenStream = new LazyOpenStream($source, 'r');
+                    $command[$bodyParameter] = $lazyOpenStream;
                     unset($command[$sourceParameter]);
+
+                    $next = $handler($command, $request);
+                    // To avoid failures in some tests cases
+                    if ($next !== null && method_exists($next, 'then')) {
+                        return $next->then(
+                            function ($result) use ($lazyOpenStream) {
+                                // To make sure the resource is closed.
+                                $lazyOpenStream->close();
+
+                                return $result;
+                            }
+                        )->otherwise(function (\Throwable $e) use ($lazyOpenStream) {
+                            $lazyOpenStream->close();
+
+                            throw $e;
+                        });
+                    }
+
+                    return $next;
                 }
+
                 return $handler($command, $request);
             };
         };
     }
+
     /**
      * Adds a middleware that uses client-side validation.
      *
@@ -43,32 +87,49 @@ final class Middleware
      *
      * @return callable
      */
-    public static function validation(\UglyRobot\Infinite_Uploads\Aws\Api\Service $api, \UglyRobot\Infinite_Uploads\Aws\Api\Validator $validator = null)
+    public static function validation(Service $api, ?Validator $validator = null)
     {
-        $validator = $validator ?: new \UglyRobot\Infinite_Uploads\Aws\Api\Validator();
-        return function (callable $handler) use($api, $validator) {
-            return function (\UglyRobot\Infinite_Uploads\Aws\CommandInterface $command, \UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request = null) use($api, $validator, $handler) {
+        $validator = $validator ?: new Validator();
+        return function (callable $handler) use ($api, $validator) {
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null
+            ) use ($api, $validator, $handler) {
+                if ($api->isModifiedModel()) {
+                    $api = new Service(
+                        $api->getDefinition(),
+                        $api->getProvider()
+                    );
+                }
                 $operation = $api->getOperation($command->getName());
-                $validator->validate($command->getName(), $operation->getInput(), $command->toArray());
+                $validator->validate(
+                    $command->getName(),
+                    $operation->getInput(),
+                    $command->toArray()
+                );
                 return $handler($command, $request);
             };
         };
     }
+
     /**
      * Builds an HTTP request for a command.
      *
      * @param callable $serializer Function used to serialize a request for a
      *                             command.
+     * @param EndpointProviderV2 | null $endpointProvider
+     * @param array $providerArgs
      * @return callable
      */
-    public static function requestBuilder(callable $serializer)
+    public static function requestBuilder($serializer)
     {
-        return function (callable $handler) use($serializer) {
-            return function (\UglyRobot\Infinite_Uploads\Aws\CommandInterface $command) use($serializer, $handler) {
-                return $handler($command, $serializer($command));
+        return function (callable $handler) use ($serializer) {
+            return function (CommandInterface $command, $endpoint = null) use ($serializer, $handler) {
+                return $handler($command, $serializer($command, $endpoint));
             };
         };
     }
+
     /**
      * Creates a middleware that signs requests for a command.
      *
@@ -81,17 +142,51 @@ final class Middleware
      *
      * @return callable
      */
-    public static function signer(callable $credProvider, callable $signatureFunction)
+    public static function signer(callable $credProvider, callable $signatureFunction, $tokenProvider = null, $config = [])
     {
-        return function (callable $handler) use($signatureFunction, $credProvider) {
-            return function (\UglyRobot\Infinite_Uploads\Aws\CommandInterface $command, \UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request) use($handler, $signatureFunction, $credProvider) {
+        return function (callable $handler) use ($signatureFunction, $credProvider, $tokenProvider, $config) {
+            return function (
+                CommandInterface $command,
+                RequestInterface $request
+            ) use ($handler, $signatureFunction, $credProvider, $tokenProvider, $config) {
                 $signer = $signatureFunction($command);
-                return $credProvider()->then(function (\UglyRobot\Infinite_Uploads\Aws\Credentials\CredentialsInterface $creds) use($handler, $command, $signer, $request) {
-                    return $handler($command, $signer->signRequest($request, $creds));
-                });
+                if ($signer instanceof TokenAuthorization) {
+                    return $tokenProvider()->then(
+                        function (TokenInterface $token)
+                        use ($handler, $command, $signer, $request) {
+                            return $handler(
+                                $command,
+                                $signer->authorizeRequest($request, $token)
+                            );
+                        }
+                    );
+                }
+
+                if ($signer instanceof S3ExpressSignature) {
+                    $credentialPromise = $config['s3_express_identity_provider']($command);
+                } else {
+                    $credentialPromise = $credProvider();
+                }
+
+                return $credentialPromise->then(
+                    function (CredentialsInterface $creds)
+                    use ($handler, $command, $signer, $request) {
+                        // Capture credentials metric
+                        $command->getMetricsBuilder()->identifyMetricByValueAndAppend(
+                            'credentials',
+                            $creds
+                        );
+
+                        return $handler(
+                            $command,
+                            $signer->signRequest($request, $creds)
+                        );
+                    }
+                );
             };
         };
     }
+
     /**
      * Creates a middleware that invokes a callback at a given step.
      *
@@ -106,13 +201,17 @@ final class Middleware
      */
     public static function tap(callable $fn)
     {
-        return function (callable $handler) use($fn) {
-            return function (\UglyRobot\Infinite_Uploads\Aws\CommandInterface $command, \UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request = null) use($handler, $fn) {
+        return function (callable $handler) use ($fn) {
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null
+            ) use ($handler, $fn) {
                 $fn($command, $request);
                 return $handler($command, $request);
             };
         };
     }
+
     /**
      * Middleware wrapper function that retries requests based on the boolean
      * result of invoking the provided "decider" function.
@@ -130,12 +229,16 @@ final class Middleware
      *
      * @return callable
      */
-    public static function retry(callable $decider = null, callable $delay = null, $stats = false)
-    {
-        $decider = $decider ?: \UglyRobot\Infinite_Uploads\Aws\RetryMiddleware::createDefaultDecider();
-        $delay = $delay ?: [\UglyRobot\Infinite_Uploads\Aws\RetryMiddleware::class, 'exponentialDelay'];
-        return function (callable $handler) use($decider, $delay, $stats) {
-            return new \UglyRobot\Infinite_Uploads\Aws\RetryMiddleware($decider, $delay, $handler, $stats);
+    public static function retry(
+        ?callable $decider = null,
+        ?callable $delay = null,
+        $stats = false
+    ) {
+        $decider = $decider ?: RetryMiddleware::createDefaultDecider();
+        $delay = $delay ?: [RetryMiddleware::class, 'exponentialDelay'];
+
+        return function (callable $handler) use ($decider, $delay, $stats) {
+            return new RetryMiddleware($decider, $delay, $handler, $stats);
         };
     }
     /**
@@ -150,8 +253,14 @@ final class Middleware
     public static function invocationId()
     {
         return function (callable $handler) {
-            return function (\UglyRobot\Infinite_Uploads\Aws\CommandInterface $command, \UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request) use($handler) {
-                return $handler($command, $request->withHeader('aws-sdk-invocation-id', md5(uniqid(gethostname(), true))));
+            return function (
+                CommandInterface $command,
+                RequestInterface $request
+            ) use ($handler){
+                return $handler($command, $request->withHeader(
+                    'aws-sdk-invocation-id',
+                    md5(uniqid(gethostname(), true))
+                ));
             };
         };
     }
@@ -167,10 +276,59 @@ final class Middleware
      */
     public static function contentType(array $operations)
     {
-        return function (callable $handler) use($operations) {
-            return function (\UglyRobot\Infinite_Uploads\Aws\CommandInterface $command, \UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request = null) use($handler, $operations) {
-                if (!$request->hasHeader('Content-Type') && in_array($command->getName(), $operations, true) && ($uri = $request->getBody()->getMetadata('uri'))) {
-                    $request = $request->withHeader('Content-Type', \UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\mimetype_from_filename($uri) ?: 'application/octet-stream');
+        return function (callable $handler) use ($operations) {
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null
+            ) use ($handler, $operations) {
+                if (!$request->hasHeader('Content-Type')
+                    && in_array($command->getName(), $operations, true)
+                    && ($uri = $request->getBody()->getMetadata('uri'))
+                ) {
+                    $request = $request->withHeader(
+                        'Content-Type',
+                        Psr7\MimeType::fromFilename($uri) ?: 'application/octet-stream'
+                    );
+                }
+
+                return $handler($command, $request);
+            };
+        };
+    }
+    /**
+     * Middleware wrapper function that adds a trace id header to requests
+     * from clients instantiated in supported Lambda runtime environments.
+     *
+     * The purpose for this header is to track and stop Lambda functions
+     * from being recursively invoked due to misconfigured resources.
+     *
+     * @return callable
+     */
+    public static function recursionDetection()
+    {
+        return function (callable $handler) {
+            return function (
+                CommandInterface $command,
+                RequestInterface $request
+            ) use ($handler){
+                $isLambda = getenv('AWS_LAMBDA_FUNCTION_NAME');
+                $traceId = str_replace('\e', '\x1b', getenv('_X_AMZN_TRACE_ID'));
+
+                if ($isLambda && $traceId) {
+                    if (!$request->hasHeader('X-Amzn-Trace-Id')) {
+                        $ignoreChars = ['=', ';', ':', '+', '&', '[', ']', '{', '}', '"', '\'', ','];
+                        $traceIdEncoded = rawurlencode(stripcslashes($traceId));
+
+                        foreach($ignoreChars as $char) {
+                            $encodedChar = rawurlencode($char);
+                            $traceIdEncoded = str_replace($encodedChar, $char,  $traceIdEncoded);
+                        }
+
+                        return $handler($command, $request->withHeader(
+                            'X-Amzn-Trace-Id',
+                            $traceIdEncoded
+                        ));
+                    }
                 }
                 return $handler($command, $request);
             };
@@ -185,21 +343,29 @@ final class Middleware
      *
      * @return callable
      */
-    public static function history(\UglyRobot\Infinite_Uploads\Aws\History $history)
+    public static function history(History $history)
     {
-        return function (callable $handler) use($history) {
-            return function (\UglyRobot\Infinite_Uploads\Aws\CommandInterface $command, \UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request = null) use($handler, $history) {
+        return function (callable $handler) use ($history) {
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null
+            ) use ($handler, $history) {
                 $ticket = $history->start($command, $request);
-                return $handler($command, $request)->then(function ($result) use($history, $ticket) {
-                    $history->finish($ticket, $result);
-                    return $result;
-                }, function ($reason) use($history, $ticket) {
-                    $history->finish($ticket, $reason);
-                    return \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\rejection_for($reason);
-                });
+                return $handler($command, $request)
+                    ->then(
+                        function ($result) use ($history, $ticket) {
+                            $history->finish($ticket, $result);
+                            return $result;
+                        },
+                        function ($reason) use ($history, $ticket) {
+                            $history->finish($ticket, $reason);
+                            return Promise\Create::rejectionFor($reason);
+                        }
+                    );
             };
         };
     }
+
     /**
      * Creates a middleware that applies a map function to requests as they
      * pass through the middleware.
@@ -211,12 +377,16 @@ final class Middleware
      */
     public static function mapRequest(callable $f)
     {
-        return function (callable $handler) use($f) {
-            return function (\UglyRobot\Infinite_Uploads\Aws\CommandInterface $command, \UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request = null) use($handler, $f) {
+        return function (callable $handler) use ($f) {
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null
+            ) use ($handler, $f) {
                 return $handler($command, $f($request));
             };
         };
     }
+
     /**
      * Creates a middleware that applies a map function to commands as they
      * pass through the middleware.
@@ -228,48 +398,68 @@ final class Middleware
      */
     public static function mapCommand(callable $f)
     {
-        return function (callable $handler) use($f) {
-            return function (\UglyRobot\Infinite_Uploads\Aws\CommandInterface $command, \UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request = null) use($handler, $f) {
+        return function (callable $handler) use ($f) {
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null
+            ) use ($handler, $f) {
                 return $handler($f($command), $request);
             };
         };
     }
+
     /**
      * Creates a middleware that applies a map function to results.
      *
-     * @param callable $f Map function that accepts an Aws\ResultInterface and
-     *                    returns an Aws\ResultInterface.
+     * @param callable $f Map function that accepts an ClikIT\Infinite_Uploads\Aws\ResultInterface and
+     *                    returns an ClikIT\Infinite_Uploads\Aws\ResultInterface.
      *
      * @return callable
      */
     public static function mapResult(callable $f)
     {
-        return function (callable $handler) use($f) {
-            return function (\UglyRobot\Infinite_Uploads\Aws\CommandInterface $command, \UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request = null) use($handler, $f) {
+        return function (callable $handler) use ($f) {
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null
+            ) use ($handler, $f) {
                 return $handler($command, $request)->then($f);
             };
         };
     }
+
     public static function timer()
     {
         return function (callable $handler) {
-            return function (\UglyRobot\Infinite_Uploads\Aws\CommandInterface $command, \UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request = null) use($handler) {
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null
+            ) use ($handler) {
                 $start = microtime(true);
-                return $handler($command, $request)->then(function (\UglyRobot\Infinite_Uploads\Aws\ResultInterface $res) use($start) {
-                    if (!isset($res['@metadata'])) {
-                        $res['@metadata'] = [];
-                    }
-                    if (!isset($res['@metadata']['transferStats'])) {
-                        $res['@metadata']['transferStats'] = [];
-                    }
-                    $res['@metadata']['transferStats']['total_time'] = microtime(true) - $start;
-                    return $res;
-                }, function ($err) use($start) {
-                    if ($err instanceof AwsException) {
-                        $err->setTransferInfo(['total_time' => microtime(true) - $start] + $err->getTransferInfo());
-                    }
-                    return \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\rejection_for($err);
-                });
+                return $handler($command, $request)
+                    ->then(
+                        function (ResultInterface $res) use ($start) {
+                            if (!isset($res['@metadata'])) {
+                                $res['@metadata'] = [];
+                            }
+                            if (!isset($res['@metadata']['transferStats'])) {
+                                $res['@metadata']['transferStats'] = [];
+                            }
+
+                            $res['@metadata']['transferStats']['total_time']
+                                = microtime(true) - $start;
+
+                            return $res;
+                        },
+                        function ($err) use ($start) {
+                            if ($err instanceof AwsException) {
+                                $err->setTransferInfo([
+                                    'total_time' => microtime(true) - $start,
+                                ] + $err->getTransferInfo());
+                            }
+                            return Promise\Create::rejectionFor($err);
+                        }
+                    );
             };
         };
     }

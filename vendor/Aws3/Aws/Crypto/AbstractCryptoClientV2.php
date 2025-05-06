@@ -1,18 +1,24 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws\Crypto;
 
-namespace UglyRobot\Infinite_Uploads\Aws\Crypto;
+use ClikIT\Infinite_Uploads\Aws\Crypto\Cipher\CipherMethod;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\Stream;
 
-use UglyRobot\Infinite_Uploads\Aws\Crypto\Cipher\CipherMethod;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\Stream;
 /**
  * @internal
  */
 abstract class AbstractCryptoClientV2
 {
     public static $supportedCiphers = ['gcm'];
-    public static $supportedKeyWraps = [\UglyRobot\Infinite_Uploads\Aws\Crypto\KmsMaterialsProviderV2::WRAP_ALGORITHM_NAME];
+
+    public static $supportedKeyWraps = [
+        KmsMaterialsProviderV2::WRAP_ALGORITHM_NAME
+    ];
+
     public static $supportedSecurityProfiles = ['V2', 'V2_AND_LEGACY'];
+
     public static $legacySecurityProfiles = ['V2_AND_LEGACY'];
+
     /**
      * Returns if the passed cipher name is supported for encryption by the SDK.
      *
@@ -24,6 +30,7 @@ abstract class AbstractCryptoClientV2
     {
         return in_array($cipherName, self::$supportedCiphers, true);
     }
+
     /**
      * Returns an identifier recognizable by `openssl_*` functions, such as
      * `aes-256-gcm`
@@ -35,7 +42,8 @@ abstract class AbstractCryptoClientV2
      *
      * @return string
      */
-    protected abstract function getCipherOpenSslName($cipherName, $keySize);
+    abstract protected function getCipherOpenSslName($cipherName, $keySize);
+
     /**
      * Constructs a CipherMethod for the given name, initialized with the other
      * data passed for use in encrypting or decrypting.
@@ -49,7 +57,8 @@ abstract class AbstractCryptoClientV2
      *
      * @internal
      */
-    protected abstract function buildCipherMethod($cipherName, $iv, $keySize);
+    abstract protected function buildCipherMethod($cipherName, $iv, $keySize);
+
     /**
      * Performs a reverse lookup to get the openssl_* cipher name from the
      * AESName passed in from the MetadataEnvelope.
@@ -60,7 +69,8 @@ abstract class AbstractCryptoClientV2
      *
      * @internal
      */
-    protected abstract function getCipherFromAesName($aesName);
+    abstract protected function getCipherFromAesName($aesName);
+
     /**
      * Dependency to provide an interface for building an encryption stream for
      * data given cipher details, metadata, and materials to do so.
@@ -77,7 +87,13 @@ abstract class AbstractCryptoClientV2
      *
      * @internal
      */
-    public abstract function encrypt(\UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\Stream $plaintext, array $options, \UglyRobot\Infinite_Uploads\Aws\Crypto\MaterialsProviderV2 $provider, \UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope $envelope);
+    abstract public function encrypt(
+        Stream $plaintext,
+        array $options,
+        MaterialsProviderV2 $provider,
+        MetadataEnvelope $envelope
+    );
+
     /**
      * Dependency to provide an interface for building a decryption stream for
      * cipher text given metadata and materials to do so.
@@ -94,5 +110,10 @@ abstract class AbstractCryptoClientV2
      *
      * @internal
      */
-    public abstract function decrypt($cipherText, \UglyRobot\Infinite_Uploads\Aws\Crypto\MaterialsProviderInterfaceV2 $provider, \UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope $envelope, array $options = []);
+    abstract public function decrypt(
+        $cipherText,
+        MaterialsProviderInterfaceV2 $provider,
+        MetadataEnvelope $envelope,
+        array $options = []
+    );
 }

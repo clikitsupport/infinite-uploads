@@ -1,7 +1,7 @@
 <?php
 
-namespace UglyRobot\Infinite_Uploads\GuzzleHttp\Exception;
+namespace ClikIT\Infinite_Uploads\GuzzleHttp\Exception;
 
-class TooManyRedirectsException extends \UglyRobot\Infinite_Uploads\GuzzleHttp\Exception\RequestException
+class TooManyRedirectsException extends RequestException
 {
 }

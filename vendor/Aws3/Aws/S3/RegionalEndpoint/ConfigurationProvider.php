@@ -1,19 +1,19 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws\S3\RegionalEndpoint;
 
-namespace UglyRobot\Infinite_Uploads\Aws\S3\RegionalEndpoint;
+use ClikIT\Infinite_Uploads\Aws\AbstractConfigurationProvider;
+use ClikIT\Infinite_Uploads\Aws\CacheInterface;
+use ClikIT\Infinite_Uploads\Aws\ConfigurationProviderInterface;
+use ClikIT\Infinite_Uploads\Aws\S3\RegionalEndpoint\Exception\ConfigurationException;
+use GuzzleHttp\Promise;
 
-use UglyRobot\Infinite_Uploads\Aws\AbstractConfigurationProvider;
-use UglyRobot\Infinite_Uploads\Aws\CacheInterface;
-use UglyRobot\Infinite_Uploads\Aws\ConfigurationProviderInterface;
-use UglyRobot\Infinite_Uploads\Aws\S3\RegionalEndpoint\Exception\ConfigurationException;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Promise;
 /**
  * A configuration provider is a function that returns a promise that is
- * fulfilled with a {@see \Aws\S3\RegionalEndpoint\ConfigurationInterface}
- * or rejected with an {@see \Aws\S3\RegionalEndpoint\Exception\ConfigurationException}.
+ * fulfilled with a {@see \ClikIT\Infinite_Uploads\Aws\S3\RegionalEndpoint\ConfigurationInterface}
+ * or rejected with an {@see \ClikIT\Infinite_Uploads\Aws\S3\RegionalEndpoint\Exception\ConfigurationException}.
  *
  * <code>
- * use Aws\S3\RegionalEndpoint\ConfigurationProvider;
+ * use ClikIT\Infinite_Uploads\Aws\S3\RegionalEndpoint\ConfigurationProvider;
  * $provider = ConfigurationProvider::defaultProvider();
  * // Returns a ConfigurationInterface or throws.
  * $config = $provider()->wait();
@@ -22,7 +22,7 @@ use UglyRobot\Infinite_Uploads\GuzzleHttp\Promise;
  * Configuration providers can be composed to create configuration using
  * conditional logic that can create different configurations in different
  * environments. You can compose multiple providers into a single provider using
- * {@see \Aws\S3\RegionalEndpoint\ConfigurationProvider::chain}. This function
+ * {@see ClikIT\Infinite_Uploads\Aws\S3\RegionalEndpoint\ConfigurationProvider::chain}. This function
  * accepts providers as variadic arguments and returns a new function that will
  * invoke each provider until a successful configuration is returned.
  *
@@ -41,14 +41,18 @@ use UglyRobot\Infinite_Uploads\GuzzleHttp\Promise;
  * $config = $promise->wait();
  * </code>
  */
-class ConfigurationProvider extends \UglyRobot\Infinite_Uploads\Aws\AbstractConfigurationProvider implements \UglyRobot\Infinite_Uploads\Aws\ConfigurationProviderInterface
+class ConfigurationProvider extends AbstractConfigurationProvider
+    implements ConfigurationProviderInterface
 {
     const ENV_ENDPOINTS_TYPE = 'AWS_S3_US_EAST_1_REGIONAL_ENDPOINT';
     const INI_ENDPOINTS_TYPE = 's3_us_east_1_regional_endpoint';
     const DEFAULT_ENDPOINTS_TYPE = 'legacy';
+
     public static $cacheKey = 'aws_s3_us_east_1_regional_endpoint_config';
-    protected static $interfaceClass = \UglyRobot\Infinite_Uploads\Aws\S3\RegionalEndpoint\ConfigurationInterface::class;
-    protected static $exceptionClass = \UglyRobot\Infinite_Uploads\Aws\S3\RegionalEndpoint\Exception\ConfigurationException::class;
+
+    protected static $interfaceClass = ConfigurationInterface::class;
+    protected static $exceptionClass = ConfigurationException::class;
+
     /**
      * Create a default config provider that first checks for environment
      * variables, then checks for a specified profile in the environment-defined
@@ -67,27 +71,43 @@ class ConfigurationProvider extends \UglyRobot\Infinite_Uploads\Aws\AbstractConf
     public static function defaultProvider(array $config = [])
     {
         $configProviders = [self::env()];
-        if (!isset($config['use_aws_shared_config_files']) || $config['use_aws_shared_config_files'] != false) {
+        if (
+            !isset($config['use_aws_shared_config_files'])
+            || $config['use_aws_shared_config_files'] != false
+        ) {
             $configProviders[] = self::ini();
         }
         $configProviders[] = self::fallback();
-        $memo = self::memoize(call_user_func_array('self::chain', $configProviders));
-        if (isset($config['s3_us_east_1_regional_endpoint']) && $config['s3_us_east_1_regional_endpoint'] instanceof CacheInterface) {
+
+        $memo = self::memoize(
+            call_user_func_array([ConfigurationProvider::class, 'chain'], $configProviders)
+        );
+
+        if (isset($config['s3_us_east_1_regional_endpoint'])
+            && $config['s3_us_east_1_regional_endpoint'] instanceof CacheInterface
+        ) {
             return self::cache($memo, $config['s3_us_east_1_regional_endpoint'], self::$cacheKey);
         }
+
         return $memo;
     }
+
     public static function env()
     {
         return function () {
             // Use config from environment variables, if available
             $endpointsType = getenv(self::ENV_ENDPOINTS_TYPE);
             if (!empty($endpointsType)) {
-                return \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\promise_for(new \UglyRobot\Infinite_Uploads\Aws\S3\RegionalEndpoint\Configuration($endpointsType));
+                return Promise\Create::promiseFor(
+                    new Configuration($endpointsType)
+                );
             }
-            return self::reject('Could not find environment variable config' . ' in ' . self::ENV_ENDPOINTS_TYPE);
+
+            return self::reject('Could not find environment variable config'
+                . ' in ' . self::ENV_ENDPOINTS_TYPE);
         };
     }
+
     /**
      * Config provider that creates config using a config file whose location
      * is specified by an environment variable 'AWS_CONFIG_FILE', defaulting to
@@ -100,27 +120,35 @@ class ConfigurationProvider extends \UglyRobot\Infinite_Uploads\Aws\AbstractConf
      *
      * @return callable
      */
-    public static function ini($profile = null, $filename = null)
-    {
-        $filename = $filename ?: self::getDefaultConfigFilename();
+    public static function ini(
+        $profile = null,
+        $filename = null
+    ) {
+        $filename = $filename ?: (self::getDefaultConfigFilename());
         $profile = $profile ?: (getenv(self::ENV_PROFILE) ?: 'default');
-        return function () use($profile, $filename) {
-            if (!is_readable($filename)) {
-                return self::reject("Cannot read configuration from {$filename}");
+
+        return function () use ($profile, $filename) {
+            if (!@is_readable($filename)) {
+                return self::reject("Cannot read configuration from $filename");
             }
-            $data = \UglyRobot\Infinite_Uploads\Aws\parse_ini_file($filename, true);
+            $data = \Aws\parse_ini_file($filename, true);
             if ($data === false) {
-                return self::reject("Invalid config file: {$filename}");
+                return self::reject("Invalid config file: $filename");
             }
             if (!isset($data[$profile])) {
-                return self::reject("'{$profile}' not found in config file");
+                return self::reject("'$profile' not found in config file");
             }
             if (!isset($data[$profile][self::INI_ENDPOINTS_TYPE])) {
-                return self::reject("Required S3 regional endpoint config values \n                    not present in INI profile '{$profile}' ({$filename})");
+                return self::reject("Required S3 regional endpoint config values
+                    not present in INI profile '{$profile}' ({$filename})");
             }
-            return \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\promise_for(new \UglyRobot\Infinite_Uploads\Aws\S3\RegionalEndpoint\Configuration($data[$profile][self::INI_ENDPOINTS_TYPE]));
+
+            return Promise\Create::promiseFor(
+                new Configuration($data[$profile][self::INI_ENDPOINTS_TYPE])
+            );
         };
     }
+
     /**
      * Fallback config options when other sources are not set.
      *
@@ -129,9 +157,12 @@ class ConfigurationProvider extends \UglyRobot\Infinite_Uploads\Aws\AbstractConf
     public static function fallback()
     {
         return function () {
-            return \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\promise_for(new \UglyRobot\Infinite_Uploads\Aws\S3\RegionalEndpoint\Configuration(self::DEFAULT_ENDPOINTS_TYPE));
+            return Promise\Create::promiseFor(
+                new Configuration(self::DEFAULT_ENDPOINTS_TYPE, true)
+            );
         };
     }
+
     /**
      * Unwraps a configuration object in whatever valid form it is in,
      * always returning a ConfigurationInterface object.
@@ -152,11 +183,13 @@ class ConfigurationProvider extends \UglyRobot\Infinite_Uploads\Aws\AbstractConf
             return $config;
         }
         if (is_string($config)) {
-            return new \UglyRobot\Infinite_Uploads\Aws\S3\RegionalEndpoint\Configuration($config);
+            return new Configuration($config);
         }
         if (is_array($config) && isset($config['endpoints_type'])) {
-            return new \UglyRobot\Infinite_Uploads\Aws\S3\RegionalEndpoint\Configuration($config['endpoints_type']);
+            return new Configuration($config['endpoints_type']);
         }
-        throw new \InvalidArgumentException('Not a valid S3 regional endpoint ' . 'configuration argument.');
+
+        throw new \InvalidArgumentException('Not a valid S3 regional endpoint '
+            . 'configuration argument.');
     }
 }
