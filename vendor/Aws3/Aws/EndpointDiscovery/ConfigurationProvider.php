@@ -5,7 +5,7 @@ use ClikIT\Infinite_Uploads\Aws\AbstractConfigurationProvider;
 use ClikIT\Infinite_Uploads\Aws\CacheInterface;
 use ClikIT\Infinite_Uploads\Aws\ConfigurationProviderInterface;
 use ClikIT\Infinite_Uploads\Aws\EndpointDiscovery\Exception\ConfigurationException;
-use GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 
 /**

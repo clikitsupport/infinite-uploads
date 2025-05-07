@@ -2,7 +2,7 @@
 namespace ClikIT\Infinite_Uploads\Aws\Credentials;
 
 use Aws;
-use Aws\Api\DateTimeResult;
+use ClikIT\Infinite_Uploads\Aws\Api\DateTimeResult;
 use ClikIT\Infinite_Uploads\Aws\CacheInterface;
 use ClikIT\Infinite_Uploads\Aws\Exception\CredentialsException;
 use ClikIT\Infinite_Uploads\Aws\Sts\StsClient;

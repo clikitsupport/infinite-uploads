@@ -2,7 +2,7 @@
 namespace ClikIT\Infinite_Uploads\Aws\Crypto;
 
 use ClikIT\Infinite_Uploads\Aws\Exception\CryptoException;
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\StreamDecoratorTrait;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
 

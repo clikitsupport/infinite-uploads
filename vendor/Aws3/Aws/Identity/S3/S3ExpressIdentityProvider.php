@@ -3,7 +3,7 @@ namespace ClikIT\Infinite_Uploads\Aws\Identity\S3;
 
 use Aws;
 use ClikIT\Infinite_Uploads\Aws\LruArrayCache;
-use GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 
 class S3ExpressIdentityProvider
 {

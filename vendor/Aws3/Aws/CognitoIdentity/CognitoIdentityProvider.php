@@ -2,7 +2,7 @@
 namespace ClikIT\Infinite_Uploads\Aws\CognitoIdentity;
 
 use ClikIT\Infinite_Uploads\Aws\Credentials\Credentials;
-use GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 
 class CognitoIdentityProvider
 {

@@ -6,7 +6,7 @@ use ClikIT\Infinite_Uploads\Aws\CommandInterface;
 use ClikIT\Infinite_Uploads\Aws\HandlerList;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\Uri;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 
 /**
  * This client is used to search and upload documents to an **Amazon CloudSearch** Domain.

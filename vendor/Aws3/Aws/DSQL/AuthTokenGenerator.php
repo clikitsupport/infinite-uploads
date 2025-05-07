@@ -7,7 +7,7 @@ use ClikIT\Infinite_Uploads\Aws\Credentials\Credentials;
 use ClikIT\Infinite_Uploads\Aws\Signature\SignatureV4;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\Request;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\Uri;
-use GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 use Aws;
 
 /**

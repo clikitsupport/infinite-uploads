@@ -6,7 +6,7 @@ use ClikIT\Infinite_Uploads\Aws\Exception\CredentialsException;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Exception\ConnectException;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Exception\GuzzleException;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\Request;
-use GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
 

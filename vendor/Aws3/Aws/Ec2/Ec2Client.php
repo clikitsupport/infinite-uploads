@@ -3,7 +3,7 @@ namespace ClikIT\Infinite_Uploads\Aws\Ec2;
 
 use ClikIT\Infinite_Uploads\Aws\AwsClient;
 use ClikIT\Infinite_Uploads\Aws\Api\Service;
-use Aws\Api\DocModel;
+use ClikIT\Infinite_Uploads\Aws\Api\DocModel;
 use ClikIT\Infinite_Uploads\Aws\Api\ApiProvider;
 use ClikIT\Infinite_Uploads\Aws\PresignUrlMiddleware;
 

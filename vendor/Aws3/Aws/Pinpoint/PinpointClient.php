@@ -2,7 +2,7 @@
 namespace ClikIT\Infinite_Uploads\Aws\Pinpoint;
 
 use ClikIT\Infinite_Uploads\Aws\Api\ApiProvider;
-use Aws\Api\DocModel;
+use ClikIT\Infinite_Uploads\Aws\Api\DocModel;
 use ClikIT\Infinite_Uploads\Aws\Api\Service;
 use ClikIT\Infinite_Uploads\Aws\AwsClient;
 

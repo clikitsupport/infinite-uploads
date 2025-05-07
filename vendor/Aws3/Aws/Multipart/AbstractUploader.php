@@ -3,7 +3,7 @@ namespace ClikIT\Infinite_Uploads\Aws\Multipart;
 
 use ClikIT\Infinite_Uploads\Aws\AwsClientInterface as Client;
 use ClikIT\Infinite_Uploads\Aws\Exception\AwsException;
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use InvalidArgumentException as IAE;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface as Stream;
 

@@ -2,7 +2,7 @@
 namespace ClikIT\Infinite_Uploads\Aws;
 
 use ClikIT\Infinite_Uploads\Aws\Exception\AwsException;
-use GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\RejectedPromise;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
 use Exception;

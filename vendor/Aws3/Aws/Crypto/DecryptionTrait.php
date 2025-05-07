@@ -1,7 +1,7 @@
 <?php
 namespace ClikIT\Infinite_Uploads\Aws\Crypto;
 
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\LimitStream;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
 

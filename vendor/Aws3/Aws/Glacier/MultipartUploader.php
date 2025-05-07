@@ -3,11 +3,11 @@ namespace ClikIT\Infinite_Uploads\Aws\Glacier;
 
 use ClikIT\Infinite_Uploads\Aws\CommandInterface;
 use ClikIT\Infinite_Uploads\Aws\HashingStream;
-use Aws\Multipart\AbstractUploader;
+use ClikIT\Infinite_Uploads\Aws\Multipart\AbstractUploader;
 use ClikIT\Infinite_Uploads\Aws\Multipart\UploadState;
 use ClikIT\Infinite_Uploads\Aws\PhpHash;
 use ClikIT\Infinite_Uploads\Aws\ResultInterface;
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface as Stream;
 
 /**

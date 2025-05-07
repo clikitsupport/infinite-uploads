@@ -1,7 +1,7 @@
 <?php
 namespace ClikIT\Infinite_Uploads\Aws\CloudFront;
 
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\Uri;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\UriInterface;
 

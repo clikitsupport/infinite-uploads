@@ -1,7 +1,7 @@
 <?php
 namespace ClikIT\Infinite_Uploads\Aws\DynamoDb;
 
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 
 /**
  * Special object to represent a DynamoDB binary (B) value.
