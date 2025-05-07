@@ -6,7 +6,7 @@ use ClikIT\Infinite_Uploads\Aws\CommandInterface;
 use ClikIT\Infinite_Uploads\Aws\Exception\AwsException;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 
 /**
  * @internal Decorates a parser and validates the x-amz-crc32 header.

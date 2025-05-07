@@ -1,9 +1,9 @@
 <?php
 namespace ClikIT\Infinite_Uploads\Aws\Api\Parser;
 
-use Aws\Api\DateTimeResult;
+use ClikIT\Infinite_Uploads\Aws\Api\DateTimeResult;
 use ClikIT\Infinite_Uploads\Aws\Api\ListShape;
-use Aws\Api\MapShape;
+use ClikIT\Infinite_Uploads\Aws\Api\MapShape;
 use ClikIT\Infinite_Uploads\Aws\Api\Parser\Exception\ParserException;
 use ClikIT\Infinite_Uploads\Aws\Api\Shape;
 use ClikIT\Infinite_Uploads\Aws\Api\StructureShape;

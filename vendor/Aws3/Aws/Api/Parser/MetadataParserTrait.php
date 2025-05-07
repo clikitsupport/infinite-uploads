@@ -1,7 +1,7 @@
 <?php
 namespace ClikIT\Infinite_Uploads\Aws\Api\Parser;
 
-use Aws\Api\DateTimeResult;
+use ClikIT\Infinite_Uploads\Aws\Api\DateTimeResult;
 use ClikIT\Infinite_Uploads\Aws\Api\Shape;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
 

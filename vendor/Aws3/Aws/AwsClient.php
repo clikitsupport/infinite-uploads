@@ -2,11 +2,11 @@
 namespace ClikIT\Infinite_Uploads\Aws;
 
 use ClikIT\Infinite_Uploads\Aws\Api\ApiProvider;
-use Aws\Api\DocModel;
+use ClikIT\Infinite_Uploads\Aws\Api\DocModel;
 use ClikIT\Infinite_Uploads\Aws\Api\Service;
 use ClikIT\Infinite_Uploads\Aws\Auth\AuthSelectionMiddleware;
 use ClikIT\Infinite_Uploads\Aws\Auth\AuthSchemeResolverInterface;
-use Aws\EndpointDiscovery\EndpointDiscoveryMiddleware;
+use ClikIT\Infinite_Uploads\Aws\EndpointDiscovery\EndpointDiscoveryMiddleware;
 use ClikIT\Infinite_Uploads\Aws\EndpointV2\EndpointProviderV2;
 use ClikIT\Infinite_Uploads\Aws\EndpointV2\EndpointV2Middleware;
 use ClikIT\Infinite_Uploads\Aws\Exception\AwsException;

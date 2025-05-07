@@ -1,7 +1,7 @@
 <?php
 namespace ClikIT\Infinite_Uploads\Aws\Api\Serializer;
 
-use Aws\Api\MapShape;
+use ClikIT\Infinite_Uploads\Aws\Api\MapShape;
 use ClikIT\Infinite_Uploads\Aws\Api\Service;
 use ClikIT\Infinite_Uploads\Aws\Api\Operation;
 use ClikIT\Infinite_Uploads\Aws\Api\Shape;
@@ -9,7 +9,7 @@ use ClikIT\Infinite_Uploads\Aws\Api\StructureShape;
 use ClikIT\Infinite_Uploads\Aws\Api\TimestampShape;
 use ClikIT\Infinite_Uploads\Aws\CommandInterface;
 use ClikIT\Infinite_Uploads\Aws\EndpointV2\EndpointV2SerializerTrait;
-use Aws\EndpointV2\Ruleset\RulesetEndpoint;
+use ClikIT\Infinite_Uploads\Aws\EndpointV2\Ruleset\RulesetEndpoint;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\Request;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\Uri;

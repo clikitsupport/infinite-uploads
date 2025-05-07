@@ -13,7 +13,7 @@ use ClikIT\Infinite_Uploads\Aws\ClientSideMonitoring\Configuration;
 use ClikIT\Infinite_Uploads\Aws\Configuration\ConfigurationResolver;
 use ClikIT\Infinite_Uploads\Aws\Credentials\CredentialProvider;
 use ClikIT\Infinite_Uploads\Aws\Credentials\Credentials;
-use Aws\Credentials\CredentialsInterface;
+use ClikIT\Infinite_Uploads\Aws\Credentials\CredentialsInterface;
 use ClikIT\Infinite_Uploads\Aws\DefaultsMode\ConfigurationInterface as ConfigModeInterface;
 use ClikIT\Infinite_Uploads\Aws\DefaultsMode\ConfigurationProvider as ConfigModeProvider;
 use ClikIT\Infinite_Uploads\Aws\Endpoint\EndpointProvider;

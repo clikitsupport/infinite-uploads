@@ -3,8 +3,8 @@
 namespace ClikIT\Infinite_Uploads\Aws\Api\Parser;
 
 use Iterator;
-use Aws\Api\DateTimeResult;
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\Aws\Api\DateTimeResult;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
 use ClikIT\Infinite_Uploads\Aws\Api\Parser\Exception\ParserException;
 

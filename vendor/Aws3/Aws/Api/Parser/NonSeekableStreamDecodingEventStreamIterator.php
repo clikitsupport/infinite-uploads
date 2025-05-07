@@ -2,7 +2,7 @@
 
 namespace ClikIT\Infinite_Uploads\Aws\Api\Parser;
 
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
 use ClikIT\Infinite_Uploads\Aws\Api\Parser\Exception\ParserException;
 
