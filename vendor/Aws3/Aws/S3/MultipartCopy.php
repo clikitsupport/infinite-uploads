@@ -5,7 +5,7 @@ namespace ClikIT\Infinite_Uploads\Aws\S3;
 use ClikIT\Infinite_Uploads\Aws\Arn\ArnParser;
 use ClikIT\Infinite_Uploads\Aws\Multipart\AbstractUploadManager;
 use ClikIT\Infinite_Uploads\Aws\ResultInterface;
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 
 class MultipartCopy extends AbstractUploadManager
 {

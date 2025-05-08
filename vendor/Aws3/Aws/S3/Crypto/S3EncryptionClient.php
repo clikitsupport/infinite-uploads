@@ -11,9 +11,9 @@ use ClikIT\Infinite_Uploads\Aws\Crypto\MetadataEnvelope;
 use ClikIT\Infinite_Uploads\Aws\Crypto\MaterialsProvider;
 use ClikIT\Infinite_Uploads\Aws\Crypto\Cipher\CipherBuilderTrait;
 use ClikIT\Infinite_Uploads\Aws\S3\S3Client;
-use GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 
 /**
  * Provides a wrapper for an S3Client that supplies functionality to encrypt

@@ -5,7 +5,7 @@ use ClikIT\Infinite_Uploads\Aws\AbstractConfigurationProvider;
 use ClikIT\Infinite_Uploads\Aws\CacheInterface;
 use ClikIT\Infinite_Uploads\Aws\ConfigurationProviderInterface;
 use ClikIT\Infinite_Uploads\Aws\S3\RegionalEndpoint\Exception\ConfigurationException;
-use GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 
 /**
  * A configuration provider is a function that returns a promise that is

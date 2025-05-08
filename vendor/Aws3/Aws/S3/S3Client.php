@@ -2,7 +2,7 @@
 namespace ClikIT\Infinite_Uploads\Aws\S3;
 
 use ClikIT\Infinite_Uploads\Aws\Api\ApiProvider;
-use Aws\Api\DocModel;
+use ClikIT\Infinite_Uploads\Aws\Api\DocModel;
 use ClikIT\Infinite_Uploads\Aws\Api\Service;
 use ClikIT\Infinite_Uploads\Aws\AwsClient;
 use ClikIT\Infinite_Uploads\Aws\CacheInterface;

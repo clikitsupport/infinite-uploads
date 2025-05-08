@@ -7,7 +7,7 @@ use ClikIT\Infinite_Uploads\Aws\Crypto\MetadataEnvelope;
 use ClikIT\Infinite_Uploads\Aws\Crypto\Cipher\CipherBuilderTrait;
 use ClikIT\Infinite_Uploads\Aws\S3\MultipartUploader;
 use ClikIT\Infinite_Uploads\Aws\S3\S3ClientInterface;
-use GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 
 /**
  * Encapsulates the execution of a multipart upload of an encrypted object to S3.

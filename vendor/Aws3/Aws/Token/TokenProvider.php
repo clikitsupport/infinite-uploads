@@ -2,10 +2,10 @@
 namespace ClikIT\Infinite_Uploads\Aws\Token;
 
 use Aws;
-use Aws\Api\DateTimeResult;
+use ClikIT\Infinite_Uploads\Aws\Api\DateTimeResult;
 use ClikIT\Infinite_Uploads\Aws\CacheInterface;
 use ClikIT\Infinite_Uploads\Aws\Exception\TokenException;
-use GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 
 /**
  * Token providers are functions that accept no arguments and return a

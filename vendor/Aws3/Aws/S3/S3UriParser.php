@@ -4,7 +4,7 @@ namespace ClikIT\Infinite_Uploads\Aws\S3;
 use ClikIT\Infinite_Uploads\Aws\Arn\Exception\InvalidArnException;
 use ClikIT\Infinite_Uploads\Aws\Arn\S3\AccessPointArn;
 use ClikIT\Infinite_Uploads\Aws\Arn\ArnParser;
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\UriInterface;
 
 /**

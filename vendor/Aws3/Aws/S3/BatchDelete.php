@@ -3,7 +3,7 @@ namespace ClikIT\Infinite_Uploads\Aws\S3;
 
 use ClikIT\Infinite_Uploads\Aws\AwsClientInterface;
 use ClikIT\Infinite_Uploads\Aws\S3\Exception\DeleteMultipleObjectsException;
-use GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromisorInterface;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 

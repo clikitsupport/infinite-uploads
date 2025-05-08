@@ -6,7 +6,7 @@ use ClikIT\Infinite_Uploads\Aws\AwsClient;
 use ClikIT\Infinite_Uploads\Aws\Signature\SignatureV4;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\Request;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\Uri;
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 
 /**
  * This client is used to interact with the **Amazon Polly** service.

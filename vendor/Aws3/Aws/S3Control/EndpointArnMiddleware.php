@@ -13,7 +13,7 @@ use ClikIT\Infinite_Uploads\Aws\Endpoint\PartitionEndpointProvider;
 use ClikIT\Infinite_Uploads\Aws\Exception\InvalidRegionException;
 use ClikIT\Infinite_Uploads\Aws\Exception\UnresolvedEndpointException;
 use ClikIT\Infinite_Uploads\Aws\S3\EndpointRegionHelperTrait;
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
 
 /**

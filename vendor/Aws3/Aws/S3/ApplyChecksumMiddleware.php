@@ -5,7 +5,7 @@ use ClikIT\Infinite_Uploads\Aws\Api\Service;
 use ClikIT\Infinite_Uploads\Aws\Api\Shape;
 use ClikIT\Infinite_Uploads\Aws\CommandInterface;
 use ClikIT\Infinite_Uploads\Aws\MetricsBuilder;
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use InvalidArgumentException;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;

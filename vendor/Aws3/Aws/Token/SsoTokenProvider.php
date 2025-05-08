@@ -3,7 +3,7 @@ namespace ClikIT\Infinite_Uploads\Aws\Token;
 
 use ClikIT\Infinite_Uploads\Aws\Exception\TokenException;
 use ClikIT\Infinite_Uploads\Aws\SSOOIDC\SSOOIDCClient;
-use GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 
 /**
  * Token that comes from the SSO provider

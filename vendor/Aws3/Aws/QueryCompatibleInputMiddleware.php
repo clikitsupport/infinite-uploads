@@ -2,7 +2,7 @@
 namespace ClikIT\Infinite_Uploads\Aws;
 
 use ClikIT\Infinite_Uploads\Aws\Api\ListShape;
-use Aws\Api\MapShape;
+use ClikIT\Infinite_Uploads\Aws\Api\MapShape;
 use ClikIT\Infinite_Uploads\Aws\Api\Service;
 use ClikIT\Infinite_Uploads\Aws\Api\Shape;
 use ClikIT\Infinite_Uploads\Aws\Api\StructureShape;

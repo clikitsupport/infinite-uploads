@@ -3,7 +3,7 @@ namespace ClikIT\Infinite_Uploads\Aws\S3;
 
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromisorInterface;
-use GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
 
 /**

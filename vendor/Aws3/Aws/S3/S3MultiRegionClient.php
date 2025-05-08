@@ -7,7 +7,7 @@ use ClikIT\Infinite_Uploads\Aws\LruArrayCache;
 use ClikIT\Infinite_Uploads\Aws\MultiRegionClient as BaseClient;
 use ClikIT\Infinite_Uploads\Aws\Exception\AwsException;
 use ClikIT\Infinite_Uploads\Aws\S3\Exception\PermanentRedirectException;
-use GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 
 /**
  * **Amazon Simple Storage Service** multi-region client.
