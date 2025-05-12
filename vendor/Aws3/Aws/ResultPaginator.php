@@ -1,7 +1,7 @@
 <?php
 namespace ClikIT\Infinite_Uploads\Aws;
 
-use GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 
 /**
  * Iterator that yields each page of results of a pageable operation.
@@ -54,7 +54,7 @@ class ResultPaginator implements \Iterator
     /**
      * Runs a paginator asynchronously and uses a callback to handle results.
      *
-     * The callback should have the signature: function (ClikIT\Infinite_Uploads\ClikIT\Infinite_Uploads\Aws\Result $result).
+     * The callback should have the signature: function (ClikIT\Infinite_Uploads\Aws\Result $result).
      * A non-null return value from the callback will be yielded by the
      * promise. This means that you can return promises from the callback that
      * will need to be resolved before continuing iteration over the remaining

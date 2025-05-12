@@ -6,7 +6,7 @@ use ClikIT\Infinite_Uploads\Aws\CommandInterface;
 use ClikIT\Infinite_Uploads\Aws\CommandPool;
 use ClikIT\Infinite_Uploads\Aws\Exception\AwsException;
 use ClikIT\Infinite_Uploads\Aws\Exception\MultipartUploadException;
-use ClikIT\Infinite_Uploads\ClikIT\Infinite_Uploads\Aws\Result;
+use ClikIT\Infinite_Uploads\Aws\Result;
 use ClikIT\Infinite_Uploads\Aws\ResultInterface;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;

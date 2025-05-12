@@ -4,7 +4,7 @@ namespace ClikIT\Infinite_Uploads\GuzzleHttp\Handler;
 
 use ClikIT\Infinite_Uploads\GuzzleHttp\Exception\RequestException;
 use ClikIT\Infinite_Uploads\GuzzleHttp\HandlerStack;
-use GuzzleHttp\Promise as P;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise as P;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 use ClikIT\Infinite_Uploads\GuzzleHttp\TransferStats;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Utils;

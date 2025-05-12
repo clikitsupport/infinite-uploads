@@ -137,11 +137,9 @@ class Infinite_Uploads_Stream_Wrapper {
 		$this->initProtocol( $path );
 		$this->params = $this->getBucketKey( $path );
 		$this->mode   = rtrim( $mode, 'bt' );
-
 		if ( $errors = $this->validate( $path, $this->mode ) ) {
 			return $this->triggerError( $errors );
 		}
-
 		return $this->boolCall( function () use ( $path ) {
 			switch ( $this->mode ) {
 				case 'r':
@@ -531,7 +529,6 @@ class Infinite_Uploads_Stream_Wrapper {
 
 	private function openWriteStream( $path ) {
 		$this->body = new Stream( fopen( 'php://temp', 'r+' ) );
-
 		return true;
 	}
 

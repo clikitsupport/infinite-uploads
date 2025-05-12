@@ -141,9 +141,9 @@ class AwsClient implements AwsClientInterface
      *   required when connecting to a custom endpoint (e.g., a local version
      *   of S3).
      * - endpoint_discovery: (ClikIT\Infinite_Uploads\Aws\EndpointDiscovery\ConfigurationInterface,
-     *   ClikIT\Infinite_Uploads\ClikIT\Infinite_Uploads\Aws\CacheInterface, array, callable) Settings for endpoint discovery.
+     *   ClikIT\Infinite_Uploads\Aws\CacheInterface, array, callable) Settings for endpoint discovery.
      *   Provide an instance of ClikIT\Infinite_Uploads\Aws\EndpointDiscovery\ConfigurationInterface,
-     *   an instance ClikIT\Infinite_Uploads\ClikIT\Infinite_Uploads\Aws\CacheInterface, a callable that provides a promise for
+     *   an instance ClikIT\Infinite_Uploads\Aws\CacheInterface, a callable that provides a promise for
      *   a Configuration object, or an associative array with the following
      *   keys: enabled: (bool) Set to true to enable endpoint discovery, false
      *   to explicitly disable it, defaults to false; cache_limit: (int) The

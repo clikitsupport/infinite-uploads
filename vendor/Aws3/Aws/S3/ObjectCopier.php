@@ -4,7 +4,7 @@ namespace ClikIT\Infinite_Uploads\Aws\S3;
 use ClikIT\Infinite_Uploads\Aws\Arn\ArnParser;
 use ClikIT\Infinite_Uploads\Aws\Arn\S3\AccessPointArn;
 use ClikIT\Infinite_Uploads\Aws\Exception\MultipartUploadException;
-use ClikIT\Infinite_Uploads\ClikIT\Infinite_Uploads\Aws\Result;
+use ClikIT\Infinite_Uploads\Aws\Result;
 use ClikIT\Infinite_Uploads\Aws\S3\Exception\S3Exception;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Coroutine;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;

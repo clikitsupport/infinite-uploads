@@ -2,7 +2,7 @@
 
 namespace ClikIT\Infinite_Uploads\GuzzleHttp;
 
-use GuzzleHttp\Promise as P;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise as P;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;

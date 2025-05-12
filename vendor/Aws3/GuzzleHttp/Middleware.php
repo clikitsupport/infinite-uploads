@@ -4,7 +4,7 @@ namespace ClikIT\Infinite_Uploads\GuzzleHttp;
 
 use ClikIT\Infinite_Uploads\GuzzleHttp\Cookie\CookieJarInterface;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Exception\RequestException;
-use GuzzleHttp\Promise as P;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise as P;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;

@@ -3,7 +3,7 @@ namespace ClikIT\Infinite_Uploads\Aws\S3;
 
 use ClikIT\Infinite_Uploads\Aws\CacheInterface;
 use ClikIT\Infinite_Uploads\Aws\LruArrayCache;
-use ClikIT\Infinite_Uploads\ClikIT\Infinite_Uploads\Aws\Result;
+use ClikIT\Infinite_Uploads\Aws\Result;
 use ClikIT\Infinite_Uploads\Aws\S3\Exception\S3Exception;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\Stream;

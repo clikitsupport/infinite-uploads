@@ -4,7 +4,7 @@ namespace ClikIT\Infinite_Uploads\Aws\Api\Parser;
 use ClikIT\Infinite_Uploads\Aws\Api\Operation;
 use ClikIT\Infinite_Uploads\Aws\Api\StructureShape;
 use ClikIT\Infinite_Uploads\Aws\Api\Service;
-use ClikIT\Infinite_Uploads\ClikIT\Infinite_Uploads\Aws\Result;
+use ClikIT\Infinite_Uploads\Aws\Result;
 use ClikIT\Infinite_Uploads\Aws\CommandInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;

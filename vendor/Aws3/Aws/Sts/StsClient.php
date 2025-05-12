@@ -5,7 +5,7 @@ use ClikIT\Infinite_Uploads\Aws\Arn\ArnParser;
 use ClikIT\Infinite_Uploads\Aws\AwsClient;
 use ClikIT\Infinite_Uploads\Aws\CacheInterface;
 use ClikIT\Infinite_Uploads\Aws\Credentials\Credentials;
-use ClikIT\Infinite_Uploads\ClikIT\Infinite_Uploads\Aws\Result;
+use ClikIT\Infinite_Uploads\Aws\Result;
 use ClikIT\Infinite_Uploads\Aws\Sts\RegionalEndpoints\ConfigurationProvider;
 
 /**

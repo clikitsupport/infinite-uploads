@@ -2,7 +2,7 @@
 namespace ClikIT\Infinite_Uploads\Aws\Credentials;
 
 use ClikIT\Infinite_Uploads\Aws\Exception\CredentialsException;
-use ClikIT\Infinite_Uploads\ClikIT\Infinite_Uploads\Aws\Result;
+use ClikIT\Infinite_Uploads\Aws\Result;
 use ClikIT\Infinite_Uploads\Aws\Sts\StsClient;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 

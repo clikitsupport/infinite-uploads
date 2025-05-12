@@ -238,7 +238,7 @@ use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
  * @method \ClikIT\Infinite_Uploads\Aws\Result writeGetObjectResponse(array $args = [])
  * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise writeGetObjectResponseAsync(array $args = [])
  */
-class S3Client extends AwsClient implements S3ClientInterface
+class S3Client extends \ClikIT\Infinite_Uploads\Aws\AwsClient implements \ClikIT\Infinite_Uploads\Aws\S3\S3ClientInterface
 {
     private const DIRECTORY_BUCKET_REGEX = '/^[a-zA-Z0-9_-]+--[a-z0-9]+-az\d+--x-s3'
                                             .'(?!.*(?:-s3alias|--ol-s3|\.mrap))$/';

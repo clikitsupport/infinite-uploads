@@ -7,7 +7,7 @@ use ClikIT\Infinite_Uploads\Aws\Retry\QuotaManager;
 use ClikIT\Infinite_Uploads\Aws\Retry\RateLimiter;
 use ClikIT\Infinite_Uploads\Aws\Retry\RetryHelperTrait;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Exception\RequestException;
-use GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
 
 /**

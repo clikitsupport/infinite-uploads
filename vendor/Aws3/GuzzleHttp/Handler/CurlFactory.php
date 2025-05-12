@@ -4,7 +4,7 @@ namespace ClikIT\Infinite_Uploads\GuzzleHttp\Handler;
 
 use ClikIT\Infinite_Uploads\GuzzleHttp\Exception\ConnectException;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Exception\RequestException;
-use GuzzleHttp\Promise as P;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise as P;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\FulfilledPromise;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\LazyOpenStream;
