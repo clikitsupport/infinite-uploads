@@ -180,7 +180,6 @@ class Infinite_Uploads_Stream_Wrapper {
 	 */
 	private function validate( $path, $mode ) {
 		$errors = [];
-
 		if ( ! $this->getOption( 'Key' ) ) {
 			$errors[] = 'Cannot open a bucket. You must specify a path in the '
 			            . 'form of iu://bucket/key';
@@ -205,7 +204,6 @@ class Infinite_Uploads_Stream_Wrapper {
 		) {
 			$errors[] = "{$path} already exists on Infinite Uploads";
 		}
-
 		return $errors;
 	}
 
@@ -422,9 +420,10 @@ class Infinite_Uploads_Stream_Wrapper {
 	 * @return bool
 	 */
 	private function boolCall( callable $fn, $flags = null ) {
-		try {
+		try {			
 			return $fn();
 		} catch ( \Exception $e ) {
+			$this->debug( 'Error Message', $e->getMessage() );
 			return $this->triggerError( $e->getMessage(), $flags );
 		}
 	}
@@ -750,8 +749,11 @@ class Infinite_Uploads_Stream_Wrapper {
 
 		return $this->boolCall( function () use ( $parts, $path ) {
 			try {
-				$this->debug( 'HeadObject', $parts['Key'] );
+
+				$this->debug( 'HeadObjects', $parts['Key'] );
+
 				$result = $this->getClient()->headObject( $parts );
+
 				if ( substr( $parts['Key'], - 1, 1 ) == '/' &&
 				     $result['ContentLength'] == 0
 				) {
@@ -919,7 +921,6 @@ class Infinite_Uploads_Stream_Wrapper {
 		) {
 			return $this->triggerError( "Subfolder already exists: {$path}" );
 		}
-
 		return $this->boolCall( function () use ( $params, $path ) {
 			$this->debug( 'PutObject', $params['Key'] );
 			$bool = (bool) $this->getClient()->putObject( $params );

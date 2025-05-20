@@ -53,7 +53,6 @@ class Infinite_Uploads_Image_Editor_Imagick extends WP_Image_Editor_Imagick {
 	 */
 	protected function _save( $image, $filename = null, $mime_type = null ) {
 		list( $filename, $extension, $mime_type ) = $this->get_output_format( $filename, $mime_type );
-
 		if ( ! $filename ) {
 			$filename = $this->generate_filename( null, null, $extension );
 		}

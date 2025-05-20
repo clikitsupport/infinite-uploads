@@ -2,7 +2,7 @@
 /*
  * Plugin Name: Infinite Uploads
  * Description: Infinitely scalable cloud storage and delivery for your videos and uploads made easy! Upload directly to cloud storage and manage your files right from the WordPress Media Library.
- * Version: 2.0.7
+ * Version: 3.0
  * Author: Infinite Uploads
  * Author URI: https://infiniteuploads.com/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin&utm_content=meta
  * Text Domain: infinite-uploads
@@ -30,7 +30,6 @@ register_activation_hook( __FILE__, 'infinite_uploads_install' );
 add_action( 'plugins_loaded', 'infinite_uploads_init' );
 
 function infinite_uploads_init() {
-
 	//how much to try uploading/downloading per ajax loop (we want as much as possible without exceeding (php timeout - ajax_timeout) to avoid 504s
 	if ( ! defined( 'INFINITE_UPLOADS_SYNC_MAX_BYTES' ) ) {
 		define( 'INFINITE_UPLOADS_SYNC_MAX_BYTES', MB_IN_BYTES * 5 );

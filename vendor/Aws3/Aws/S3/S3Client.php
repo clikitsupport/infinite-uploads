@@ -268,8 +268,8 @@ class S3Client extends \ClikIT\Infinite_Uploads\Aws\AwsClient implements \ClikIT
                         . ' `when_supported` results in checksum calculation when an operation has modeled checksum support.'
                         . ' `when_required` results in checksum calculation when an operation has modeled checksum support and'
                         . ' request checksums are modeled as required.',
-                    'fn' => [__CLASS__, '_apply_request_checksum_calculation'],
-                    'default' => [__CLASS__, '_default_request_checksum_calculation'],
+                    
+                    'default' => 'WHEN_REQUIRED',
                 ],
                 'response_checksum_validation' => [
                     'type' => 'config',
@@ -278,8 +278,8 @@ class S3Client extends \ClikIT\Infinite_Uploads\Aws\AwsClient implements \ClikIT
                         . ' `when_supported` results in checksum validation when an operation has modeled checksum support.'
                         . ' `when_required` results in checksum validation when an operation has modeled checksum support and'
                         . ' `CheckSumMode` is set to `enabled`.',
-                    'fn' => [__CLASS__, '_apply_response_checksum_validation'],
-                    'default' => [__CLASS__, '_default_response_checksum_validation'],
+                    
+                    'default' => 'WHEN_REQUIRED',
                 ]
             ]
             + $args + [
@@ -1227,7 +1227,7 @@ class S3Client extends \ClikIT\Infinite_Uploads\Aws\AwsClient implements \ClikIT
         $api['shapes']['Expires']['type'] = 'timestamp';
 
         return [
-            new Service($api, ApiProvider::defaultProvider()),
+            new \ClikIT\Infinite_Uploads\Aws\Api\Service($api, \ClikIT\Infinite_Uploads\Aws\Api\ApiProvider::defaultProvider()),
             new DocModel($docs)
         ];
     }

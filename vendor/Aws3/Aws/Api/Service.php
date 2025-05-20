@@ -4,7 +4,7 @@ use ClikIT\Infinite_Uploads\Aws\Api\SupportedProtocols;
 /**
  * Represents a web service API model.
  */
-class Service extends AbstractModel
+class Service extends \ClikIT\Infinite_Uploads\Aws\Api\AbstractModel
 {
     /** @var callable */
     private $apiProvider;
@@ -553,8 +553,8 @@ class Service extends AbstractModel
         $modeledProtocols = $definition['metadata']['protocols'] ?? null;
         if (!empty($modeledProtocols)) {
             foreach(SupportedProtocols::all() as $protocol) {
-                if (in_array($protocol->value, $modeledProtocols)) {
-                    return $protocol->value;
+                if (in_array($protocol, $modeledProtocols)) {
+                    return $protocol;
                 }
             }
         }

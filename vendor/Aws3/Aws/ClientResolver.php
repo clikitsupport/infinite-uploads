@@ -138,7 +138,7 @@ class ClientResolver
             'valid'    => ['callable'],
             'doc'      => 'An optional PHP callable that accepts a type, service, and version argument, and returns an array of corresponding configuration data. The type value can be one of api, waiter, or paginator.',
             'fn'       => [__CLASS__, '_apply_api_provider'],
-            'default'  => [ApiProvider::class, 'defaultProvider'],
+            'default'  => [\ClikIT\Infinite_Uploads\Aws\Api\ApiProvider::class, 'defaultProvider'],
         ],
         'configuration_mode' => [
             'type'    => 'value',
@@ -401,6 +401,7 @@ class ClientResolver
     {
         $args['config'] = [];
         foreach ($this->argDefinitions as $key => $a) {
+
             // Add defaults, validate required values, and skip if not set.
             if (!isset($args[$key])) {
                 if (isset($a['default'])) {
@@ -454,6 +455,7 @@ class ClientResolver
                 $args['config'][$key] = $args[$key];
             }
         }
+        
         $this->_apply_client_context_params($args);
 
         return $args;
@@ -744,8 +746,8 @@ class ClientResolver
 
     public static function _apply_api_provider(callable $value, array &$args)
     {
-        $api = new Service(
-            ApiProvider::resolve(
+        $api = new \ClikIT\Infinite_Uploads\Aws\Api\Service(
+            \ClikIT\Infinite_Uploads\Aws\Api\ApiProvider::resolve(
                 $value,
                 'api',
                 $args['service'],

@@ -777,7 +777,7 @@ class AwsClient implements AwsClientInterface
         ksort($api['operations']);
 
         return [
-            new Service($api, ApiProvider::defaultProvider()),
+            new \ClikIT\Infinite_Uploads\Aws\Api\Service($api, \ClikIT\Infinite_Uploads\Aws\Api\ApiProvider::defaultProvider()),
             new DocModel($docs)
         ];
     }
