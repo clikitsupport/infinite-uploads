@@ -19,6 +19,8 @@ class Infinite_Uploads {
 	public $stream_api_call_count = [];
 	public $stream_plugin_api_call_count = [];
 	public $stream_file_cache = [];
+	public $stream;
+	public $s3;
 
 	public function __construct() {
 		/**
@@ -1006,3 +1008,83 @@ class Infinite_Uploads {
 		return $exclusions;
 	}
 }
+
+/**
+ * Fix to not sync the WooCommerce Error Log Directory.
+ *
+ * @param string $dir Path to the wc-logs file.
+ */
+function infinite_uploads_wc_uploads( $dir ) {
+	$dir = WP_CONTENT_DIR . '/uploads/wc-logs';
+	return $dir;
+}
+add_filter( 'woocommerce_log_directory', 'infinite_uploads_wc_uploads' );
+
+/**
+ * Fix to allow CSV exports from WooCommerce
+ */
+add_action( 'admin_init', 'wc_iu_export_fix' );
+function wc_iu_export_fix() {
+	if( defined('DOING_AJAX') && DOING_AJAX && current_user_can('manage_options') ) {
+		switch($_POST['action']) {
+			case 'woocommerce_do_ajax_product_export':
+				if(class_exists('Infinite_Uploads')){
+					remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );	
+				}
+		}
+	}
+	if( isset( $_GET['page'] ) && $_GET['page'] == 'product_exporter' ) {
+		if(class_exists('Infinite_Uploads')){
+			remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );	
+		}
+	}
+}
+
+/**
+ * Fix Complainz plugin error.
+ */
+function infinite_uploads_complainz_fix() {
+    $file_path = WP_CONTENT_DIR . '/uploads/complianz/maxmind/GeoLite2-Country.mmdb';
+    $upload_dir = WP_CONTENT_DIR . '/uploads/complianz/maxmind/';
+    if ( ! is_dir( $upload_dir ) ) {
+        mkdir( $upload_dir, 0755, true );
+    }
+    $name = 'GeoLite2-Country.tar.gz';
+    $tar_file_name = str_replace( '.gz', '', $name );
+    $result_file_name = str_replace( '.tar.gz', '.mmdb', $name );
+    $unzipped = $upload_dir . $result_file_name;
+    $db_url = 'https://cookiedatabase.org/maxmind/GeoLite2-Country.tar.gz';
+    $zip_file_name = apply_filters( 'cmplz_zip_file_path', $upload_dir . $name );
+    if ( ! file_exists( $file_path ) ) {
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        $name = 'GeoLite2-Country.tar.gz';
+        $tmpfile = download_url( $db_url, $timeout = 25 );
+        if ( ! file_exists( $zip_file_name ) ) {
+            copy( $tmpfile, $zip_file_name );
+        }
+        try {
+            $phar = new PharData( $zip_file_name ) ;
+            $phar->extractTo( $upload_dir );
+        } catch ( Exception $e ) {
+        }
+        foreach ( glob( $upload_dir . "*" ) as $file ) {
+            if ( is_dir( $file ) ) {
+                copy( trailingslashit( $file ) . $result_file_name, $upload_dir . $result_file_name );              
+                unlink( trailingslashit( $file ) . $result_file_name );
+                foreach ( glob( $file.'/*' ) as $txt_file ) {
+                    unlink( $txt_file );
+                }
+                rmdir( $file );
+            }
+        }
+        update_option( 'cmplz_geo_ip_file', WP_CONTENT_DIR . '/uploads/complianz/maxmind/GeoLite2-Country.mmdb' );
+        if ( file_exists( $zip_file_name ) ) {
+            unlink( $zip_file_name );
+        }
+
+        if ( file_exists( $tar_file_name ) ) {
+            unlink( $tar_file_name );
+        }
+    }
+}
+add_action( 'init', 'infinite_uploads_complainz_fix' );
