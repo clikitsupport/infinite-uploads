@@ -1,10 +1,10 @@
 === Infinite Uploads - Offload Media and Video to Cloud Storage ===
 
-Requires at least: 5.3
-Tested up to: 6.6
-Stable tag: 2.0.7
-Requires PHP: 7.0
-Contributors: uglyrobot, jdailey
+Requires at least: 6.0
+Tested up to: 6.8.1
+Stable tag: 3.0
+Requires PHP: 7.4
+Contributors: bww
 Tags: cloud storage, media cloud, encoding, offload, video, streaming, s3, google cloud storage, spaces, storage, cdn, cloud sync
 License: GPLv2
 License URI: https://www.gnu.org/licenses/gpl-2.0.html

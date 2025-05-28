@@ -6,8 +6,8 @@
  * Author: Infinite Uploads
  * Author URI: https://infiniteuploads.com/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin&utm_content=meta
  * Text Domain: infinite-uploads
- * Requires at least: 5.3
- * Requires PHP: 7.0
+ * Requires at least: 6.0
+ * Requires PHP: 7.4
  * License: GPLv2
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Network: true
@@ -17,7 +17,7 @@
  * Copyright 2021-2025 ClikIT, LLC
 */
 
-define( 'INFINITE_UPLOADS_VERSION', '2.0.7' );
+define( 'INFINITE_UPLOADS_VERSION', '3.0' );
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once dirname( __FILE__ ) . '/inc/class-infinite-uploads-wp-cli-command.php';

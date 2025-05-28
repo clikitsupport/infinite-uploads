@@ -326,7 +326,7 @@ class ClientResolver
             'type'      => 'value',
             'valid'     => ['bool'],
             'doc' => 'Set to true to suppress PHP runtime deprecation warnings. The current deprecation campaign is PHP versions 8.0.x and below, taking effect on 1/13/2025.',
-            'default' => false,
+            'default' => true,
             'fn' => [__CLASS__, '_apply_suppress_php_deprecation_warning']
         ],
         'account_id_endpoint_mode' => [
