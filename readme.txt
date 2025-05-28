@@ -174,6 +174,20 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Changelog ==
 
+3.0 - 2025-05-28
+----------------------------------------------------------------------
+- Upgraded PHP AWS SDK for 10-20% faster performance and lower RAM utilization
+- Updated namespace
+- Increased WordPress minimum to 6.0
+- Increased PHP version minimum to 7.4
+- Added Imagify compatibility
+
+2.0.9 - 2025-05-23
+----------------------------------------------------------------------
+- Added Exclusion the WooCommerce Log file
+- Added Exclusion For WooCommerce Product CSV Export
+- Added Complianz Plugin Compatibility
+
 2.0.7 - 2025-01-30
 ----------------------------------------------------------------------
 - Fix for video container CSS
