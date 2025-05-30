@@ -182,6 +182,10 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 - Increased PHP version minimum to 7.4
 - Added Imagify compatibility
 
+2.0.10 - 2025-05-29
+----------------------------------------------------------------------
+- Fix for the Complianz Plugin
+
 2.0.9 - 2025-05-23
 ----------------------------------------------------------------------
 - Added Exclusion the WooCommerce Log file
