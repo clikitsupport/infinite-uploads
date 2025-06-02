@@ -1,0 +1,51 @@
+<?php
+namespace ClikIT\Infinite_Uploads\Aws\MigrationHub;
+
+use ClikIT\Infinite_Uploads\Aws\AwsClient;
+
+/**
+ * This client is used to interact with the **AWS Migration Hub** service.
+ * @method \ClikIT\Infinite_Uploads\Aws\Result associateCreatedArtifact(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise associateCreatedArtifactAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result associateDiscoveredResource(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise associateDiscoveredResourceAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result associateSourceResource(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise associateSourceResourceAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result createProgressUpdateStream(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise createProgressUpdateStreamAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result deleteProgressUpdateStream(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise deleteProgressUpdateStreamAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result describeApplicationState(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise describeApplicationStateAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result describeMigrationTask(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise describeMigrationTaskAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result disassociateCreatedArtifact(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise disassociateCreatedArtifactAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result disassociateDiscoveredResource(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise disassociateDiscoveredResourceAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result disassociateSourceResource(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise disassociateSourceResourceAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result importMigrationTask(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise importMigrationTaskAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listApplicationStates(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listApplicationStatesAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listCreatedArtifacts(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listCreatedArtifactsAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listDiscoveredResources(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listDiscoveredResourcesAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listMigrationTaskUpdates(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listMigrationTaskUpdatesAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listMigrationTasks(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listMigrationTasksAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listProgressUpdateStreams(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listProgressUpdateStreamsAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listSourceResources(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listSourceResourcesAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result notifyApplicationState(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise notifyApplicationStateAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result notifyMigrationTaskState(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise notifyMigrationTaskStateAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result putResourceAttributes(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise putResourceAttributesAsync(array $args = [])
+ */
+class MigrationHubClient extends AwsClient {}

@@ -1,6 +1,5 @@
 <?php
-
-namespace UglyRobot\Infinite_Uploads\Aws;
+namespace ClikIT\Infinite_Uploads\Aws;
 
 interface ConfigurationProviderInterface
 {

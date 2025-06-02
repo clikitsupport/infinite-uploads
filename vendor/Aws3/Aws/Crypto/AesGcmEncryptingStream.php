@@ -1,26 +1,36 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws\Crypto;
 
-namespace UglyRobot\Infinite_Uploads\Aws\Crypto;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\StreamDecoratorTrait;
+use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
 
-use UglyRobot\Infinite_Uploads\Aws\Crypto\Polyfill\AesGcm;
-use UglyRobot\Infinite_Uploads\Aws\Crypto\Polyfill\Key;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\StreamDecoratorTrait;
-use UglyRobot\Infinite_Uploads\Psr\Http\Message\StreamInterface;
-use RuntimeException;
 /**
  * @internal Represents a stream of data to be gcm encrypted.
  */
-class AesGcmEncryptingStream implements \UglyRobot\Infinite_Uploads\Aws\Crypto\AesStreamInterface, \UglyRobot\Infinite_Uploads\Aws\Crypto\AesStreamInterfaceV2
+class AesGcmEncryptingStream implements AesStreamInterface, AesStreamInterfaceV2
 {
     use StreamDecoratorTrait;
+
     private $aad;
+
     private $initializationVector;
+
     private $key;
+
     private $keySize;
+
     private $plaintext;
+
     private $tag = '';
+
     private $tagLength;
+
+    /**
+     * @var StreamInterface
+     */
+    private $stream;
+
     /**
      * Same as non-static 'getAesName' method, allowing calls in a static
      * context.
@@ -31,6 +41,7 @@ class AesGcmEncryptingStream implements \UglyRobot\Infinite_Uploads\Aws\Crypto\A
     {
         return 'AES/GCM/NoPadding';
     }
+
     /**
      * @param StreamInterface $plaintext
      * @param string $key
@@ -39,19 +50,31 @@ class AesGcmEncryptingStream implements \UglyRobot\Infinite_Uploads\Aws\Crypto\A
      * @param int $tagLength
      * @param int $keySize
      */
-    public function __construct(\UglyRobot\Infinite_Uploads\Psr\Http\Message\StreamInterface $plaintext, $key, $initializationVector, $aad = '', $tagLength = 16, $keySize = 256)
-    {
+    public function __construct(
+        StreamInterface $plaintext,
+        $key,
+        $initializationVector,
+        $aad = '',
+        $tagLength = 16,
+        $keySize = 256
+    ) {
+
         $this->plaintext = $plaintext;
         $this->key = $key;
         $this->initializationVector = $initializationVector;
         $this->aad = $aad;
         $this->tagLength = $tagLength;
         $this->keySize = $keySize;
+        // unsetting the property forces the first access to go through
+        // __get().
+        unset($this->stream);
     }
+
     public function getOpenSslName()
     {
         return "aes-{$this->keySize}-gcm";
     }
+
     /**
      * Same as static method and retained for backwards compatibility
      *
@@ -61,18 +84,26 @@ class AesGcmEncryptingStream implements \UglyRobot\Infinite_Uploads\Aws\Crypto\A
     {
         return self::getStaticAesName();
     }
+
     public function getCurrentIv()
     {
         return $this->initializationVector;
     }
+
     public function createStream()
     {
-        if (version_compare(PHP_VERSION, '7.1', '<')) {
-            return \UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\stream_for(\UglyRobot\Infinite_Uploads\Aws\Crypto\Polyfill\AesGcm::encrypt((string) $this->plaintext, $this->initializationVector, new \UglyRobot\Infinite_Uploads\Aws\Crypto\Polyfill\Key($this->key), $this->aad, $this->tag, $this->keySize));
-        } else {
-            return \UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\stream_for(\openssl_encrypt((string) $this->plaintext, $this->getOpenSslName(), $this->key, OPENSSL_RAW_DATA, $this->initializationVector, $this->tag, $this->aad, $this->tagLength));
-        }
+        return Psr7\Utils::streamFor(\openssl_encrypt(
+            (string)$this->plaintext,
+            $this->getOpenSslName(),
+            $this->key,
+            OPENSSL_RAW_DATA,
+            $this->initializationVector,
+            $this->tag,
+            $this->aad,
+            $this->tagLength
+        ));
     }
+
     /**
      * @return string
      */
@@ -80,7 +111,8 @@ class AesGcmEncryptingStream implements \UglyRobot\Infinite_Uploads\Aws\Crypto\A
     {
         return $this->tag;
     }
-    public function isWritable()
+
+    public function isWritable(): bool
     {
         return false;
     }

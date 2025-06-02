@@ -1,16 +1,16 @@
 <?php
 
 
-use UglyRobot\Infinite_Uploads\Aws\S3\S3ClientInterface;
-use UglyRobot\Infinite_Uploads\Aws\CacheInterface;
-use UglyRobot\Infinite_Uploads\Aws\LruArrayCache;
-use UglyRobot\Infinite_Uploads\Aws\Result;
-use UglyRobot\Infinite_Uploads\Aws\S3\Exception\S3Exception;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\Stream;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\CachingStream;
-use UglyRobot\Infinite_Uploads\Psr\Http\Message\StreamInterface;
-use UglyRobot\Infinite_Uploads\Aws;
+use ClikIT\Infinite_Uploads\Aws\S3\S3ClientInterface;
+use ClikIT\Infinite_Uploads\Aws\CacheInterface;
+use ClikIT\Infinite_Uploads\Aws\LruArrayCache;
+use ClikIT\Infinite_Uploads\Aws\Result;
+use ClikIT\Infinite_Uploads\Aws\S3\Exception\S3Exception;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\Stream;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\CachingStream;
+use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
+use ClikIT\Infinite_Uploads\Aws;
 
 /**
  * Amazon S3 stream wrapper to use "iu://<bucket>/<key>" files with PHP
@@ -137,11 +137,9 @@ class Infinite_Uploads_Stream_Wrapper {
 		$this->initProtocol( $path );
 		$this->params = $this->getBucketKey( $path );
 		$this->mode   = rtrim( $mode, 'bt' );
-
 		if ( $errors = $this->validate( $path, $this->mode ) ) {
 			return $this->triggerError( $errors );
 		}
-
 		return $this->boolCall( function () use ( $path ) {
 			switch ( $this->mode ) {
 				case 'r':
@@ -182,7 +180,6 @@ class Infinite_Uploads_Stream_Wrapper {
 	 */
 	private function validate( $path, $mode ) {
 		$errors = [];
-
 		if ( ! $this->getOption( 'Key' ) ) {
 			$errors[] = 'Cannot open a bucket. You must specify a path in the '
 			            . 'form of iu://bucket/key';
@@ -207,7 +204,6 @@ class Infinite_Uploads_Stream_Wrapper {
 		) {
 			$errors[] = "{$path} already exists on Infinite Uploads";
 		}
-
 		return $errors;
 	}
 
@@ -424,9 +420,10 @@ class Infinite_Uploads_Stream_Wrapper {
 	 * @return bool
 	 */
 	private function boolCall( callable $fn, $flags = null ) {
-		try {
+		try {			
 			return $fn();
 		} catch ( \Exception $e ) {
+			$this->debug( 'Error Message', $e->getMessage() );
 			return $this->triggerError( $e->getMessage(), $flags );
 		}
 	}
@@ -531,7 +528,6 @@ class Infinite_Uploads_Stream_Wrapper {
 
 	private function openWriteStream( $path ) {
 		$this->body = new Stream( fopen( 'php://temp', 'r+' ) );
-
 		return true;
 	}
 
@@ -641,7 +637,11 @@ class Infinite_Uploads_Stream_Wrapper {
 	}
 
 	public function stream_metadata( $path, $option, $value ) {
-		return false;
+		if ( is_plugin_active( 'imagify/imagify.php' ) ) {
+			return true;
+		} else {
+			return false;
+		}
 	}
 
 	public function stream_tell() {
@@ -753,8 +753,11 @@ class Infinite_Uploads_Stream_Wrapper {
 
 		return $this->boolCall( function () use ( $parts, $path ) {
 			try {
-				$this->debug( 'HeadObject', $parts['Key'] );
+
+				$this->debug( 'HeadObjects', $parts['Key'] );
+
 				$result = $this->getClient()->headObject( $parts );
+
 				if ( substr( $parts['Key'], - 1, 1 ) == '/' &&
 				     $result['ContentLength'] == 0
 				) {
@@ -922,7 +925,6 @@ class Infinite_Uploads_Stream_Wrapper {
 		) {
 			return $this->triggerError( "Subfolder already exists: {$path}" );
 		}
-
 		return $this->boolCall( function () use ( $params, $path ) {
 			$this->debug( 'PutObject', $params['Key'] );
 			$bool = (bool) $this->getClient()->putObject( $params );
@@ -1099,7 +1101,7 @@ class Infinite_Uploads_Stream_Wrapper {
 		$this->debug( 'ListObjects', $op['Prefix'] );
 		// Filter our "/" keys added by the console as directories, and ensure
 		// that if a filter function is provided that it passes the filter.
-		$this->objectIterator = \UglyRobot\Infinite_Uploads\Aws\flatmap(
+		$this->objectIterator = \ClikIT\Infinite_Uploads\Aws\flatmap(
 			$this->getClient()->getPaginator( 'ListObjects', $op ),
 			function ( Result $result ) use ( $filterFn ) {
 				$contentsAndPrefixes = $result->search( '[Contents[], CommonPrefixes[]][]' );

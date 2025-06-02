@@ -1,20 +1,21 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws\S3\Crypto;
 
-namespace UglyRobot\Infinite_Uploads\Aws\S3\Crypto;
+use ClikIT\Infinite_Uploads\Aws\Crypto\DecryptionTraitV2;
+use ClikIT\Infinite_Uploads\Aws\Exception\CryptoException;
+use ClikIT\Infinite_Uploads\Aws\HashingStream;
+use ClikIT\Infinite_Uploads\Aws\MetricsBuilder;
+use ClikIT\Infinite_Uploads\Aws\PhpHash;
+use ClikIT\Infinite_Uploads\Aws\Crypto\AbstractCryptoClientV2;
+use ClikIT\Infinite_Uploads\Aws\Crypto\EncryptionTraitV2;
+use ClikIT\Infinite_Uploads\Aws\Crypto\MetadataEnvelope;
+use ClikIT\Infinite_Uploads\Aws\Crypto\MaterialsProvider;
+use ClikIT\Infinite_Uploads\Aws\Crypto\Cipher\CipherBuilderTrait;
+use ClikIT\Infinite_Uploads\Aws\S3\S3Client;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 
-use UglyRobot\Infinite_Uploads\Aws\Crypto\DecryptionTraitV2;
-use UglyRobot\Infinite_Uploads\Aws\Exception\CryptoException;
-use UglyRobot\Infinite_Uploads\Aws\HashingStream;
-use UglyRobot\Infinite_Uploads\Aws\PhpHash;
-use UglyRobot\Infinite_Uploads\Aws\Crypto\AbstractCryptoClientV2;
-use UglyRobot\Infinite_Uploads\Aws\Crypto\EncryptionTraitV2;
-use UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope;
-use UglyRobot\Infinite_Uploads\Aws\Crypto\MaterialsProvider;
-use UglyRobot\Infinite_Uploads\Aws\Crypto\Cipher\CipherBuilderTrait;
-use UglyRobot\Infinite_Uploads\Aws\S3\S3Client;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Promise;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7;
 /**
  * Provides a wrapper for an S3Client that supplies functionality to encrypt
  * data on putObject[Async] calls and decrypt data on getObject[Async] calls.
@@ -33,9 +34,9 @@ use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7;
  * Example write path:
  *
  * <code>
- * use Aws\Crypto\KmsMaterialsProviderV2;
- * use Aws\S3\Crypto\S3EncryptionClientV2;
- * use Aws\S3\S3Client;
+ * use ClikIT\Infinite_Uploads\Aws\Crypto\KmsMaterialsProviderV2;
+ * use ClikIT\Infinite_Uploads\Aws\S3\Crypto\S3EncryptionClientV2;
+ * use ClikIT\Infinite_Uploads\Aws\S3\S3Client;
  *
  * $encryptionClient = new S3EncryptionClientV2(
  *     new S3Client([
@@ -79,17 +80,20 @@ use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7;
  * ]);
  * </code>
  */
-class S3EncryptionClientV2 extends \UglyRobot\Infinite_Uploads\Aws\Crypto\AbstractCryptoClientV2
+class S3EncryptionClientV2 extends AbstractCryptoClientV2
 {
     use CipherBuilderTrait;
     use CryptoParamsTraitV2;
     use DecryptionTraitV2;
     use EncryptionTraitV2;
     use UserAgentTrait;
+
     const CRYPTO_VERSION = '2.1';
+
     private $client;
     private $instructionFileSuffix;
     private $legacyWarningCount;
+
     /**
      * @param S3Client $client The S3Client to be used for true uploading and
      *                         retrieving objects from S3 when using the
@@ -98,17 +102,24 @@ class S3EncryptionClientV2 extends \UglyRobot\Infinite_Uploads\Aws\Crypto\Abstra
      *                                           default when using instruction
      *                                           files for metadata storage.
      */
-    public function __construct(\UglyRobot\Infinite_Uploads\Aws\S3\S3Client $client, $instructionFileSuffix = null)
-    {
-        $this->appendUserAgent($client, 'S3CryptoV' . self::CRYPTO_VERSION);
+    public function __construct(
+        S3Client $client,
+        $instructionFileSuffix = null
+    ) {
         $this->client = $client;
         $this->instructionFileSuffix = $instructionFileSuffix;
         $this->legacyWarningCount = 0;
+        MetricsBuilder::appendMetricsCaptureMiddleware(
+            $this->client->getHandlerList(),
+            MetricsBuilder::S3_CRYPTO_V2
+        );
     }
+
     private static function getDefaultStrategy()
     {
-        return new \UglyRobot\Infinite_Uploads\Aws\S3\Crypto\HeadersMetadataStrategy();
+        return new HeadersMetadataStrategy();
     }
+
     /**
      * Encrypts the data in the 'Body' field of $args and promises to upload it
      * to the specified location on S3.
@@ -160,34 +171,56 @@ class S3EncryptionClientV2 extends \UglyRobot\Infinite_Uploads\Aws\Crypto\Abstra
     {
         $provider = $this->getMaterialsProvider($args);
         unset($args['@MaterialsProvider']);
+
         $instructionFileSuffix = $this->getInstructionFileSuffix($args);
         unset($args['@InstructionFileSuffix']);
+
         $strategy = $this->getMetadataStrategy($args, $instructionFileSuffix);
         unset($args['@MetadataStrategy']);
-        $envelope = new \UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope();
-        return \UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\promise_for($this->encrypt(\UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\stream_for($args['Body']), $args, $provider, $envelope))->then(function ($encryptedBodyStream) use($args) {
-            $hash = new \UglyRobot\Infinite_Uploads\Aws\PhpHash('sha256');
-            $hashingEncryptedBodyStream = new \UglyRobot\Infinite_Uploads\Aws\HashingStream($encryptedBodyStream, $hash, self::getContentShaDecorator($args));
-            return [$hashingEncryptedBodyStream, $args];
-        })->then(function ($putObjectContents) use($strategy, $envelope) {
-            list($bodyStream, $args) = $putObjectContents;
-            if ($strategy === null) {
-                $strategy = self::getDefaultStrategy();
+
+        $envelope = new MetadataEnvelope();
+
+        return Promise\Create::promiseFor($this->encrypt(
+            Psr7\Utils::streamFor($args['Body']),
+            $args,
+            $provider,
+            $envelope
+        ))->then(
+            function ($encryptedBodyStream) use ($args) {
+                $hash = new PhpHash('sha256');
+                $hashingEncryptedBodyStream = new HashingStream(
+                    $encryptedBodyStream,
+                    $hash,
+                    self::getContentShaDecorator($args)
+                );
+                return [$hashingEncryptedBodyStream, $args];
             }
-            $updatedArgs = $strategy->save($envelope, $args);
-            $updatedArgs['Body'] = $bodyStream;
-            return $updatedArgs;
-        })->then(function ($args) {
-            unset($args['@CipherOptions']);
-            return $this->client->putObjectAsync($args);
-        });
+        )->then(
+            function ($putObjectContents) use ($strategy, $envelope) {
+                list($bodyStream, $args) = $putObjectContents;
+                if ($strategy === null) {
+                    $strategy = self::getDefaultStrategy();
+                }
+
+                $updatedArgs = $strategy->save($envelope, $args);
+                $updatedArgs['Body'] = $bodyStream;
+                return $updatedArgs;
+            }
+        )->then(
+            function ($args) {
+                unset($args['@CipherOptions']);
+                return $this->client->putObjectAsync($args);
+            }
+        );
     }
+
     private static function getContentShaDecorator(&$args)
     {
-        return function ($hash) use(&$args) {
+        return function ($hash) use (&$args) {
             $args['ContentSHA256'] = bin2hex($hash);
         };
     }
+
     /**
      * Encrypts the data in the 'Body' field of $args and uploads it to the
      * specified location on S3.
@@ -231,7 +264,7 @@ class S3EncryptionClientV2 extends \UglyRobot\Infinite_Uploads\Aws\Crypto\Abstra
      *   instruction file if an using an InstructionFileMetadataHandler was
      *   determined.
      *
-     * @return \Aws\Result PutObject call result with the details of uploading
+     * @return \ClikIT\Infinite_Uploads\Aws\Result PutObject call result with the details of uploading
      *                     the encrypted file.
      *
      * @throws \InvalidArgumentException Thrown when arguments above are not
@@ -241,6 +274,7 @@ class S3EncryptionClientV2 extends \UglyRobot\Infinite_Uploads\Aws\Crypto\Abstra
     {
         return $this->putObjectAsync($args)->wait();
     }
+
     /**
      * Promises to retrieve an object from S3 and decrypt the data in the
      * 'Body' field.
@@ -291,37 +325,82 @@ class S3EncryptionClientV2 extends \UglyRobot\Infinite_Uploads\Aws\Crypto\Abstra
     {
         $provider = $this->getMaterialsProvider($args);
         unset($args['@MaterialsProvider']);
+
         $instructionFileSuffix = $this->getInstructionFileSuffix($args);
         unset($args['@InstructionFileSuffix']);
+
         $strategy = $this->getMetadataStrategy($args, $instructionFileSuffix);
         unset($args['@MetadataStrategy']);
-        if (!isset($args['@SecurityProfile']) || !in_array($args['@SecurityProfile'], self::$supportedSecurityProfiles)) {
-            throw new \UglyRobot\Infinite_Uploads\Aws\Exception\CryptoException("@SecurityProfile is required and must be" . " set to 'V2' or 'V2_AND_LEGACY'");
+
+        if (!isset($args['@SecurityProfile'])
+            || !in_array($args['@SecurityProfile'], self::$supportedSecurityProfiles)
+        ) {
+            throw new CryptoException("@SecurityProfile is required and must be"
+                . " set to 'V2' or 'V2_AND_LEGACY'");
         }
+
         // Only throw this legacy warning once per client
-        if (in_array($args['@SecurityProfile'], self::$legacySecurityProfiles) && $this->legacyWarningCount < 1) {
+        if (in_array($args['@SecurityProfile'], self::$legacySecurityProfiles)
+            && $this->legacyWarningCount < 1
+        ) {
             $this->legacyWarningCount++;
-            trigger_error("This S3 Encryption Client operation is configured to" . " read encrypted data with legacy encryption modes. If you" . " don't have objects encrypted with these legacy modes," . " you should disable support for them to enhance security. ", E_USER_WARNING);
+            trigger_error(
+                "This S3 Encryption Client operation is configured to"
+                    . " read encrypted data with legacy encryption modes. If you"
+                    . " don't have objects encrypted with these legacy modes,"
+                    . " you should disable support for them to enhance security. ",
+                E_USER_WARNING
+            );
         }
+
         $saveAs = null;
         if (!empty($args['SaveAs'])) {
             $saveAs = $args['SaveAs'];
         }
-        $promise = $this->client->getObjectAsync($args)->then(function ($result) use($provider, $instructionFileSuffix, $strategy, $args) {
-            if ($strategy === null) {
-                $strategy = $this->determineGetObjectStrategy($result, $instructionFileSuffix);
-            }
-            $envelope = $strategy->load($args + ['Metadata' => $result['Metadata']]);
-            $result['Body'] = $this->decrypt($result['Body'], $provider, $envelope, $args);
-            return $result;
-        })->then(function ($result) use($saveAs) {
-            if (!empty($saveAs)) {
-                file_put_contents($saveAs, (string) $result['Body'], LOCK_EX);
-            }
-            return $result;
-        });
+
+        $promise = $this->client->getObjectAsync($args)
+            ->then(
+                function ($result) use (
+                    $provider,
+                    $instructionFileSuffix,
+                    $strategy,
+                    $args
+                ) {
+                    if ($strategy === null) {
+                        $strategy = $this->determineGetObjectStrategy(
+                            $result,
+                            $instructionFileSuffix
+                        );
+                    }
+
+                    $envelope = $strategy->load($args + [
+                        'Metadata' => $result['Metadata']
+                    ]);
+
+                    $result['Body'] = $this->decrypt(
+                        $result['Body'],
+                        $provider,
+                        $envelope,
+                        $args
+                    );
+                    return $result;
+                }
+            )->then(
+                function ($result) use ($saveAs) {
+                    if (!empty($saveAs)) {
+                        file_put_contents(
+                            $saveAs,
+                            (string)$result['Body'],
+                            LOCK_EX
+                        );
+                    }
+                    return $result;
+                }
+            );
+
         return $promise;
     }
+
     /**
      * Retrieves an object from S3 and decrypts the data in the 'Body' field.
      *
@@ -357,7 +436,7 @@ class S3EncryptionClientV2 extends \UglyRobot\Infinite_Uploads\Aws\Crypto\Abstra
      *   be specified and provided to the decrypt operation. Ignored for non-KMS
      *   materials providers. Defaults to false.
      *
-     * @return \Aws\Result GetObject call result with the 'Body' field
+     * @return \ClikIT\Infinite_Uploads\Aws\Result GetObject call result with the 'Body' field
      *                     wrapped in a decryption stream with its metadata
      *                     information.
      *

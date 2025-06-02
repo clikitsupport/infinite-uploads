@@ -1,11 +1,11 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws\Crypto;
 
-namespace UglyRobot\Infinite_Uploads\Aws\Crypto;
+use ClikIT\Infinite_Uploads\Aws\Exception\CryptoException;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\LimitStream;
+use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
 
-use UglyRobot\Infinite_Uploads\Aws\Exception\CryptoException;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\LimitStream;
-use UglyRobot\Infinite_Uploads\Psr\Http\Message\StreamInterface;
 trait DecryptionTraitV2
 {
     /**
@@ -18,7 +18,8 @@ trait DecryptionTraitV2
      *
      * @internal
      */
-    protected abstract function getCipherFromAesName($aesName);
+    abstract protected function getCipherFromAesName($aesName);
+
     /**
      * Dependency to generate a CipherMethod from a set of inputs for loading
      * in to an AesDecryptingStream.
@@ -32,7 +33,8 @@ trait DecryptionTraitV2
      *
      * @internal
      */
-    protected abstract function buildCipherMethod($cipherName, $iv, $keySize);
+    abstract protected function buildCipherMethod($cipherName, $iv, $keySize);
+
     /**
      * Builds an AesStreamInterface using cipher options loaded from the
      * MetadataEnvelope and MaterialsProvider. Can decrypt data from both the
@@ -53,61 +55,142 @@ trait DecryptionTraitV2
      *
      * @internal
      */
-    public function decrypt($cipherText, \UglyRobot\Infinite_Uploads\Aws\Crypto\MaterialsProviderInterfaceV2 $provider, \UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope $envelope, array $options = [])
-    {
-        $options['@CipherOptions'] = !empty($options['@CipherOptions']) ? $options['@CipherOptions'] : [];
-        $options['@CipherOptions']['Iv'] = base64_decode($envelope[\UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope::IV_HEADER]);
-        $options['@CipherOptions']['TagLength'] = $envelope[\UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope::CRYPTO_TAG_LENGTH_HEADER] / 8;
-        $cek = $provider->decryptCek(base64_decode($envelope[\UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope::CONTENT_KEY_V2_HEADER]), json_decode($envelope[\UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope::MATERIALS_DESCRIPTION_HEADER], true), $options);
+    public function decrypt(
+        $cipherText,
+        MaterialsProviderInterfaceV2 $provider,
+        MetadataEnvelope $envelope,
+        array $options = []
+    ) {
+        $options['@CipherOptions'] = !empty($options['@CipherOptions'])
+            ? $options['@CipherOptions']
+            : [];
+        $options['@CipherOptions']['Iv'] = base64_decode(
+            $envelope[MetadataEnvelope::IV_HEADER]
+        );
+
+        $options['@CipherOptions']['TagLength'] =
+            $envelope[MetadataEnvelope::CRYPTO_TAG_LENGTH_HEADER] / 8;
+
+        $cek = $provider->decryptCek(
+            base64_decode(
+                $envelope[MetadataEnvelope::CONTENT_KEY_V2_HEADER]
+            ),
+            json_decode(
+                $envelope[MetadataEnvelope::MATERIALS_DESCRIPTION_HEADER],
+                true
+            ),
+            $options
+        );
         $options['@CipherOptions']['KeySize'] = strlen($cek) * 8;
-        $options['@CipherOptions']['Cipher'] = $this->getCipherFromAesName($envelope[\UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope::CONTENT_CRYPTO_SCHEME_HEADER]);
+        $options['@CipherOptions']['Cipher'] = $this->getCipherFromAesName(
+            $envelope[MetadataEnvelope::CONTENT_CRYPTO_SCHEME_HEADER]
+        );
+
         $this->validateOptionsAndEnvelope($options, $envelope);
-        $decryptionStream = $this->getDecryptingStream($cipherText, $cek, $options['@CipherOptions']);
+
+        $decryptionStream = $this->getDecryptingStream(
+            $cipherText,
+            $cek,
+            $options['@CipherOptions']
+        );
         unset($cek);
+
         return $decryptionStream;
     }
-    private function getTagFromCiphertextStream(\UglyRobot\Infinite_Uploads\Psr\Http\Message\StreamInterface $cipherText, $tagLength)
-    {
+
+    private function getTagFromCiphertextStream(
+        StreamInterface $cipherText,
+        $tagLength
+    ) {
         $cipherTextSize = $cipherText->getSize();
         if ($cipherTextSize == null || $cipherTextSize <= 0) {
-            throw new \RuntimeException('Cannot decrypt a stream of unknown' . ' size.');
+            throw new \RuntimeException('Cannot decrypt a stream of unknown'
+                . ' size.');
         }
-        return (string) new \UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\LimitStream($cipherText, $tagLength, $cipherTextSize - $tagLength);
+        return (string) new LimitStream(
+            $cipherText,
+            $tagLength,
+            $cipherTextSize - $tagLength
+        );
     }
-    private function getStrippedCiphertextStream(\UglyRobot\Infinite_Uploads\Psr\Http\Message\StreamInterface $cipherText, $tagLength)
-    {
+
+    private function getStrippedCiphertextStream(
+        StreamInterface $cipherText,
+        $tagLength
+    ) {
         $cipherTextSize = $cipherText->getSize();
         if ($cipherTextSize == null || $cipherTextSize <= 0) {
-            throw new \RuntimeException('Cannot decrypt a stream of unknown' . ' size.');
+            throw new \RuntimeException('Cannot decrypt a stream of unknown'
+                . ' size.');
         }
-        return new \UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\LimitStream($cipherText, $cipherTextSize - $tagLength, 0);
+        return new LimitStream(
+            $cipherText,
+            $cipherTextSize - $tagLength,
+            0
+        );
     }
+
     private function validateOptionsAndEnvelope($options, $envelope)
     {
         $allowedCiphers = AbstractCryptoClientV2::$supportedCiphers;
         $allowedKeywraps = AbstractCryptoClientV2::$supportedKeyWraps;
         if ($options['@SecurityProfile'] == 'V2_AND_LEGACY') {
-            $allowedCiphers = array_unique(array_merge($allowedCiphers, AbstractCryptoClient::$supportedCiphers));
-            $allowedKeywraps = array_unique(array_merge($allowedKeywraps, AbstractCryptoClient::$supportedKeyWraps));
+            $allowedCiphers = array_unique(array_merge(
+                $allowedCiphers,
+                AbstractCryptoClient::$supportedCiphers
+            ));
+            $allowedKeywraps = array_unique(array_merge(
+                $allowedKeywraps,
+                AbstractCryptoClient::$supportedKeyWraps
+            ));
         }
-        $v1SchemaException = new \UglyRobot\Infinite_Uploads\Aws\Exception\CryptoException("The requested object is encrypted" . " with V1 encryption schemas that have been disabled by" . " client configuration @SecurityProfile=V2. Retry with" . " V2_AND_LEGACY enabled or reencrypt the object.");
+
+        $v1SchemaException = new CryptoException("The requested object is encrypted"
+            . " with V1 encryption schemas that have been disabled by"
+            . " client configuration @SecurityProfile=V2. Retry with"
+            . " V2_AND_LEGACY enabled or reencrypt the object.");
+
         if (!in_array($options['@CipherOptions']['Cipher'], $allowedCiphers)) {
             if (in_array($options['@CipherOptions']['Cipher'], AbstractCryptoClient::$supportedCiphers)) {
                 throw $v1SchemaException;
             }
-            throw new \UglyRobot\Infinite_Uploads\Aws\Exception\CryptoException("The requested object is encrypted with" . " the cipher '{$options['@CipherOptions']['Cipher']}', which is not" . " supported for decryption with the selected security profile." . " This profile allows decryption with: " . implode(", ", $allowedCiphers));
+            throw new CryptoException("The requested object is encrypted with"
+                . " the cipher '{$options['@CipherOptions']['Cipher']}', which is not"
+                . " supported for decryption with the selected security profile."
+                . " This profile allows decryption with: "
+                . implode(", ", $allowedCiphers));
         }
-        if (!in_array($envelope[\UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope::KEY_WRAP_ALGORITHM_HEADER], $allowedKeywraps)) {
-            if (in_array($envelope[\UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope::KEY_WRAP_ALGORITHM_HEADER], AbstractCryptoClient::$supportedKeyWraps)) {
+        if (!in_array(
+            $envelope[MetadataEnvelope::KEY_WRAP_ALGORITHM_HEADER],
+            $allowedKeywraps
+        )) {
+            if (in_array(
+                $envelope[MetadataEnvelope::KEY_WRAP_ALGORITHM_HEADER],
+                AbstractCryptoClient::$supportedKeyWraps)
+            ) {
                 throw $v1SchemaException;
             }
-            throw new \UglyRobot\Infinite_Uploads\Aws\Exception\CryptoException("The requested object is encrypted with" . " the keywrap schema '{$envelope[\UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope::KEY_WRAP_ALGORITHM_HEADER]}'," . " which is not supported for decryption with the current security" . " profile.");
+            throw new CryptoException("The requested object is encrypted with"
+                . " the keywrap schema '{$envelope[MetadataEnvelope::KEY_WRAP_ALGORITHM_HEADER]}',"
+                . " which is not supported for decryption with the current security"
+                . " profile.");
         }
-        $matdesc = json_decode($envelope[\UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope::MATERIALS_DESCRIPTION_HEADER], true);
-        if (isset($matdesc['aws:x-amz-cek-alg']) && $envelope[\UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope::CONTENT_CRYPTO_SCHEME_HEADER] !== $matdesc['aws:x-amz-cek-alg']) {
-            throw new \UglyRobot\Infinite_Uploads\Aws\Exception\CryptoException("There is a mismatch in specified content" . " encryption algrithm between the materials description value" . " and the metadata envelope value: {$matdesc['aws:x-amz-cek-alg']}" . " vs. {$envelope[\UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope::CONTENT_CRYPTO_SCHEME_HEADER]}.");
+
+        $matdesc = json_decode(
+            $envelope[MetadataEnvelope::MATERIALS_DESCRIPTION_HEADER],
+            true
+        );
+        if (isset($matdesc['aws:x-amz-cek-alg'])
+            && $envelope[MetadataEnvelope::CONTENT_CRYPTO_SCHEME_HEADER] !==
+                $matdesc['aws:x-amz-cek-alg']
+        ) {
+            throw new CryptoException("There is a mismatch in specified content"
+                . " encryption algrithm between the materials description value"
+                . " and the metadata envelope value: {$matdesc['aws:x-amz-cek-alg']}"
+                . " vs. {$envelope[MetadataEnvelope::CONTENT_CRYPTO_SCHEME_HEADER]}.");
         }
     }
+
     /**
      * Generates a stream that wraps the cipher text with the proper cipher and
      * uses the content encryption key (CEK) to decrypt the data when read.
@@ -123,16 +206,44 @@ trait DecryptionTraitV2
      *
      * @internal
      */
-    protected function getDecryptingStream($cipherText, $cek, $cipherOptions)
-    {
-        $cipherTextStream = \UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\stream_for($cipherText);
+    protected function getDecryptingStream(
+        $cipherText,
+        $cek,
+        $cipherOptions
+    ) {
+        $cipherTextStream = Psr7\Utils::streamFor($cipherText);
         switch ($cipherOptions['Cipher']) {
             case 'gcm':
-                $cipherOptions['Tag'] = $this->getTagFromCiphertextStream($cipherTextStream, $cipherOptions['TagLength']);
-                return new \UglyRobot\Infinite_Uploads\Aws\Crypto\AesGcmDecryptingStream($this->getStrippedCiphertextStream($cipherTextStream, $cipherOptions['TagLength']), $cek, $cipherOptions['Iv'], $cipherOptions['Tag'], $cipherOptions['Aad'] = isset($cipherOptions['Aad']) ? $cipherOptions['Aad'] : null, $cipherOptions['TagLength'] ?: null, $cipherOptions['KeySize']);
+                $cipherOptions['Tag'] = $this->getTagFromCiphertextStream(
+                        $cipherTextStream,
+                        $cipherOptions['TagLength']
+                    );
+
+                return new AesGcmDecryptingStream(
+                    $this->getStrippedCiphertextStream(
+                        $cipherTextStream,
+                        $cipherOptions['TagLength']
+                    ),
+                    $cek,
+                    $cipherOptions['Iv'],
+                    $cipherOptions['Tag'],
+                    $cipherOptions['Aad'] = isset($cipherOptions['Aad'])
+                        ? $cipherOptions['Aad']
+                        : '',
+                    $cipherOptions['TagLength'] ?: null,
+                    $cipherOptions['KeySize']
+                );
             default:
-                $cipherMethod = $this->buildCipherMethod($cipherOptions['Cipher'], $cipherOptions['Iv'], $cipherOptions['KeySize']);
-                return new \UglyRobot\Infinite_Uploads\Aws\Crypto\AesDecryptingStream($cipherTextStream, $cek, $cipherMethod);
+                $cipherMethod = $this->buildCipherMethod(
+                    $cipherOptions['Cipher'],
+                    $cipherOptions['Iv'],
+                    $cipherOptions['KeySize']
+                );
+                return new AesDecryptingStream(
+                    $cipherTextStream,
+                    $cek,
+                    $cipherMethod
+                );
         }
     }
 }

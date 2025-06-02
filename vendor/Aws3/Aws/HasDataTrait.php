@@ -1,6 +1,5 @@
 <?php
-
-namespace UglyRobot\Infinite_Uploads\Aws;
+namespace ClikIT\Infinite_Uploads\Aws;
 
 /**
  * Trait implementing ToArrayInterface, \ArrayAccess, \Countable, and
@@ -10,10 +9,16 @@ trait HasDataTrait
 {
     /** @var array */
     private $data = [];
+
+    /**
+     * @return \Traversable
+     */
+    #[\ReturnTypeWillChange]
     public function getIterator()
     {
         return new \ArrayIterator($this->data);
     }
+
     /**
      * This method returns a reference to the variable to allow for indirect
      * array modification (e.g., $foo['bar']['baz'] = 'qux').
@@ -22,30 +27,53 @@ trait HasDataTrait
      *
      * @return mixed|null
      */
-    public function &offsetGet($offset)
+    #[\ReturnTypeWillChange]
+    public function & offsetGet($offset)
     {
         if (isset($this->data[$offset])) {
             return $this->data[$offset];
         }
+
         $value = null;
         return $value;
     }
+
+    /**
+     * @return void
+     */
+    #[\ReturnTypeWillChange]
     public function offsetSet($offset, $value)
     {
         $this->data[$offset] = $value;
     }
+
+    /**
+     * @return bool
+     */
+    #[\ReturnTypeWillChange]
     public function offsetExists($offset)
     {
         return isset($this->data[$offset]);
     }
+
+    /**
+     * @return void
+     */
+    #[\ReturnTypeWillChange]
     public function offsetUnset($offset)
     {
         unset($this->data[$offset]);
     }
+
     public function toArray()
     {
         return $this->data;
     }
+
+    /**
+     * @return int
+     */
+    #[\ReturnTypeWillChange]
     public function count()
     {
         return count($this->data);

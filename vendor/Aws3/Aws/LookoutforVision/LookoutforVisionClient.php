@@ -1,0 +1,53 @@
+<?php
+namespace ClikIT\Infinite_Uploads\Aws\LookoutforVision;
+
+use ClikIT\Infinite_Uploads\Aws\AwsClient;
+
+/**
+ * This client is used to interact with the **Amazon Lookout for Vision** service.
+ * @method \ClikIT\Infinite_Uploads\Aws\Result createDataset(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise createDatasetAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result createModel(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise createModelAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result createProject(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise createProjectAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result deleteDataset(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise deleteDatasetAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result deleteModel(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise deleteModelAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result deleteProject(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise deleteProjectAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result describeDataset(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise describeDatasetAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result describeModel(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise describeModelAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result describeModelPackagingJob(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise describeModelPackagingJobAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result describeProject(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise describeProjectAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result detectAnomalies(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise detectAnomaliesAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listDatasetEntries(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listDatasetEntriesAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listModelPackagingJobs(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listModelPackagingJobsAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listModels(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listModelsAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listProjects(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listProjectsAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listTagsForResource(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listTagsForResourceAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result startModel(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise startModelAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result startModelPackagingJob(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise startModelPackagingJobAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result stopModel(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise stopModelAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result tagResource(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise tagResourceAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result untagResource(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise untagResourceAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result updateDatasetEntries(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise updateDatasetEntriesAsync(array $args = [])
+ */
+class LookoutforVisionClient extends AwsClient {}

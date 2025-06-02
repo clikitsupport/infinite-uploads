@@ -1,10 +1,10 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws\S3\Crypto;
 
-namespace UglyRobot\Infinite_Uploads\Aws\S3\Crypto;
+use ClikIT\Infinite_Uploads\Aws\Crypto\MetadataStrategyInterface;
+use ClikIT\Infinite_Uploads\Aws\Crypto\MetadataEnvelope;
 
-use UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataStrategyInterface;
-use UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope;
-class HeadersMetadataStrategy implements \UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataStrategyInterface
+class HeadersMetadataStrategy implements MetadataStrategyInterface
 {
     /**
      * Places the information in the MetadataEnvelope in to the metadata for
@@ -17,13 +17,15 @@ class HeadersMetadataStrategy implements \UglyRobot\Infinite_Uploads\Aws\Crypto\
      *
      * @return array Updated arguments for PutObject.
      */
-    public function save(\UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope $envelope, array $args)
+    public function save(MetadataEnvelope $envelope, array $args)
     {
-        foreach ($envelope as $header => $value) {
+        foreach ($envelope as $header=>$value) {
             $args['Metadata'][$header] = $value;
         }
+
         return $args;
     }
+
     /**
      * Generates a MetadataEnvelope according to the metadata headers from the
      * GetObject result.
@@ -36,13 +38,15 @@ class HeadersMetadataStrategy implements \UglyRobot\Infinite_Uploads\Aws\Crypto\
      */
     public function load(array $args)
     {
-        $envelope = new \UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope();
-        $constantValues = \UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope::getConstantValues();
+        $envelope = new MetadataEnvelope();
+        $constantValues = MetadataEnvelope::getConstantValues();
+
         foreach ($constantValues as $constant) {
             if (!empty($args['Metadata'][$constant])) {
                 $envelope[$constant] = $args['Metadata'][$constant];
             }
         }
+
         return $envelope;
     }
 }

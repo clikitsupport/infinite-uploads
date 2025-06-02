@@ -2,12 +2,12 @@
 /*
  * Plugin Name: Infinite Uploads
  * Description: Infinitely scalable cloud storage and delivery for your videos and uploads made easy! Upload directly to cloud storage and manage your files right from the WordPress Media Library.
- * Version: 2.0.10
+ * Version: 3.0
  * Author: Infinite Uploads
  * Author URI: https://infiniteuploads.com/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin&utm_content=meta
  * Text Domain: infinite-uploads
- * Requires at least: 5.3
- * Requires PHP: 7.0
+ * Requires at least: 6.0
+ * Requires PHP: 7.4
  * License: GPLv2
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Network: true
@@ -17,7 +17,7 @@
  * Copyright 2021-2025 ClikIT, LLC
 */
 
-define( 'INFINITE_UPLOADS_VERSION', '2.0.8' );
+define( 'INFINITE_UPLOADS_VERSION', '3.0' );
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once dirname( __FILE__ ) . '/inc/class-infinite-uploads-wp-cli-command.php';
@@ -30,10 +30,9 @@ register_activation_hook( __FILE__, 'infinite_uploads_install' );
 add_action( 'plugins_loaded', 'infinite_uploads_init' );
 
 function infinite_uploads_init() {
-
 	//how much to try uploading/downloading per ajax loop (we want as much as possible without exceeding (php timeout - ajax_timeout) to avoid 504s
 	if ( ! defined( 'INFINITE_UPLOADS_SYNC_MAX_BYTES' ) ) {
-		define( 'INFINITE_UPLOADS_SYNC_MAX_BYTES', MB_IN_BYTES * 5 );
+		define( 'INFINITE_UPLOADS_SYNC_MAX_BYTES', MB_IN_BYTES * 12 );
 	}
 	//This is the maximum to transfer in parallel within the INFINITE_UPLOADS_SYNC_MAX_BYTES size.
 	if ( ! defined( 'INFINITE_UPLOADS_SYNC_CONCURRENCY' ) ) {

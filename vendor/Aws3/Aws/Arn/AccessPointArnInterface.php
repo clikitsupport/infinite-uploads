@@ -1,6 +1,5 @@
 <?php
-
-namespace UglyRobot\Infinite_Uploads\Aws\Arn;
+namespace ClikIT\Infinite_Uploads\Aws\Arn;
 
 /**
  * @internal

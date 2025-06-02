@@ -1,11 +1,11 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws\Credentials;
 
-namespace UglyRobot\Infinite_Uploads\Aws\Credentials;
+use ClikIT\Infinite_Uploads\Aws\Exception\CredentialsException;
+use ClikIT\Infinite_Uploads\Aws\Result;
+use ClikIT\Infinite_Uploads\Aws\Sts\StsClient;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 
-use UglyRobot\Infinite_Uploads\Aws\Exception\CredentialsException;
-use UglyRobot\Infinite_Uploads\Aws\Result;
-use UglyRobot\Infinite_Uploads\Aws\Sts\StsClient;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 /**
  * Credential provider that provides credentials via assuming a role
  * More Information, see: http://docs.aws.amazon.com/aws-sdk-php/v3/api/api-sts-2011-06-15.html#assumerole
@@ -13,10 +13,13 @@ use UglyRobot\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 class AssumeRoleCredentialProvider
 {
     const ERROR_MSG = "Missing required 'AssumeRoleCredentialProvider' configuration option: ";
+
     /** @var StsClient */
     private $client;
+
     /** @var array */
     private $assumeRoleParams;
+
     /**
      * The constructor requires following configure parameters:
      *  - client: a StsClient
@@ -30,12 +33,15 @@ class AssumeRoleCredentialProvider
         if (!isset($config['assume_role_params'])) {
             throw new \InvalidArgumentException(self::ERROR_MSG . "'assume_role_params'.");
         }
+
         if (!isset($config['client'])) {
             throw new \InvalidArgumentException(self::ERROR_MSG . "'client'.");
         }
+
         $this->client = $config['client'];
         $this->assumeRoleParams = $config['assume_role_params'];
     }
+
     /**
      * Loads assume role credentials.
      *
@@ -44,10 +50,18 @@ class AssumeRoleCredentialProvider
     public function __invoke()
     {
         $client = $this->client;
-        return $client->assumeRoleAsync($this->assumeRoleParams)->then(function (\UglyRobot\Infinite_Uploads\Aws\Result $result) {
-            return $this->client->createCredentials($result);
-        })->otherwise(function (\RuntimeException $exception) {
-            throw new \UglyRobot\Infinite_Uploads\Aws\Exception\CredentialsException("Error in retrieving assume role credentials.", 0, $exception);
-        });
+        return $client->assumeRoleAsync($this->assumeRoleParams)
+            ->then(function (Result $result) {
+                return $this->client->createCredentials(
+                    $result,
+                    CredentialSources::STS_ASSUME_ROLE
+                );
+            })->otherwise(function (\RuntimeException $exception) {
+                throw new CredentialsException(
+                    "Error in retrieving assume role credentials.",
+                    0,
+                    $exception
+                );
+            });
     }
 }

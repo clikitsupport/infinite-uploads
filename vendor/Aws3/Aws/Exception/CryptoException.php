@@ -1,6 +1,5 @@
 <?php
-
-namespace UglyRobot\Infinite_Uploads\Aws\Exception;
+namespace ClikIT\Infinite_Uploads\Aws\Exception;
 
 /**
  * This class represents exceptions related to logic surrounding client-side
@@ -8,4 +7,5 @@ namespace UglyRobot\Infinite_Uploads\Aws\Exception;
  */
 class CryptoException extends \RuntimeException
 {
+
 }

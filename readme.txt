@@ -1,10 +1,10 @@
 === Infinite Uploads - Offload Media and Video to Cloud Storage ===
 
-Requires at least: 5.3
-Tested up to: 6.6
-Stable tag: 2.0.10
-Requires PHP: 7.0
-Contributors: uglyrobot, jdailey
+Requires at least: 6.0
+Tested up to: 6.8.1
+Stable tag: 3.0
+Requires PHP: 7.4
+Contributors: bww
 Tags: cloud storage, media cloud, encoding, offload, video, streaming, s3, google cloud storage, spaces, storage, cdn, cloud sync
 License: GPLv2
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -183,9 +183,23 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 - Added Exclusion For WooCommerce Product CSV Export
 - Added Complianz Plugin Compatibility
 
-2.0.8 - 2025-02-28
+3.0 - 2025-06-02
 ----------------------------------------------------------------------
-- Fix for Multisite
+- Upgraded PHP AWS SDK for 10-20% faster performance and lower RAM utilization
+- Updated namespace
+- Increased WordPress minimum to 6.0
+- Increased PHP version minimum to 7.4
+- Added Imagify compatibility
+
+2.0.10 - 2025-05-29
+----------------------------------------------------------------------
+- Fix for the Complianz Plugin
+
+2.0.9 - 2025-05-23
+----------------------------------------------------------------------
+- Added Exclusion the WooCommerce Log file
+- Added Exclusion For WooCommerce Product CSV Export
+- Added Complianz Plugin Compatibility
 
 2.0.7 - 2025-01-30
 ----------------------------------------------------------------------
@@ -285,7 +299,7 @@ Infinite Uploads is a premium cloud storage provider and content delivery networ
 Learn how to get the most out of your cloud-hosted files on our blog:
 [Infinite Uploads Blog, Tips, Tricks, How-tos, and News](https://infiniteuploads.com/blog/?utm_source=wordpress.org&utm_medium=readme&utm_campaign=iup_readme&utm_term=blog)
 
-[Contribute to the plugin's development on Github!](https://github.com/uglyrobot/infinite-uploads/)
+[Contribute to the plugin's development on Github!](https://github.com/clikitsupport/infinite-uploads)
 
 Want to use your WordPress site to train an AI chatbot to provide instant answers to your customers? Check out our sister project [DocsBot AI](https://docsbot.ai/?utm_source=wordpress.org&utm_medium=readme&utm_campaign=iu_readme)!
 

@@ -204,7 +204,6 @@ class Infinite_Uploads_Api_Handler {
 	 */
 	public function call( $remote_path, $data = [], $method = 'GET', $options = [] ) {
 		$link = $this->rest_url( $remote_path );
-
 		$options = wp_parse_args(
 			$options,
 			[

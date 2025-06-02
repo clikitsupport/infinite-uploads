@@ -1,6 +1,8 @@
 <?php
 
-namespace UglyRobot\Infinite_Uploads\GuzzleHttp\Promise;
+declare(strict_types=1);
+
+namespace ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 
 /**
  * A special exception that is thrown when waiting on a rejected promise.
@@ -11,23 +13,30 @@ class RejectionException extends \RuntimeException
 {
     /** @var mixed Rejection reason. */
     private $reason;
+
     /**
-     * @param mixed  $reason      Rejection reason.
-     * @param string $description Optional description
+     * @param mixed       $reason      Rejection reason.
+     * @param string|null $description Optional description.
      */
-    public function __construct($reason, $description = null)
+    public function __construct($reason, ?string $description = null)
     {
         $this->reason = $reason;
+
         $message = 'The promise was rejected';
+
         if ($description) {
-            $message .= ' with reason: ' . $description;
-        } elseif (is_string($reason) || is_object($reason) && method_exists($reason, '__toString')) {
-            $message .= ' with reason: ' . $this->reason;
+            $message .= ' with reason: '.$description;
+        } elseif (is_string($reason)
+            || (is_object($reason) && method_exists($reason, '__toString'))
+        ) {
+            $message .= ' with reason: '.$this->reason;
         } elseif ($reason instanceof \JsonSerializable) {
-            $message .= ' with reason: ' . json_encode($this->reason, JSON_PRETTY_PRINT);
+            $message .= ' with reason: '.json_encode($this->reason, JSON_PRETTY_PRINT);
         }
+
         parent::__construct($message);
     }
+
     /**
      * Returns the rejection reason.
      *

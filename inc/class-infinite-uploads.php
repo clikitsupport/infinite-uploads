@@ -1,8 +1,8 @@
 <?php
 
-use UglyRobot\Infinite_Uploads\Aws\S3\S3Client;
-use UglyRobot\Infinite_Uploads\Aws\Multipart\UploadState;
-use UglyRobot\Infinite_Uploads\Aws\ResultInterface;
+use ClikIT\Infinite_Uploads\Aws\S3\S3Client;
+use ClikIT\Infinite_Uploads\Aws\Multipart\UploadState;
+use ClikIT\Infinite_Uploads\Aws\ResultInterface;
 
 class Infinite_Uploads {
 
@@ -19,6 +19,8 @@ class Infinite_Uploads {
 	public $stream_api_call_count = [];
 	public $stream_plugin_api_call_count = [];
 	public $stream_file_cache = [];
+	public $stream;
+	public $s3;
 
 	public function __construct() {
 		/**
@@ -45,7 +47,6 @@ class Infinite_Uploads {
 		if ( ! self::$instance ) {
 			self::$instance = new Infinite_Uploads();
 		}
-
 		return self::$instance;
 	}
 
@@ -72,7 +73,6 @@ class Infinite_Uploads {
 			}
 		}
 		$state->setStatus( UploadState::INITIATED );
-
 		return $state;
 	}
 
@@ -91,11 +91,9 @@ class Infinite_Uploads {
 	 * Setup the hooks, urls filtering etc for Infinite Uploads
 	 */
 	public function setup() {
-
 		$this->admin  = Infinite_Uploads_Admin::get_instance();
 		$this->api    = Infinite_Uploads_Api_Handler::get_instance();
 		$this->stream = Infinite_Uploads_Video::get_instance();
-
 		//Add cloud permissions if present
 		$api_data = $this->api->get_site_data();
 		if ( $api_data && isset( $api_data->site ) && ! empty( $api_data->site->upload_key ) && ! empty( $api_data->site->upload_secret ) ) {
@@ -104,7 +102,6 @@ class Infinite_Uploads {
 			$this->secret     = $api_data->site->upload_secret;
 			$this->bucket_url = $api_data->site->cdn_url;
 			$this->region     = $api_data->site->upload_region;
-
 			add_filter( 'infinite_uploads_s3_client_params', function ( $params ) use ( $api_data ) {
 				$params['endpoint']                = $api_data->site->upload_endpoint;
 				$params['use_path_style_endpoint'] = true;
@@ -115,6 +112,7 @@ class Infinite_Uploads {
 				//];
 				return $params;
 			} );
+			
 		} else { //if we don't have cloud data we have to disable everything to avoid errors
 			//turn off enabled flag
 			if ( infinite_uploads_enabled() ) {
@@ -144,7 +142,6 @@ class Infinite_Uploads {
 
 		//bypass cloud during updates
 		add_action( 'load-update.php', [ $this, 'tear_down' ] );
-
 		//block uploads if permissions are only read/delete
 		if ( ! $api_data->site->upload_writeable ) {
 			add_filter( 'pre-upload-ui', [ $this, 'blocked_uploads_header' ] );
@@ -274,7 +271,7 @@ class Infinite_Uploads {
 	}
 
 	/**
-	 * @return UglyRobot\Infinite_Uploads\Aws\S3\S3Client
+	 * @return ClikIT\Infinite_Uploads\Aws\S3\S3Client
 	 */
 	public function s3() {
 
@@ -306,7 +303,7 @@ class Infinite_Uploads {
 		}
 
 		/**
-		 * Filter the parameters passed when creating the Aws\S3\S3Client via the AWS PHP SDK.
+		 * Filter the parameters passed when creating the  via the AWS PHP SDK.
 		 * See; https://docs.aws.amazon.com/sdk-for-php/v3/developer-guide/guide_configuration.html
 		 *
 		 * @param  {array} $params S3Client::_construct() parameters.
@@ -318,7 +315,6 @@ class Infinite_Uploads {
 		 */
 		$params   = apply_filters( 'infinite_uploads_s3_client_params', $params );
 		$this->s3 = new S3Client( $params );
-
 		return $this->s3;
 	}
 
@@ -599,8 +595,7 @@ class Infinite_Uploads {
 	}
 
 	public function filter_upload_dir( $dirs ) {
-		$root_dirs = $this->get_original_upload_dir_root();
-
+		$root_dirs = $this->get_original_upload_dir_root();		
 		$dirs['path']    = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $this->bucket ), $dirs['path'] );
 		$dirs['basedir'] = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $this->bucket ), $dirs['basedir'] );
 
@@ -614,7 +609,6 @@ class Infinite_Uploads {
 				$dirs['baseurl'] = str_replace( 'iu://' . untrailingslashit( $this->bucket ), $this->get_s3_url(), $dirs['basedir'] );
 			}
 		}
-
 		return $dirs;
 	}
 

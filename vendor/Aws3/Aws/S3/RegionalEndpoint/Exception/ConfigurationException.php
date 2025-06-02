@@ -1,13 +1,14 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws\S3\RegionalEndpoint\Exception;
 
-namespace UglyRobot\Infinite_Uploads\Aws\S3\RegionalEndpoint\Exception;
+use ClikIT\Infinite_Uploads\Aws\HasMonitoringEventsTrait;
+use ClikIT\Infinite_Uploads\Aws\MonitoringEventsInterface;
 
-use UglyRobot\Infinite_Uploads\Aws\HasMonitoringEventsTrait;
-use UglyRobot\Infinite_Uploads\Aws\MonitoringEventsInterface;
 /**
  * Represents an error interacting with configuration for sts regional endpoints
  */
-class ConfigurationException extends \RuntimeException implements \UglyRobot\Infinite_Uploads\Aws\MonitoringEventsInterface
+class ConfigurationException extends \RuntimeException implements
+    MonitoringEventsInterface
 {
     use HasMonitoringEventsTrait;
 }

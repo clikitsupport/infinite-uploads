@@ -1,6 +1,5 @@
 <?php
-
-namespace UglyRobot\Infinite_Uploads\Aws\Crypto;
+namespace ClikIT\Infinite_Uploads\Aws\Crypto;
 
 interface MetadataStrategyInterface
 {
@@ -15,7 +14,8 @@ interface MetadataStrategyInterface
      *
      * @return array Updated arguments for PutObject.
      */
-    public function save(\UglyRobot\Infinite_Uploads\Aws\Crypto\MetadataEnvelope $envelope, array $args);
+    public function save(MetadataEnvelope $envelope, array $args);
+
     /**
      * Generates a MetadataEnvelope according to the specific strategy using the
      * passed arguments.

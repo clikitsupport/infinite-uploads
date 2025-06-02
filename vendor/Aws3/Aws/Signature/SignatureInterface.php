@@ -1,9 +1,9 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws\Signature;
 
-namespace UglyRobot\Infinite_Uploads\Aws\Signature;
+use ClikIT\Infinite_Uploads\Aws\Credentials\CredentialsInterface;
+use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
 
-use UglyRobot\Infinite_Uploads\Aws\Credentials\CredentialsInterface;
-use UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface;
 /**
  * Interface used to provide interchangeable strategies for signing requests
  * using the various AWS signature protocols.
@@ -20,7 +20,11 @@ interface SignatureInterface
      *
      * @return RequestInterface Returns the modified request.
      */
-    public function signRequest(\UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request, \UglyRobot\Infinite_Uploads\Aws\Credentials\CredentialsInterface $credentials);
+    public function signRequest(
+        RequestInterface $request,
+        CredentialsInterface $credentials
+    );
+
     /**
      * Create a pre-signed request.
      *
@@ -32,5 +36,10 @@ interface SignatureInterface
      *
      * @return RequestInterface
      */
-    public function presign(\UglyRobot\Infinite_Uploads\Psr\Http\Message\RequestInterface $request, \UglyRobot\Infinite_Uploads\Aws\Credentials\CredentialsInterface $credentials, $expires, array $options = []);
+    public function presign(
+        RequestInterface $request,
+        CredentialsInterface $credentials,
+        $expires,
+        array $options = []
+    );
 }

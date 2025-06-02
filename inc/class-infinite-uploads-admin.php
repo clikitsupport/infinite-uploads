@@ -1,13 +1,13 @@
 <?php
 
-use UglyRobot\Infinite_Uploads\Aws\S3\Transfer;
-use UglyRobot\Infinite_Uploads\Aws\Middleware;
-use UglyRobot\Infinite_Uploads\Aws\ResultInterface;
-use UglyRobot\Infinite_Uploads\Aws\CommandPool;
-use UglyRobot\Infinite_Uploads\Aws\Exception\AwsException;
-use UglyRobot\Infinite_Uploads\Aws\Exception\S3Exception;
-use UglyRobot\Infinite_Uploads\Aws\S3\MultipartUploader;
-use UglyRobot\Infinite_Uploads\Aws\Exception\MultipartUploadException;
+use ClikIT\Infinite_Uploads\Aws\S3\Transfer;
+use ClikIT\Infinite_Uploads\Aws\Middleware;
+use ClikIT\Infinite_Uploads\Aws\ResultInterface;
+use ClikIT\Infinite_Uploads\Aws\CommandPool;
+use ClikIT\Infinite_Uploads\Aws\Exception\AwsException;
+use ClikIT\Infinite_Uploads\Aws\S3\Exception\S3Exception;
+use ClikIT\Infinite_Uploads\Aws\S3\MultipartUploader;
+use ClikIT\Infinite_Uploads\Aws\Exception\MultipartUploadException;
 
 class Infinite_Uploads_Admin {
 
@@ -26,8 +26,7 @@ class Infinite_Uploads_Admin {
 		if ( is_multisite() ) {
 			//multisite
 			add_action( 'network_admin_menu', [ &$this, 'admin_menu' ] );
-			//add_action( 'load-settings_page_infinite_uploads', [ &$this, 'intercept_auth' ] );
-			add_action( 'load-toplevel_page_infinite_uploads', [ &$this, 'intercept_auth' ] );
+			add_action( 'load-settings_page_infinite_uploads', [ &$this, 'intercept_auth' ] );
 			add_filter( 'network_admin_plugin_action_links_infinite-uploads/infinite-uploads.php', [ &$this, 'plugins_list_links' ] );
 		} else {
 			//single site
@@ -347,7 +346,7 @@ class Infinite_Uploads_Admin {
 				$transfer_args = [
 					'concurrency' => $concurrency,
 					'base_dir'    => $path['basedir'],
-					'before'      => function ( UglyRobot\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
+					'before'      => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
 						//add middleware to modify object headers
 						if ( in_array( $command->getName(), [ 'PutObject', 'CreateMultipartUpload' ], true ) ) {
 							/// Expires:
@@ -452,7 +451,7 @@ class Infinite_Uploads_Admin {
 						$uploader      = new MultipartUploader( $s3, $source, [
 							'concurrency'   => INFINITE_UPLOADS_SYNC_MULTIPART_CONCURRENCY,
 							'state'         => $upload_state,
-							'before_upload' => function ( UglyRobot\Infinite_Uploads\Aws\Command $command ) use ( &$parts_started, $uploaded, $errors ) {
+							'before_upload' => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( &$parts_started, $uploaded, $errors ) {
 
 								$this->sync_debug_log( "Uploading key {$command['Key']} part {$command['PartNumber']}" );
 
@@ -477,7 +476,7 @@ class Infinite_Uploads_Admin {
 							} catch ( MultipartUploadException $e ) {
 								$uploader = new MultipartUploader( $s3, $source, [
 									'state'         => $e->getState(),
-									'before_upload' => function ( UglyRobot\Infinite_Uploads\Aws\Command $command ) use ( $wpdb ) {
+									'before_upload' => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb ) {
 										$this->sync_debug_log( "Uploading key {$command['Key']} part {$command['PartNumber']}" );
 										$command->getHandlerList()->appendSign(
 											Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, $command ) {
@@ -613,7 +612,7 @@ class Infinite_Uploads_Admin {
 			$transfer_args = [
 				'concurrency' => INFINITE_UPLOADS_SYNC_CONCURRENCY,
 				'base_dir'    => 's3://' . $this->iup_instance->bucket,
-				'before'      => function ( UglyRobot\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$downloaded ) {//add middleware to intercept result of each file upload
+				'before'      => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$downloaded ) {//add middleware to intercept result of each file upload
 					if ( in_array( $command->getName(), [ 'GetObject' ], true ) ) {
 						$command->getHandlerList()->appendSign(
 							Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, &$downloaded ) {

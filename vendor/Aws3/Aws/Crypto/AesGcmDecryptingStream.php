@@ -1,26 +1,37 @@
 <?php
+namespace ClikIT\Infinite_Uploads\Aws\Crypto;
 
-namespace UglyRobot\Infinite_Uploads\Aws\Crypto;
+use ClikIT\Infinite_Uploads\Aws\Exception\CryptoException;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
+use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\StreamDecoratorTrait;
+use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
 
-use UglyRobot\Infinite_Uploads\Aws\Exception\CryptoException;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7;
-use UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\StreamDecoratorTrait;
-use UglyRobot\Infinite_Uploads\Psr\Http\Message\StreamInterface;
-use UglyRobot\Infinite_Uploads\Aws\Crypto\Polyfill\AesGcm;
-use UglyRobot\Infinite_Uploads\Aws\Crypto\Polyfill\Key;
 /**
  * @internal Represents a stream of data to be gcm decrypted.
  */
-class AesGcmDecryptingStream implements \UglyRobot\Infinite_Uploads\Aws\Crypto\AesStreamInterface
+class AesGcmDecryptingStream implements AesStreamInterface
 {
     use StreamDecoratorTrait;
+
     private $aad;
+
     private $initializationVector;
+
     private $key;
+
     private $keySize;
+
     private $cipherText;
+
     private $tag;
+
     private $tagLength;
+
+    /**
+     * @var StreamInterface
+     */
+    private $stream;
+
     /**
      * @param StreamInterface $cipherText
      * @param string $key
@@ -30,8 +41,15 @@ class AesGcmDecryptingStream implements \UglyRobot\Infinite_Uploads\Aws\Crypto\A
      * @param int $tagLength
      * @param int $keySize
      */
-    public function __construct(\UglyRobot\Infinite_Uploads\Psr\Http\Message\StreamInterface $cipherText, $key, $initializationVector, $tag, $aad = '', $tagLength = 128, $keySize = 256)
-    {
+    public function __construct(
+        StreamInterface $cipherText,
+        $key,
+        $initializationVector,
+        $tag,
+        $aad = '',
+        $tagLength = 128,
+        $keySize = 256
+    ) {
         $this->cipherText = $cipherText;
         $this->key = $key;
         $this->initializationVector = $initializationVector;
@@ -39,32 +57,47 @@ class AesGcmDecryptingStream implements \UglyRobot\Infinite_Uploads\Aws\Crypto\A
         $this->aad = $aad;
         $this->tagLength = $tagLength;
         $this->keySize = $keySize;
+        // unsetting the property forces the first access to go through
+        // __get().
+        unset($this->stream);
     }
+
     public function getOpenSslName()
     {
         return "aes-{$this->keySize}-gcm";
     }
+
     public function getAesName()
     {
         return 'AES/GCM/NoPadding';
     }
+
     public function getCurrentIv()
     {
         return $this->initializationVector;
     }
+
     public function createStream()
     {
-        if (version_compare(PHP_VERSION, '7.1', '<')) {
-            return \UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\stream_for(\UglyRobot\Infinite_Uploads\Aws\Crypto\Polyfill\AesGcm::decrypt((string) $this->cipherText, $this->initializationVector, new \UglyRobot\Infinite_Uploads\Aws\Crypto\Polyfill\Key($this->key), $this->aad, $this->tag, $this->keySize));
-        } else {
-            $result = \openssl_decrypt((string) $this->cipherText, $this->getOpenSslName(), $this->key, OPENSSL_RAW_DATA, $this->initializationVector, $this->tag, $this->aad);
-            if ($result === false) {
-                throw new \UglyRobot\Infinite_Uploads\Aws\Exception\CryptoException('The requested object could not be' . ' decrypted due to an invalid authentication tag.');
-            }
-            return \UglyRobot\Infinite_Uploads\GuzzleHttp\Psr7\stream_for($result);
+
+        $result = \openssl_decrypt(
+            (string)$this->cipherText,
+            $this->getOpenSslName(),
+            $this->key,
+            OPENSSL_RAW_DATA,
+            $this->initializationVector,
+            $this->tag,
+            $this->aad
+        );
+        if ($result === false) {
+            throw new CryptoException('The requested object could not be '
+            . 'decrypted due to an invalid authentication tag.');
         }
+        return Psr7\Utils::streamFor($result);
+
     }
-    public function isWritable()
+
+    public function isWritable(): bool
     {
         return false;
     }
