@@ -174,7 +174,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Changelog ==
 
-3.0 - 2025-05-28
+3.0 - 2025-06-02
 ----------------------------------------------------------------------
 - Upgraded PHP AWS SDK for 10-20% faster performance and lower RAM utilization
 - Updated namespace
