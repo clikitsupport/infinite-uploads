@@ -7,6 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     steps:
       # Step 1: Checkout the repository
       - name: Checkout code
@@ -16,6 +17,13 @@ jobs:
       - name: Install Subversion
         run: sudo apt-get update && sudo apt-get install subversion -y
 
+    # Step 2.1: Increase SVN HTTP timeout to 1 hour
+      - name: Increase SVN timeout
+        run: |
+          mkdir -p ~/.subversion
+          echo "[global]" >> ~/.subversion/servers
+          echo "http-timeout = 3600" >> ~/.subversion/servers
+          
       # Step 3: Build the plugin
       - name: Build the plugin
         run: |
