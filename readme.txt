@@ -173,15 +173,6 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 8. Create a custom CDN URL, track storage, and free up space.
 
 == Changelog ==
-2.0.10 - 2025-05-29
-----------------------------------------------------------------------
-- Bug fix for Complianz plugin
-
-2.0.9 - 2025-05-23
-----------------------------------------------------------------------
-- Added Exclusion the WooCommerce Log file
-- Added Exclusion For WooCommerce Product CSV Export
-- Added Complianz Plugin Compatibility
 
 3.0 - 2025-06-02
 ----------------------------------------------------------------------
