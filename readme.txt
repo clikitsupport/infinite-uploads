@@ -3,7 +3,7 @@
 Requires at least: 6.0
 Tested up to: 6.8.1
 Stable tag: 3.0
-Requires PHP: 7.4
+Requires PHP: 8.0
 Contributors: bww
 Tags: cloud storage, media cloud, encoding, offload, video, streaming, s3, google cloud storage, spaces, storage, cdn, cloud sync
 License: GPLv2
@@ -173,6 +173,10 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 8. Create a custom CDN URL, track storage, and free up space.
 
 == Changelog ==
+3.0.1 - 2025-06-03
+----------------------------------------------------------------------
+- Upgraded PHP version to 8.0
+- Added privacy policy before connect
 
 3.0 - 2025-06-02
 ----------------------------------------------------------------------

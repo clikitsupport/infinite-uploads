@@ -48,6 +48,9 @@
 					<input type="hidden" name="bytes" value="<?php echo esc_attr( $to_sync->size ); ?>">
 					<input type="hidden" name="files" value="<?php echo esc_attr( $to_sync->files ); ?>">
 					<button class="btn text-nowrap btn-primary btn-lg" type="submit"><span class="dashicons dashicons-cloud"></span> <?php esc_html_e( 'Connect', 'infinite-uploads' ); ?></button>
+					<p class="mt-2">
+						By clicking connect, you agree to our <a href="https://infiniteuploads.com/privacy/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin&utm_content=footer&utm_term=privacy" target="_new">privacy policy</a>.
+					</p>
 				</form>
 			</div>
 		</div>
