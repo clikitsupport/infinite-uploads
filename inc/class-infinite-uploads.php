@@ -1008,6 +1008,46 @@ class Infinite_Uploads {
 		return $exclusions;
 	}
 
+	public function infinite_uploads_delete_files_from_cloud( $post_id ) {
+		// Replace with your actual attachment ID
+		$attachment_id = $post_id;
+
+		// Get the file path from the attachment ID
+		$file_path = get_attached_file( $attachment_id );
+		echo $file_path;
+		// Optional: Check if file exists
+		if ( file_exists( $file_path ) ) {
+			// Delete the file from the filesystem
+			wp_delete_file( $file_path );
+			
+			echo 'File deleted from server.';
+		} else {
+			echo 'File does not exist.';
+		}
+		$this->api    = Infinite_Uploads_Api_Handler::get_instance();
+		$meta = wp_get_attachment_metadata( $post_id );
+		$file = get_attached_file( $post_id );
+		var_dump($file);
+		$to_purge = [];
+		if ( ! empty( $meta['sizes'] ) ) {
+			foreach ( $meta['sizes'] as $sizeinfo ) {
+				$intermediate_file = str_replace( basename( $file ), $sizeinfo['file'], $file );
+				//wp_delete_file( $intermediate_file );
+				$to_purge[] = $intermediate_file;
+			}
+		}
+		$test  = wp_delete_file( $file );
+		$to_purge[] = $file;
+
+		$dirs = wp_get_upload_dir();
+		foreach ( $to_purge as $key => $file ) {
+			$to_purge[ $key ] = str_replace( $dirs['basedir'], $dirs['baseurl'], $file );
+		}
+
+		//purge these from CDN cache
+		$this->api->purge( $to_purge );
+
+	}
 }
 
 /**
