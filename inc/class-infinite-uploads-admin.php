@@ -298,6 +298,144 @@ class Infinite_Uploads_Admin {
 		}
 	}
 
+	public function download_image( $image_path ) {
+		global $wpdb;
+
+		if ( ! current_user_can( $this->iup_instance->capability )  ) {
+			wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
+		}
+
+		$upload_dir = wp_upload_dir();
+
+		$to_sync[] = (object) [
+			'file' => $image_path,
+			'size' => file_exists( $upload_dir['basedir'] . $image_path ) ? filesize( $upload_dir['basedir'] . $image_path ) : 0
+		];
+
+		$downloaded = 0;
+		$errors     = [];
+		$break      = false;
+		$path       = $this->iup_instance->get_original_upload_dir_root();
+		$s3         = $this->iup_instance->s3();
+
+		//build full paths
+		$to_sync_full = [];
+		$to_sync_size = 0;
+		$to_sync_sql  = [];
+		foreach ( $to_sync as $file ) {
+			$to_sync_size += $file->size;
+			if ( count( $to_sync_full ) && $to_sync_size > INFINITE_UPLOADS_SYNC_MAX_BYTES ) { //upload at minimum one file even if it's huuuge
+				break;
+			}
+			$to_sync_full[] = 's3://' . untrailingslashit( $this->iup_instance->bucket ) . $file->file;
+			$to_sync_sql[]  = esc_sql( $file->file );
+		}
+		
+		$obj  = new ArrayObject( $to_sync_full );
+		$from = $obj->getIterator();
+
+		$transfer_args = [
+			'concurrency' => INFINITE_UPLOADS_SYNC_CONCURRENCY,
+			'base_dir'    => 's3://' . $this->iup_instance->bucket,
+			'before'      => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$downloaded ) {//add middleware to intercept result of each file upload
+				if ( in_array( $command->getName(), [ 'GetObject' ], true ) ) {
+					$command->getHandlerList()->appendSign(
+						Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, &$downloaded ) {
+							$downloaded ++;
+							$file = $this->iup_instance->get_file_from_result( $result );
+							return $result;
+						} )
+					);
+				}
+			},
+		];
+		try {
+			$manager = new Transfer( $s3, $from, $path['basedir'], $transfer_args );
+			$manager->transfer();
+		} catch ( Exception $e ) {
+			//echo $e->__toString();
+			if ( method_exists( $e, 'getRequest' ) ) {
+				$file        = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
+			} else {
+				$errors[] = esc_html__( 'Error downloading file. Queued for retry.', 'infinite-uploads' );
+			}
+		}
+	}
+
+	public function offload_image( $image_path ) {
+		global $wpdb;
+		$uploaded = 0;
+		$errors   = [];
+		$break    = false;
+		$is_done  = false;
+		$path     = $this->iup_instance->get_original_upload_dir_root();
+		$s3       = $this->iup_instance->s3();
+		if ( ! current_user_can( $this->iup_instance->capability ) ) {
+			wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
+		}
+		$orig_path = $this->iup_instance->get_original_upload_dir_root();
+		$to_sync[] = (object) [
+			'file' => $image_path,
+			'size' => file_exists( $orig_path['basedir'] . '/' . $image_path ) ? filesize( $orig_path['basedir'] . '/' . $image_path ) : 0
+		];
+
+		if ( $to_sync ) {
+			//build full paths
+			$to_sync_full = [];
+			$to_sync_size = 0;
+			$to_sync_sql  = [];
+			foreach ( $to_sync as $file ) {
+				$to_sync_size += $file->size;
+				if ( count( $to_sync_full ) && $to_sync_size > INFINITE_UPLOADS_SYNC_MAX_BYTES ) { //upload at minimum one file even if it's huuuge
+					break;
+				}
+				$to_sync_full[] = $path['basedir'] . $file->file;
+				$to_sync_sql[]  = esc_sql( $file->file );
+			}
+			$concurrency = count( $to_sync_full ) > 1 ? INFINITE_UPLOADS_SYNC_CONCURRENCY : INFINITE_UPLOADS_SYNC_MULTIPART_CONCURRENCY;
+			$obj         = new ArrayObject( $to_sync_full );
+			$from        = $obj->getIterator();
+
+			$transfer_args = [
+				'concurrency' => $concurrency,
+				'base_dir'    => $path['basedir'],
+				'before'      => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
+					//add middleware to modify object headers
+					if ( in_array( $command->getName(), [ 'PutObject', 'CreateMultipartUpload' ], true ) ) {
+						/// Expires:
+						if ( defined( 'INFINITE_UPLOADS_HTTP_EXPIRES' ) ) {
+							$command['Expires'] = INFINITE_UPLOADS_HTTP_EXPIRES;
+						}
+						// Cache-Control:
+						if ( defined( 'INFINITE_UPLOADS_HTTP_CACHE_CONTROL' ) ) {
+							if ( is_numeric( INFINITE_UPLOADS_HTTP_CACHE_CONTROL ) ) {
+								$command['CacheControl'] = 'max-age=' . INFINITE_UPLOADS_HTTP_CACHE_CONTROL;
+							} else {
+								$command['CacheControl'] = INFINITE_UPLOADS_HTTP_CACHE_CONTROL;
+							}
+						}
+					}
+
+					if ( in_array( $command->getName(), [ 'PutObject' ], true ) ) {
+						$this->sync_debug_log( "Uploading key {$command['Key']}" );
+					}
+
+				},
+			];
+			try {
+				$manager = new Transfer( $s3, $from, 's3://' . $this->iup_instance->bucket . '/', $transfer_args );
+				$manager->transfer();
+			} catch ( Exception $e ) {
+				$this->sync_debug_log( "Transfer sync exception: " . $e->__toString() );
+				//echo $e->__toString();
+				if ( method_exists( $e, 'getRequest' ) ) {
+					$file        = str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() );
+				} else { //I don't know which error case trigger this but it's common
+					$errors[] = esc_html__( 'Error uploading file. Queued for retry.', 'infinite-uploads' );
+				}
+			}
+		}
+	}
 	public function ajax_sync() {
 		global $wpdb;
 

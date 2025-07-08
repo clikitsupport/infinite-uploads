@@ -39,14 +39,18 @@
 		</div>
 		<div class="row justify-content-center mb-5">
 			<div class="col text-center">
+				<?php
+					$current_user = wp_get_current_user();
+				?>
 				<form method="post"
-				      action="<?php echo esc_url( $this->api_url( defined( 'BIG_FILE_UPLOADS_VERSION' ) ? '/connect/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=bfu_plugin&utm_term=connect' : '/connect/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin&utm_term=connect' ) ); ?>">
+					action="<?php echo esc_url( $this->api_url( defined( 'BIG_FILE_UPLOADS_VERSION' ) ? '/connect/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=bfu_plugin&utm_term=connect' : '/connect/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin&utm_term=connect' ) ); ?>">
 					<input type="hidden" name="action" value="iup_connect">
 					<input type="hidden" name="site_id" value="<?php echo esc_attr( $this->api->get_site_id() ); ?>">
 					<input type="hidden" name="domain" value="<?php echo esc_url( $this->api->network_site_url() ); ?>">
 					<input type="hidden" name="redirect_url" value="<?php echo esc_url( $this->settings_url() ); ?>">
 					<input type="hidden" name="bytes" value="<?php echo esc_attr( $to_sync->size ); ?>">
 					<input type="hidden" name="files" value="<?php echo esc_attr( $to_sync->files ); ?>">
+					<input type="hidden" name="user_email" value="<?php echo esc_attr( $current_user->user_email ); ?>">
 					<button class="btn text-nowrap btn-primary btn-lg" type="submit"><span class="dashicons dashicons-cloud"></span> <?php esc_html_e( 'Connect', 'infinite-uploads' ); ?></button>
 					<p class="mt-2">
 						By clicking connect, you agree to our <a href="https://infiniteuploads.com/privacy/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin&utm_content=footer&utm_term=privacy" target="_new">privacy policy</a>.
