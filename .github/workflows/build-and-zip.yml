@@ -33,18 +33,16 @@ jobs:
 
       - name: Extract version and create ZIP
         run: |
-          TAG_PATH="${{ github.event.inputs.tag_path }}"
-          VERSION="${TAG_PATH##*/}"  # Extracts '3.0.2' from 'infiniteuploads/3.0.2'
+          VERSION="${{ github.ref_name }}"  # Extracts just '3.0.2' from 'infiniteuploads/3.0.2'
           PLUGIN_SLUG="infinite-uploads"
           ZIP_NAME="${PLUGIN_SLUG}-v${VERSION}.zip"
 
           echo "Extracted version: $VERSION"
-          echo "ZIP will be named: $ZIP_NAME"
+          echo "Creating ZIP: $ZIP_NAME"
 
-          # Create a clean temp folder for the plugin
+          rm -rf "$PLUGIN_SLUG"
           mkdir "$PLUGIN_SLUG"
 
-          # Copy plugin files into infinite-uploads/ folder
           rsync -av ./ "$PLUGIN_SLUG/" \
             --exclude=".git" \
             --exclude="node_modules" \
@@ -52,8 +50,9 @@ jobs:
             --exclude="*.zip" \
             --exclude="$PLUGIN_SLUG"
 
-          # Create the versioned ZIP in the root directory
+          rm -f "$ZIP_NAME"
           zip -r "$ZIP_NAME" "$PLUGIN_SLUG"
+
 
       - name: Commit ZIP file to repo root
         run: |
