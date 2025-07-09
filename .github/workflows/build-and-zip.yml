@@ -1,0 +1,50 @@
+name: Build and ZIP WordPress Plugin
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (e.g., 1.2.3)"
+        required: true
+
+jobs:
+  build-zip:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js (if needed)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies & build plugin
+        run: |
+          npm ci
+          npm run build
+
+      - name: Prepare plugin folder for ZIP
+        run: |
+          PLUGIN_SLUG="infinite-uploads"
+          VERSION="${{ github.event.inputs.version }}"
+          mkdir -p dist
+          mkdir -p "$PLUGIN_SLUG"
+
+          # Copy plugin files into a subfolder named infinite-uploads/
+          rsync -av --progress ./ "$PLUGIN_SLUG/" --exclude=".git" --exclude="node_modules" --exclude="dist" --exclude=".github"
+
+          # Create the versioned ZIP
+          zip -r "dist/${PLUGIN_SLUG}-v${VERSION}.zip" "$PLUGIN_SLUG"
+
+      - name: Commit ZIP file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist/*.zip
+          git commit -m "Add ZIP for version v${{ github.event.inputs.version }}"
+          git push
