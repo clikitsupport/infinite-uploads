@@ -56,14 +56,15 @@ jobs:
           zip -r "$ZIP_NAME" "$PLUGIN_SLUG"
 
 
-      - name: Commit ZIP file to repo root
+      - name: Commit ZIP file to root
         run: |
-          TAG_PATH="${{ github.event.inputs.tag_path }}"
-          VERSION="${TAG_PATH##*/}"
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG##*/}"
           ZIP_NAME="infinite-uploads-v${VERSION}.zip"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add "$ZIP_NAME"
-          git commit -m "Add ZIP: $ZIP_NAME"
+          git commit -m "Update ZIP: $ZIP_NAME" || echo "No changes to commit"
           git push
