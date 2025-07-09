@@ -1,21 +1,24 @@
 name: Build and ZIP WordPress Plugin
 
 on:
+  push:
+    branches:
+      - infiniteuploads/3.0.2
   workflow_dispatch:
     inputs:
-      tag_path:
-        description: "Tag path (e.g. infiniteuploads/3.0.2)"
+      version:
+        description: "Version (e.g., 1.2.3)"
         required: true
 
 jobs:
-  build-and-zip:
+  build-zip:
     runs-on: ubuntu-latest
 
     permissions:
       contents: write
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Node.js (if needed)
@@ -23,7 +26,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies and build plugin
+      - name: Install dependencies & build plugin
         run: |
           npm ci
           npm run build
