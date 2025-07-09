@@ -33,11 +33,13 @@ jobs:
 
       - name: Extract version and create ZIP
         run: |
-          VERSION="${{ github.ref_name }}"  # Extracts just '3.0.2' from 'infiniteuploads/3.0.2'
+          TAG="${{ github.ref_name }}"             # 'infiniteuploads/3.0.2'
+          VERSION="${TAG##*/}"                     # safely extract '3.0.2'
           PLUGIN_SLUG="infinite-uploads"
           ZIP_NAME="${PLUGIN_SLUG}-v${VERSION}.zip"
 
-          echo "Extracted version: $VERSION"
+          echo "Tag: $TAG"
+          echo "Version: $VERSION"
           echo "Creating ZIP: $ZIP_NAME"
 
           rm -rf "$PLUGIN_SLUG"
