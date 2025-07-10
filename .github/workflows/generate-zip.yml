@@ -1,0 +1,42 @@
+name: Build and Attach Plugin ZIP on Tag
+
+on:
+  push:
+    tags:
+      - '*'   # Trigger on any new tag
+
+jobs:
+  build-zip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # Step 1: Checkout plugin code
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Step 2: Install dependencies and build
+      - name: Install dependencies and build plugin
+        run: |
+          npm install
+          npm run build
+
+      # Step 3: Create plugin ZIP archive
+      - name: Create plugin ZIP
+        run: |
+          mkdir -p build
+          zip -r build/${{ github.event.repository.name }}-${GITHUB_REF_NAME}.zip . \
+            -x "*.git*" "node_modules/*" "build/*" ".github/*"
+
+      # Step 4: Create GitHub Release and upload ZIP
+      - name: Create GitHub Release and upload ZIP
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body: |
+            ✅ Automated build for `${{ github.ref_name }}`
+            Use this ZIP for testing or manual deployment.
+          files: build/${{ github.event.repository.name }}-${{ github.ref_name }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
