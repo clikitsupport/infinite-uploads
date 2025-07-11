@@ -1,0 +1,49 @@
+name: Build and Attach Plugin ZIP on GitHub Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write  # Required for uploading release assets
+
+jobs:
+  build-zip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install dependencies and build plugin
+        run: |
+          npm install
+          npm run build
+
+      - name: Create plugin ZIP with only required files
+        run: |
+          mkdir -p build/infinite-uploads
+          rsync -av --prune-empty-dirs \
+            --include='/assets/***' \
+            --include='/build/***' \
+            --include='/composer.json' \
+            --include='/inc/***' \
+            --include='/infinite-uploads.php' \
+            --include='/infinite-uploads.pot' \
+            --include='/readme.txt' \
+            --include='/uninstall.php' \
+            --include='/vendor/***' \
+            --exclude='*' \
+            ./ build/infinite-uploads/
+          cd build
+          zip -r infinite-uploads-beta-v${GITHUB_REF_NAME}.zip infinite-uploads
+
+      - name: Upload ZIP to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          files: build/infinite-uploads-beta-v${{ github.ref_name }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
