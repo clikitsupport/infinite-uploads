@@ -1004,7 +1004,7 @@ class Infinite_Uploads {
 			$exclusions[] = '/blog-avatars/';
 			$exclusions[] = '/buddypress/';
 		}
-
+		$exclusions[] = '/bb-plugin/';
 		return $exclusions;
 	}
 }
