@@ -2,7 +2,7 @@
 
 Requires at least: 6.0
 Tested up to: 6.8.1
-Stable tag: 3.0.2
+Stable tag: 3.0.3
 Requires PHP: 8.0
 Contributors: bww
 Tags: cloud storage, media cloud, encoding, offload, video, streaming, s3, google cloud storage, spaces, storage, cdn, cloud sync
