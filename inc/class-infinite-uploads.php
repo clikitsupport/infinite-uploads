@@ -1004,7 +1004,7 @@ class Infinite_Uploads {
 			$exclusions[] = '/blog-avatars/';
 			$exclusions[] = '/buddypress/';
 		}
-
+		$exclusions[] = '/bb-plugin/';
 		return $exclusions;
 	}
 }
@@ -1090,3 +1090,20 @@ function infinite_uploads_complainz_fix() {
 	}
 }
 add_action( 'init', 'infinite_uploads_complainz_fix' );
+
+/**
+ * Exclude beaver builder cache directories from being synced.
+ *
+ * @param array $dir_info Directory information array containing 'path' and 'url'.
+ *
+ * @return array
+ */
+function infinite_uploads_filter_bb_cache_dir( $dir_info ) {
+	$dir_info = array(
+		'path' => WP_CONTENT_DIR . '/uploads/bb-plugin/cache/',
+		'url'  => WP_CONTENT_URL . '/uploads/bb-plugin/cache/',
+	);
+	return $dir_info;
+}
+add_filter( 'fl_builder_get_cache_dir', 'infinite_uploads_filter_bb_cache_dir', 999 );
+

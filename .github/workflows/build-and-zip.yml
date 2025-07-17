@@ -1,0 +1,70 @@
+name: Build and ZIP WordPress Plugin
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (e.g., 1.2.3)"
+        required: true
+
+jobs:
+  build-zip:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js (if needed)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies & build plugin
+        run: |
+          npm ci
+          npm run build
+
+      - name: Extract version and create ZIP
+        run: |
+          TAG="${{ github.ref_name }}"             # 'infiniteuploads/3.0.2'
+          VERSION="${TAG##*/}"                     # safely extract '3.0.2'
+          PLUGIN_SLUG="infinite-uploads"
+          ZIP_NAME="${PLUGIN_SLUG}-v${VERSION}.zip"
+
+          echo "Tag: $TAG"
+          echo "Version: $VERSION"
+          echo "Creating ZIP: $ZIP_NAME"
+
+          rm -rf "$PLUGIN_SLUG"
+          mkdir "$PLUGIN_SLUG"
+
+          rsync -av ./ "$PLUGIN_SLUG/" \
+            --exclude=".git" \
+            --exclude="node_modules" \
+            --exclude=".github" \
+            --exclude="*.zip" \
+            --exclude="$PLUGIN_SLUG"
+
+          rm -f "$ZIP_NAME"
+          zip -r "$ZIP_NAME" "$PLUGIN_SLUG"
+
+
+      - name: Commit ZIP file to root
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG##*/}"
+          ZIP_NAME="infinite-uploads-v${VERSION}.zip"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add "$ZIP_NAME"
+          git commit -m "Update ZIP: $ZIP_NAME" || echo "No changes to commit"
+          git push
