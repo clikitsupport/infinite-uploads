@@ -1107,3 +1107,27 @@ function infinite_uploads_filter_bb_cache_dir( $dir_info ) {
 }
 add_filter( 'fl_builder_get_cache_dir', 'infinite_uploads_filter_bb_cache_dir', 999 );
 
+/**
+ * Initialize WPForo working directories.
+ *
+ * @param array $dir Working directories.
+ * @return array
+ */
+function psx_wpforo_init( $dir ) {
+	$dir['assets']['dir'] = WP_CONTENT_DIR . '/wpforo/assets/';
+	$dir['upload']['dir'] = WP_CONTENT_DIR . '/wpforo/wpforo/';
+	$dir['cache']['dir'] = WP_CONTENT_DIR . '/wpforo/cache/';
+	return $dir;
+}
+add_filter( 'wpforo_working_folders', 'psx_wpforo_init', 99 , 1 );
+
+/**
+ * Initialize WPDiscuz working directories.
+ */
+function psx_wpdiscuz_init() {
+	if ( ( class_exists( 'WpdiscuzCore' ) && is_single() ) || defined( 'PT_CV_PATH' ) ) {
+		remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );
+	}
+}
+add_action( 'template_redirect', 'psx_wpdiscuz_init' );
+
