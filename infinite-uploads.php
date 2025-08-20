@@ -17,7 +17,7 @@
  * Copyright 2021-2025 ClikIT, LLC
 */
 
-define( 'INFINITE_UPLOADS_VERSION', '3.0.2' );
+define( 'INFINITE_UPLOADS_VERSION', '3.0.4' );
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once dirname( __FILE__ ) . '/inc/class-infinite-uploads-wp-cli-command.php';

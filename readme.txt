@@ -196,6 +196,11 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 8. Create a custom CDN URL, track storage, and free up space.
 
 == Changelog ==
+
+3.0.4
+----------------------------------------------------------------------
+- Fix for Multisite.
+
 3.0.1 - 2025-06-03
 ----------------------------------------------------------------------
 - Upgraded PHP version to 8.0
