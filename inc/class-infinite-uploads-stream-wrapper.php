@@ -495,7 +495,7 @@ class Infinite_Uploads_Stream_Wrapper {
 				$this->debug( 'GetObject (append stream)', $this->getOption( 'Key' ) );
 				$client     = $this->getClient();
 				$this->body = $client->getObject( $this->getOptions( true ) )['Body'];
-				$this->cacheObjectSet( $path, Psr7\Utils::copyToString( $this->body ) ); //this is untested
+				$this->cacheObjectSet( $path, Psr7\Utils::copyToString( $this->body, 1024 * 1024 * 20 ) ); //this is untested
 			}
 			$this->body->seek( 0, SEEK_END );
 
@@ -583,7 +583,7 @@ class Infinite_Uploads_Stream_Wrapper {
 
 		return $this->boolCall( function () use ( $params ) {
 			$this->debug( 'PutObject', $params['Key'] );
-			$file = Psr7\Utils::copyToString( $params['Body'] );
+			$file = Psr7\Utils::copyToString( $params['Body'], 1024 * 1024 * 20 ); //cache up to 10MB in memory
 			$bool = (bool) $this->getClient()->putObject( $params );
 
 			//Cache the stat for this file so we don't have to do another HeadObject in the same request
