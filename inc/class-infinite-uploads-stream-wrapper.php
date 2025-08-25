@@ -583,7 +583,7 @@ class Infinite_Uploads_Stream_Wrapper {
 
 		return $this->boolCall( function () use ( $params ) {
 			$this->debug( 'PutObject', $params['Key'] );
-			$file = Psr7\Utils::copyToString( $params['Body'], 1024 * 1024 * 20 ); //cache up to 10MB in memory
+			$file = Psr7\Utils::copyToString( $params['Body'], 1024 * 1024 * 20 ); //cache up to 20MB in memory
 			$bool = (bool) $this->getClient()->putObject( $params );
 
 			//Cache the stat for this file so we don't have to do another HeadObject in the same request
