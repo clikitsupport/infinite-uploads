@@ -495,7 +495,7 @@ class Infinite_Uploads_Stream_Wrapper {
 				$this->debug( 'GetObject (append stream)', $this->getOption( 'Key' ) );
 				$client     = $this->getClient();
 				$this->body = $client->getObject( $this->getOptions( true ) )['Body'];
-				$this->cacheObjectSet( $path, Psr7\Utils::copyToString( $this->body, 1024 * 1024 * 20 ) ); //this is untested
+				$this->cacheObjectSet( $path, Psr7\Utils::copyToString( $this->body, $this->calculate_chunk_size() ) );
 			}
 			$this->body->seek( 0, SEEK_END );
 
@@ -583,13 +583,16 @@ class Infinite_Uploads_Stream_Wrapper {
 
 		return $this->boolCall( function () use ( $params ) {
 			$this->debug( 'PutObject', $params['Key'] );
-			$file = Psr7\Utils::copyToString( $params['Body'], 1024 * 1024 * 20 ); //cache up to 20MB in memory
+			$file = Psr7\Utils::copyToString( $params['Body'], $this->calculate_chunk_size() );
 			$bool = (bool) $this->getClient()->putObject( $params );
 
 			//Cache the stat for this file so we don't have to do another HeadObject in the same request
 			$cache_key = "iu://{$params['Bucket']}/{$params['Key']}";
 			if ( $bool ) {
-				$this->getCacheStorage()->set( $cache_key, $this->formatUrlStat( [ 'ContentLength' => $params['Body']->getSize(), 'LastModified' => time() ] ) );
+				$this->getCacheStorage()->set( $cache_key, $this->formatUrlStat( [
+					'ContentLength' => $params['Body']->getSize(),
+					'LastModified'  => time(),
+				] ) );
 				$this->debug_cache( 'SET', $cache_key );
 				$this->cacheObjectSet( $cache_key, $file );
 			}
@@ -1236,4 +1239,26 @@ class Infinite_Uploads_Stream_Wrapper {
 	public function stream_cast( $cast_as ) {
 		return false;
 	}
+
+	/**
+	 * Calculate a chunk size for reading and writing streams.
+	 *
+	 * @return float|int
+	 */
+	public function calculate_chunk_size() {
+		$max_upload_size = wp_max_upload_size();
+		if ( defined( 'BIG_FILE_UPLOADS_CHUNK_SIZE_KB' ) ) {
+			$chunk_size = BIG_FILE_UPLOADS_CHUNK_SIZE_KB * 1024; // Convert to bytes.
+		} else {
+			$max_chunk = ( MB_IN_BYTES * 20 );
+			if ( $max_chunk > $max_upload_size ) {
+				$chunk_size = ( $max_upload_size * 0.8 );  // 80% of max upload size in bytes.
+			} else {
+				$chunk_size = $max_chunk;
+			}
+		}
+
+		return $chunk_size;
+	}
+
 }
