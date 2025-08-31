@@ -45,6 +45,7 @@ jobs:
 
       - name: Remove development files
         run: |
+          rm -rf ../infinite-uploads
           mkdir ../infinite-uploads
           cp -r ./* ../infinite-uploads
           mv ../infinite-uploads infinite-uploads
@@ -66,6 +67,7 @@ jobs:
           find . -type f -name ".gitattributes" -delete
           find . -type f -name ".gitignore" -delete
           find . -type f -name "tests" -delete
+          find . -mindepth 1 -name ".*" -exec rm -rf {} +
 
       - name: Zip the contents
         run: |
