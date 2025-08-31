@@ -56,6 +56,9 @@ jobs:
           
           # Remove development-only files
           find . -type d -name "node_modules" -exec rm -rf {} +
+          find . -type f -name ".distignore" -delete
+          find . -type f -name ".gitattributes" -delete
+          find . -type f -name ".gitignore" -delete
           find . -type f -name "composer.lock" -delete
           find . -type f -name "composer.json" -delete
           find . -type f -name "composer-dev.json" -delete
@@ -67,10 +70,8 @@ jobs:
           find . -type f -name "package-lock.json" -delete
           find . -type f -name "readme.md" -delete
           find . -type f -name "gulpfile.js" -delete
+          find . -type f -name "build-aws3.sh" -delete
           find . -type f -name "webpack.config.js" -delete
-          find . -type f -name ".distignore" -delete
-          find . -type f -name ".gitattributes" -delete
-          find . -type f -name ".gitignore" -delete
           find . -type d -name "tests" -exec rm -rf {} +
           find . -type d -name "bin" -exec rm -rf {} +
           find . -mindepth 1 -name ".*" -exec rm -rf {} +
