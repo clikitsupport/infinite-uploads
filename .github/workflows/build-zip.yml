@@ -47,7 +47,7 @@ jobs:
         run: |
           rm -rf ../infinite-uploads
           mkdir ../infinite-uploads
-          cp -r ./* ../infinite-uploads
+          cp -a . ../infinite-uploads
           mv ../infinite-uploads infinite-uploads
           cd infinite-uploads
           find . -type d -name "node_modules" -exec rm -rf {} +
