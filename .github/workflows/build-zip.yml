@@ -71,7 +71,8 @@ jobs:
           find . -type f -name ".distignore" -delete
           find . -type f -name ".gitattributes" -delete
           find . -type f -name ".gitignore" -delete
-          find . -type f -name "tests" -delete
+          find . -type d -name "tests" -delete
+          find . -type d -name "bin" -delete
           find . -mindepth 1 -name ".*" -exec rm -rf {} +
           
           # Zip it from within the runner temp
