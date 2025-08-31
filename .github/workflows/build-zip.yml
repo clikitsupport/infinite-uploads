@@ -95,7 +95,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: infinite-uploads-${{ inputs.version }}
+          name: infinite-uploads-${{ steps.vars.outputs.version }}
           path: ${{ runner.temp }}/infinite-uploads-${{ steps.vars.outputs.version }}.zip
           retention-days: 5
 
@@ -105,7 +105,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ inputs.version }}
+          tag_name: ${{ steps.vars.outputs.version }}
           release_name: Release ${{ steps.vars.outputs.version }}
           draft: false
           prerelease: false
