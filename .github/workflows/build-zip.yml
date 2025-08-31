@@ -1,6 +1,9 @@
 name: Build Plugin Package
 
 on:
+  push:
+    tags:
+      - '[0-9]+(\.[0-9]+){1,3}'
   workflow_dispatch:
     inputs:
       version:
@@ -16,6 +19,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
+      # Decide version (tag or input)
+      - name: Set version
+        id: vars
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "version=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -77,13 +90,13 @@ jobs:
           find . -mindepth 1 -name ".*" -exec rm -rf {} +
           
           # Zip it from within the runner temp
-          zip -r "$RUNNER_TEMP/infinite-uploads-${{ inputs.version }}.zip" .
+          zip -r "$RUNNER_TEMP/infinite-uploads-${{ steps.vars.outputs.version }}.zip" .
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: infinite-uploads-${{ inputs.version }}
-          path: ${{ runner.temp }}/infinite-uploads-${{ inputs.version }}.zip
+          path: ${{ runner.temp }}/infinite-uploads-${{ steps.vars.outputs.version }}.zip
           retention-days: 5
 
       - name: Create GitHub Release
@@ -93,7 +106,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ inputs.version }}
-          release_name: Release ${{ inputs.version }}
+          release_name: Release ${{ steps.vars.outputs.version }}
           draft: false
           prerelease: false
 
@@ -103,6 +116,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ runner.temp }}/infinite-uploads-${{ inputs.version }}.zip
+          asset_path: ${{ runner.temp }}/infinite-uploads-${{ steps.vars.outputs.version }}.zip
           asset_name: infinite-uploads.zip
           asset_content_type: application/zip
