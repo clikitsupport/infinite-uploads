@@ -86,3 +86,13 @@ jobs:
           path: ${{ runner.temp }}/infinite-uploads-${{ inputs.version }}.zip
           retention-days: 5
 
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ${{ runner.temp }}/infinite-uploads-${{ inputs.version }}.zip
+          asset_name: infinite-uploads.zip
+          asset_content_type: application/zip
+
