@@ -102,7 +102,7 @@ jobs:
       - name: Extract changelog from readme.txt
         id: changelog
         run: |
-          VERSION=${{ steps.get_version.outputs.version }}
+          VERSION=${{ steps.vars.outputs.version }}
           # Extract lines starting from version header until the next version header
           CHANGELOG=$(awk -v ver="$VERSION" '
             BEGIN { found=0 }
