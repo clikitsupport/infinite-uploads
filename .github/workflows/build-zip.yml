@@ -69,11 +69,11 @@ jobs:
 
       - name: Zip the contents
         run: |
-          zip -r siren-${{ inputs.version }}.zip siren
+          zip -r infinite-uploads-${{ inputs.version }}.zip infinite-uploads
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: siren-${{ inputs.version }}
-          path: siren-${{ inputs.version }}.zip
+          name: infinite-uploads-${{ inputs.version }}
+          path: infinite-uploads-${{ inputs.version }}.zip
           retention-days: 5
