@@ -2,7 +2,7 @@ name: Plugin asset/readme update
 on:
   push:
     branches:
-      - master
+      - infiniteuploads/3.0.4
 jobs:
   trunk:
     name: Push to main
