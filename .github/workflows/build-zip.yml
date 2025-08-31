@@ -1,0 +1,79 @@
+name: Build Plugin Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., nightly-20241227)'
+        required: true
+        type: string
+        default: 'nightly'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          extensions: mbstring, xml
+          tools: composer:v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clear composer cache
+        run: composer clear-cache
+
+      - name: Install Composer dependencies
+        run: composer install --no-dev
+
+      - name: Setup Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: '20'
+
+      - name: Install NPM dependencies
+        run: npm i
+
+      - name: Build the project
+        run: npm run build
+
+      - name: Remove development files
+        run: |
+          mkdir ../infinite-uploads
+          cp -r ./* ../infinite-uploads
+          mv ../infinite-uploads infinite-uploads
+          cd infinite-uploads
+          find . -type d -name "node_modules" -exec rm -rf {} +
+          find . -type f -name "composer.lock" -delete
+          find . -type f -name "composer.json" -delete
+          find . -type f -name "composer-dev.json" -delete
+          find . -type f -name "LICENSE.txt" -delete
+          find . -type f -name "README.md" -delete
+          find . -type f -name "phpunit.xml" -delete
+          find . -type f -name "phpunit.xml.dist" -delete
+          find . -type f -name "package.json" -delete
+          find . -type f -name "package-lock.json" -delete
+          find . -type f -name "readme.md" -delete
+          find . -type f -name "gulpfile.js" -delete
+          find . -type f -name "webpack.config.js" -delete
+          find . -type f -name ".distignore" -delete
+          find . -type f -name ".gitattributes" -delete
+          find . -type f -name ".gitignore" -delete
+          find . -type f -name "tests" -delete
+
+      - name: Zip the contents
+        run: |
+          zip -r siren-${{ inputs.version }}.zip siren
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: siren-${{ inputs.version }}
+          path: siren-${{ inputs.version }}.zip
+          retention-days: 5
