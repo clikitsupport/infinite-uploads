@@ -1,7 +1,6 @@
 name: Build and ZIP WordPress Plugin
 
 on:
-  push:
   workflow_dispatch:
     inputs:
       version:
