@@ -43,13 +43,18 @@ jobs:
       - name: Build the project
         run: npm run build
 
-      - name: Remove development files
+      - name: Prepare clean plugin package
         run: |
-          rm -rf ../infinite-uploads
-          mkdir ../infinite-uploads
-          cp -a . ../infinite-uploads
-          mv ../infinite-uploads infinite-uploads
-          cd infinite-uploads
+          WORKDIR="$RUNNER_TEMP/infinite-uploads"
+          rm -rf "$WORKDIR"
+          mkdir -p "$WORKDIR"
+          
+          # Copy everything into the temp dir
+          cp -a . "$WORKDIR/"
+          
+          cd "$WORKDIR"
+          
+          # Remove development-only files
           find . -type d -name "node_modules" -exec rm -rf {} +
           find . -type f -name "composer.lock" -delete
           find . -type f -name "composer.json" -delete
@@ -68,14 +73,14 @@ jobs:
           find . -type f -name ".gitignore" -delete
           find . -type f -name "tests" -delete
           find . -mindepth 1 -name ".*" -exec rm -rf {} +
-
-      - name: Zip the contents
-        run: |
-          zip -r infinite-uploads-${{ inputs.version }}.zip infinite-uploads
+          
+          # Zip it from within the runner temp
+          zip -r "$RUNNER_TEMP/infinite-uploads-${{ inputs.version }}.zip" .
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: infinite-uploads-${{ inputs.version }}
-          path: infinite-uploads-${{ inputs.version }}.zip
+          path: ${{ runner.temp }}/infinite-uploads-${{ inputs.version }}.zip
           retention-days: 5
+
