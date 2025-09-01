@@ -1,7 +1,7 @@
 === Infinite Uploads - Offload Media and Video to Cloud Storage ===
 
 Requires at least: 6.0
-Tested up to: 6.8.1
+Tested up to: 6.8.2
 Stable tag: 3.0.4
 Requires PHP: 8.0
 Contributors: bww
@@ -202,6 +202,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 - Fix: Multisite issue
 - Update: Upload big files
 - Update: WordPress 6.8.2 compatibility
+- Update: wpForo, wpDiscus & Content Videos exclusions 
 
 3.0.1 - 2025-06-03
 ----------------------------------------------------------------------
