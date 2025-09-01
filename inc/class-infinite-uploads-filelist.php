@@ -20,6 +20,14 @@ class Infinite_Uploads_Filelist {
 		'/cache/',
 		'/wp-defender/',
 		'.DS_Store',
+		'/wc-logs/',
+		'/php-errors/',
+		'/error_log',
+		'debug.log',
+		'.log',
+		'/logs/',
+		'/tmp/',
+		'/temp/',
 	];
 	protected $root_path;
 	protected $timeout;
