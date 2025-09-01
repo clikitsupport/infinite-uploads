@@ -201,6 +201,11 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 ----------------------------------------------------------------------
 - Fix for Multisite.
 
+3.0.3.0.1
+----------------------------------------------------------------------
+- Fix for Multisite.
+- Update AWS SDK to 3.315.5
+
 3.0.3.9
 ----------------------------------------------------------------------
 - Fix for Multisite.
