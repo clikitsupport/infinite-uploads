@@ -199,32 +199,9 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 3.0.4
 ----------------------------------------------------------------------
-- Fix for Multisite.
-
-3.0.3.0.1
-----------------------------------------------------------------------
-- Fix for Multisite.
-- Update AWS SDK to 3.315.5
-
-3.0.3.9
-----------------------------------------------------------------------
-- Fix for Multisite.
-- Update AWS SDK to 3.315.5
-
-3.0.3.8
-----------------------------------------------------------------------
-- Fix for Multisite.
-- Update AWS SDK to 3.315.5
-
-3.0.3.7
-----------------------------------------------------------------------
-- Fix for Multisite.
-- Update AWS SDK to 3.315.5
-
-3.0.3.6
-----------------------------------------------------------------------
-- Fix for Multisite.
-- Update AWS SDK to 3.315.5
+- Fix: Multisite issue
+- Update: Upload big files
+- Update: WordPress 6.8.2 compatibility
 
 3.0.1 - 2025-06-03
 ----------------------------------------------------------------------

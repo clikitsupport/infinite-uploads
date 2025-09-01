@@ -1,9 +1,9 @@
-name: Build Plugin Package
+name: Deploy to WordPress.org and GitHub Release with ZIP
 
 on:
   push:
     tags:
-      - '[0-9]+.[0-9]+.[0-9]+.[0-9]+.[0-9]'
+      - '[0-9]+.[0-9]+.[0-9]'
   workflow_dispatch:
     inputs:
       version:
@@ -15,6 +15,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
 
     steps:
       - name: Checkout code
@@ -55,6 +56,15 @@ jobs:
 
       - name: Build the project
         run: npm run build
+
+      - name: WordPress Plugin Deploy
+        id: deploy
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        with:
+          generate-zip: false
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
 
       - name: Prepare clean plugin package
         run: |
