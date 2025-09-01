@@ -62,10 +62,9 @@ jobs:
           rm -rf "$WORKDIR"
           mkdir -p "$WORKDIR"
           
-          # Copy everything into the temp dir
           cp -a . "$WORKDIR/"
           cd "$WORKDIR"
-          
+
           # Remove development-only files
           find . -type d -name "node_modules" -exec rm -rf {} +
           find . -type f \( \
@@ -78,8 +77,8 @@ jobs:
           \) -delete
           find . -type d \( -name "tests" -o -name "bin" \) -exec rm -rf {} +
           find . -mindepth 1 -name ".*" -exec rm -rf {} +
-          
-          # Zip it from within the runner temp
+
+          # Create versioned zip file
           zip -r "$RUNNER_TEMP/infinite-uploads-${{ steps.vars.outputs.version }}.zip" .
 
       - name: Upload Artifact
@@ -88,6 +87,9 @@ jobs:
           name: infinite-uploads-${{ steps.vars.outputs.version }}
           path: ${{ runner.temp }}/infinite-uploads-${{ steps.vars.outputs.version }}.zip
           retention-days: 5
+
+      - name: Rename build zip
+        run: mv ${{ runner.temp }}/infinite-uploads-${{ steps.vars.outputs.version }}.zip infinite-uploads.zip
 
       - name: Extract changelog from readme.txt
         id: changelog
@@ -117,6 +119,6 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            ${{ runner.temp }}/infinite-uploads-${{ steps.vars.outputs.version }}.zip#infinite-uploads.zip
+            ${{ runner.temp }}/infinite-uploads.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
