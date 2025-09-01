@@ -1,8 +1,7 @@
 === Infinite Uploads - Offload Media and Video to Cloud Storage ===
 
 Requires at least: 6.0
-Tested up to: 6.8.1
-<<<<<<< Updated upstream
+Tested up to: 6.8.2
 Stable tag: 3.0.4
 Requires PHP: 8.0
 Contributors: bww
@@ -121,6 +120,29 @@ Use Infinite Uploads to store and manage the media files for your entire Multisi
 
 This plugin does not collect or share data other than your uploaded files to your public cloud storage location. We are fully GDPR-compatible and you can choose to store all data in European data centers. Read our [Privacy Policy](https://infiniteuploads.com/privacy/?utm_source=wordpress.org&utm_medium=readme&utm_campaign=iup_readme&utm_term=privacy) for more information.
 
+### Check Out Big File Uploads
+
+[Big File Uploads](https://wordpress.org/plugins/tuxedo-big-file-uploads/) lets you upload large media files directly to  the media library with the WordPress media uploader. Increase your  maximum upload size to any value – as large as your available disk space  allows – and add file chunking to avoid server timeout errors.
+
+### Check out Big File Form Uploads
+
+[Big File Form Uploads](https://infiniteuploads.com/big-file-form-uploads/) is a paid add-on that  extends the functionality of increasing the maximum WordPress file upload size to your favorite form plugins for WordPress, including Contact Form 7, Gravity Forms, and Forminator! Set the limit in Big File Uploads, and that carries over to your file uploads in your forms to let your users upload big files! [Learn more about Big File Form Uploads!](https://infiniteuploads.com/big-file-form-uploads/)
+
+== About Us ==
+Infinite Uploads is a premium cloud storage provider and content delivery network (CDN) for all your WordPress media files. Learn more here:
+[infiniteuploads.com](https://infiniteuploads.com/?utm_source=wordpress.org&utm_medium=readme&utm_campaign=iup_readme&utm_term=about_us)
+
+Learn how to get the most out of your cloud-hosted files on our blog:
+[Infinite Uploads Blog, Tips, Tricks, How-tos, and News](https://infiniteuploads.com/blog/?utm_source=wordpress.org&utm_medium=readme&utm_campaign=iup_readme&utm_term=blog)
+
+[Contribute to the plugin's development on Github!](https://github.com/clikitsupport/infinite-uploads)
+
+Enjoy!
+
+== Contact and Credits ==
+
+Built by the cloud architects and WordPress engineers at [Infinite Uploads](https://infiniteuploads.com/?utm_source=wordpress.org&utm_medium=readme&utm_campaign=iup_readme&utm_term=credits).
+
 == Frequently Asked Questions ==
 
 = Why should I move and share my media library from the cloud? =
@@ -174,6 +196,14 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 8. Create a custom CDN URL, track storage, and free up space.
 
 == Changelog ==
+
+3.0.4
+----------------------------------------------------------------------
+- Fix: Multisite issue
+- Update: Upload big files
+- Update: WordPress 6.8.2 compatibility
+- Update: wpForo, wpDiscus & Content Videos exclusions 
+
 3.0.1 - 2025-06-03
 ----------------------------------------------------------------------
 - Upgraded PHP version to 8.0
@@ -288,19 +318,3 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 - Initial release after a year of hard work!
 
 
-== About Us ==
-Infinite Uploads is a premium cloud storage provider and content delivery network (CDN) for all your WordPress media files. Learn more here:
-[infiniteuploads.com](https://infiniteuploads.com/?utm_source=wordpress.org&utm_medium=readme&utm_campaign=iup_readme&utm_term=about_us)
-
-Learn how to get the most out of your cloud-hosted files on our blog:
-[Infinite Uploads Blog, Tips, Tricks, How-tos, and News](https://infiniteuploads.com/blog/?utm_source=wordpress.org&utm_medium=readme&utm_campaign=iup_readme&utm_term=blog)
-
-[Contribute to the plugin's development on Github!](https://github.com/clikitsupport/infinite-uploads)
-
-Want to use your WordPress site to train an AI chatbot to provide instant answers to your customers? Check out our sister project [DocsBot AI](https://docsbot.ai/?utm_source=wordpress.org&utm_medium=readme&utm_campaign=iu_readme)!
-
-Enjoy!
-
-== Contact and Credits ==
-
-Built by the cloud architects and WordPress engineers at [Infinite Uploads](https://infiniteuploads.com/?utm_source=wordpress.org&utm_medium=readme&utm_campaign=iup_readme&utm_term=credits).
