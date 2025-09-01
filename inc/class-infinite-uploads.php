@@ -1025,19 +1025,17 @@ add_filter( 'woocommerce_log_directory', 'infinite_uploads_wc_uploads' );
  */
 add_action( 'admin_init', 'wc_iu_export_fix' );
 function wc_iu_export_fix() {
-	if( defined('DOING_AJAX') && DOING_AJAX && current_user_can('manage_options') ) {
-		switch($_POST['action']) {
-			case 'woocommerce_do_ajax_product_export':
-				if(class_exists('Infinite_Uploads')){
-					remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );	
-				}
-		}
-	}
-	if( isset( $_GET['page'] ) && $_GET['page'] == 'product_exporter' ) {
-		if(class_exists('Infinite_Uploads')){
-			remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );	
-		}
-	}
+    if ( defined( 'DOING_AJAX' ) && DOING_AJAX && current_user_can( 'manage_options' ) ) {
+        if ( isset( $_POST['action'] ) && $_POST['action'] == 'woocommerce_do_ajax_product_export' && class_exists( 'Infinite_Uploads' ) ) {
+            remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );
+        }
+    }
+
+    if ( isset( $_GET['page'] ) && $_GET['page'] == 'product_exporter' ) {
+        if ( class_exists( 'Infinite_Uploads' ) ) {
+            remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );
+        }
+    }
 }
 
 /**
