@@ -1025,19 +1025,32 @@ add_filter( 'woocommerce_log_directory', 'infinite_uploads_wc_uploads' );
  */
 add_action( 'admin_init', 'wc_iu_export_fix' );
 function wc_iu_export_fix() {
-	if( defined('DOING_AJAX') && DOING_AJAX && current_user_can('manage_options') ) {
-		switch($_POST['action']) {
-			case 'woocommerce_do_ajax_product_export':
-				if(class_exists('Infinite_Uploads')){
-					remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );	
-				}
-		}
-	}
-	if( isset( $_GET['page'] ) && $_GET['page'] == 'product_exporter' ) {
-		if(class_exists('Infinite_Uploads')){
-			remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );	
-		}
-	}
+    if ( defined( 'DOING_AJAX' ) && DOING_AJAX && current_user_can( 'manage_options' ) ) {
+        if ( isset( $_POST['action'] ) && $_POST['action'] == 'woocommerce_do_ajax_product_export' && class_exists( 'Infinite_Uploads' ) ) {
+            remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );
+        }
+    }
+
+    if ( isset( $_GET['page'] ) && $_GET['page'] == 'product_exporter' ) {
+        if ( class_exists( 'Infinite_Uploads' ) ) {
+            remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );
+        }
+    }
+}
+
+
+// Disable Smush filter on Media Library.
+add_action( 'admin_init', 'disable_smush_on_media_library' );
+
+function disable_smush_on_media_library() {
+    if ( class_exists( '\Smush\App\Media_Library' ) ) {
+        $wp_smush               = WP_Smush::get_instance();
+        $media_library_instance = $wp_smush->library();
+
+        if ( $media_library_instance instanceof \Smush\App\Media_Library ) {
+            remove_filter( 'wp_prepare_attachment_for_js', array( $media_library_instance, 'smush_send_status' ), 99 );
+        }
+    }
 }
 
 /**
