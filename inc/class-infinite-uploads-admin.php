@@ -38,7 +38,9 @@ class Infinite_Uploads_Admin {
 		add_action( 'admin_init', [ &$this, 'privacy_policy' ] );
 		add_action( 'deactivate_plugin', [ &$this, 'block_bulk_deactivate' ] );
 
-		if ( is_main_site() ) {
+        add_action( 'wp_ajax_save_iu_excluded_files', [ $this, 'infinite_uploads_save_excluded_files' ] );
+
+        if ( is_main_site() ) {
 			add_action( 'wp_ajax_infinite-uploads-filelist', [ &$this, 'ajax_filelist' ] );
 			add_action( 'wp_ajax_infinite-uploads-remote-filelist', [ &$this, 'ajax_remote_filelist' ] );
 			add_action( 'wp_ajax_infinite-uploads-sync', [ &$this, 'ajax_sync' ] );
@@ -807,7 +809,10 @@ class Infinite_Uploads_Admin {
 			'download' => wp_create_nonce( 'iup_download' ),
 			'toggle'   => wp_create_nonce( 'iup_toggle' ),
 			'video'    => wp_create_nonce( 'iup_video' ),
+            'excludedFiles'  => wp_create_nonce( 'iu_excluded_files_nonce' ),
 		];
+
+        $data['excludedFiles'] = get_option('iu_excluded_files', '');
 
 		wp_localize_script( 'iup-js', 'iup_data', $data );
 	}
@@ -978,4 +983,27 @@ class Infinite_Uploads_Admin {
 		<?php
 		require_once( dirname( __FILE__ ) . '/templates/footer.php' );
 	}
+
+    /**
+     * Save excluded files from settings page.
+     *
+     * @return void
+     *
+     * @since 3.0.5
+     */
+    public function infinite_uploads_save_excluded_files() {
+        // Verify nonce.
+        check_ajax_referer('iu_excluded_files_nonce', 'nonce');
+
+        // Check user capabilities.
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( 'Insufficient permissions' );
+        }
+
+        $excluded_files = sanitize_textarea_field( $_POST['excluded_files'] );
+
+        update_option('iu_excluded_files', $excluded_files);
+
+        wp_send_json_success();
+    }
 }

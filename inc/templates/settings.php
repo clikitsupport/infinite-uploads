@@ -81,6 +81,23 @@
 				</div>
 			</div>
 		</div>
+        <div class="row justify-content-center mb-5">
+            <div class="col-md-6 col-sm-12">
+                <h5><?php esc_html_e( 'Files to exclude', 'infinite-uploads' ); ?></h5>
+                <p class="lead"><?php esc_html_e( 'Specify files or directories to exclude from cloud sync. For example, exclude log files with ".log" or specific directories with "/directory-path/". One entry per line.', 'infinite-uploads' ); ?></p>
+            </div>
+            <div class="col-md-6 col-sm-12">
+                <div class="row">
+                    <div class="col text-left p-3">
+                        <textarea rows="5" cols="50" id="iu_excluded_files" name="iu_excluded_files" class="form-control" placeholder="<?php esc_attr_e( 'Enter files/directories to exclude. One entry per line.', 'infinite-uploads' ); ?>">
+                           <?php echo esc_textarea( get_option( 'iu_excluded_files', '' ) ); ?>
+                        </textarea>
+                    </div>
+                </div>
+            </div>
+
+            <p>List </p>
+        </div>
 		<?php if ( infinite_uploads_enabled() && (bool) $stats['deletable_files'] ) { ?>
 			<div class="row justify-content-center iup-settings-row-delete">
 				<div class="col-md-6 col-sm-12">

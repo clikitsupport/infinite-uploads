@@ -650,4 +650,44 @@ jQuery(document).ready(function ($) {
 			window.myPieCloud = new Chart(ctx, config_cloud);
 		}
 	};
+
+
+	let saveTimeout;
+	const excludedFiles = $('#iu_excluded_files');
+
+	// Load saved value
+	excludedFiles.val(iup_data.excludedFiles || '');
+
+	// Save on change with debounce
+	excludedFiles.on('input', function() {
+		clearTimeout(saveTimeout);
+
+		$('.iu-success-message').remove();
+
+		saveTimeout = setTimeout(function() {
+			$.ajax({
+				url: ajaxurl,
+				type: 'POST',
+				data: {
+					action: 'save_iu_excluded_files',
+					excluded_files: excludedFiles.val(),
+					nonce: iup_data.nonce.excludedFiles
+				},
+				success: function(response) {
+					if (response.success) {
+						// Create and insert success message
+						const successMessage = $('<div class="iu-success-message" style="color: #008000; margin-top: 8px;">Settings saved successfully!</div>');
+						excludedFiles.after(successMessage);
+
+						// Remove the message after 3 seconds
+						setTimeout(function() {
+							successMessage.fadeOut(400, function() {
+								$(this).remove();
+							});
+						}, 3000);
+					}
+				}
+			});
+		}, 1000);
+	});
 });
