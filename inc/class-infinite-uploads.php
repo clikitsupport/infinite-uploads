@@ -594,8 +594,49 @@ class Infinite_Uploads {
 		return scandir( trailingslashit( $dir ) . $name . '*' );
 	}
 
+    /**
+     * Get the list of excluded files from the WordPress option.
+     *
+     * @return array|false An array of excluded file paths, or false if none are set.
+     */
+    public function get_excluded_paths() {
+        $excluded_files_option = get_option( 'iu_excluded_files', '' );
+        if ( empty( $excluded_files_option ) ) {
+            return false;
+        }
+
+        return array_map( 'trim', explode( "\n", $excluded_files_option ) );
+    }
+
+    /**
+     * Check if a given path is in the excluded list.
+     *
+     * @param  string  $path  The file path to check.
+     *
+     * @return bool True if the path is excluded, false otherwise.
+     */
+    public function is_path_excluded( $path ) {
+        $excluded_files_array = $this->get_excluded_paths();
+        if ( empty( $excluded_files_array ) ) {
+            return false;
+        }
+
+        foreach ( $excluded_files_array as $excluded_file ) {
+            if ( stripos( $path, $excluded_file ) !== false ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 	public function filter_upload_dir( $dirs ) {
-		$root_dirs = $this->get_original_upload_dir_root();		
+        // bail if path is excluded.
+        if ( $this->is_path_excluded( $dirs['path'] ) ) {
+            return $dirs;
+        }
+
+		$root_dirs = $this->get_original_upload_dir_root();
 		$dirs['path']    = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $this->bucket ), $dirs['path'] );
 		$dirs['basedir'] = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $this->bucket ), $dirs['basedir'] );
 
