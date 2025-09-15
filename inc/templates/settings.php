@@ -95,8 +95,6 @@
                     </div>
                 </div>
             </div>
-
-            <p>List </p>
         </div>
 		<?php if ( infinite_uploads_enabled() && (bool) $stats['deletable_files'] ) { ?>
 			<div class="row justify-content-center iup-settings-row-delete">
