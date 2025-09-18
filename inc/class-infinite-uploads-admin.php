@@ -791,16 +791,16 @@ class Infinite_Uploads_Admin {
 
         wp_enqueue_script(
                 'jstree',
-                'https://cdn.jsdelivr.net/npm/jstree@3.3.15/dist/jstree.min.js',
+                plugins_url( 'assets/jstree/jstree.min.js', __FILE__ ),
                 ['jquery'],
-                '3.3.15',
+                INFINITE_UPLOADS_VERSION,
                 true
         );
         wp_enqueue_style(
                 'jstree-style',
-                'https://cdn.jsdelivr.net/npm/jstree@3.3.15/dist/themes/default/style.min.css',
+                plugins_url( 'assets/jstree/themes/default/style.min.css', __FILE__ ),
                 [],
-                '3.3.15'
+                INFINITE_UPLOADS_VERSION
         );
 
 		$data            = [];

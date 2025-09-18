@@ -738,7 +738,6 @@ jQuery(document).ready(function ($) {
 				if (response.success) {
 					// Create and insert success message
 					const successMessage = $('<span class="iu-success-message" style="color: #008000; margin-top: 8px;">Settings saved successfully!</span>');
-					console.log('Success message element:', successMessage); // Debugging line
 					// Remove any existing success messages before adding a new one
 					$('.iu-success-message').remove();
 					// Append the new success message
