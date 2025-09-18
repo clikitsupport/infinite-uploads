@@ -690,4 +690,69 @@ jQuery(document).ready(function ($) {
 			});
 		}, 1000);
 	});
+
+
+	$('#folderTree').jstree({
+		'plugins': ["checkbox"],
+		'checkbox': {
+			// Select all children when parent is selected
+			'three_state': true,
+			'cascade': 'up+down',
+			'tie_selection': true
+		},
+		'core': {
+			'data': {
+				"url": ajaxurl,
+				"data": function (node) {
+					return {
+						"action": "get_directory_tree",
+						"nonce": iup_data.nonce.getTree
+					}
+				},
+				"dataType": "json"
+			}
+		}
+	})
+		// When folder checkbox clicked → open folder
+		.on("select_node.jstree", function (e, data) {
+			if (data.node.children.length) {
+				$('#folderTree').jstree('open_node', data.node);
+			}
+		});
+
+	// Get selected paths
+	$('#saveExcludedFilesSettings').on("click", function () {
+		var selected = $('#folderTree').jstree("get_selected", true);
+		var paths = selected.map(node => node.data.path);
+		var excludedFiles = paths;
+	
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'save_iu_excluded_files',
+				excluded_files: excludedFiles,
+				nonce: iup_data.nonce.saveExcludedFiles
+			},
+			success: function(response) {
+				if (response.success) {
+					// Create and insert success message
+					const successMessage = $('<span class="iu-success-message" style="color: #008000; margin-top: 8px;">Settings saved successfully!</span>');
+					console.log('Success message element:', successMessage); // Debugging line
+					// Remove any existing success messages before adding a new one
+					$('.iu-success-message').remove();
+					// Append the new success message
+					$('#saveExcludedFilesSettings').after(successMessage);
+
+					// Remove the message after 3 seconds
+					setTimeout(function() {
+						successMessage.fadeOut(400, function() {
+							$(this).remove();
+						});
+					}, 3000);
+				}
+			}
+		});
+	});
+
 });

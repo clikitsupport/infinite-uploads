@@ -89,9 +89,8 @@
             <div class="col-md-6 col-sm-12">
                 <div class="row">
                     <div class="col text-left p-3">
-                        <textarea rows="5" cols="50" id="iu_excluded_files" name="iu_excluded_files" class="form-control" placeholder="<?php esc_attr_e( 'Enter files/directories to exclude. One entry per line.', 'infinite-uploads' ); ?>">
-                           <?php echo esc_textarea( get_option( 'iu_excluded_files', '' ) ); ?>
-                        </textarea>
+                        <div id="folderTree" style="max-height:300px; overflow:auto; border:1px solid #ddd; border-radius:5px; background:#f9f9f9;"></div>
+                        <button class="btn text-nowrap btn-primary btn-lg m-4" id="saveExcludedFilesSettings">Save Settings</button>
                     </div>
                 </div>
             </div>

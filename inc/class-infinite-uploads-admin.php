@@ -39,6 +39,7 @@ class Infinite_Uploads_Admin {
 		add_action( 'deactivate_plugin', [ &$this, 'block_bulk_deactivate' ] );
 
         add_action( 'wp_ajax_save_iu_excluded_files', [ $this, 'infinite_uploads_save_excluded_files' ] );
+        add_action( 'wp_ajax_get_directory_tree', [ $this, 'get_direcotry_tree' ] );
 
         if ( is_main_site() ) {
 			add_action( 'wp_ajax_infinite-uploads-filelist', [ &$this, 'ajax_filelist' ] );
@@ -788,6 +789,20 @@ class Infinite_Uploads_Admin {
 		wp_enqueue_script( 'iup-chartjs', plugins_url( 'assets/js/Chart.min.js', __FILE__ ), [], INFINITE_UPLOADS_VERSION );
 		wp_enqueue_script( 'iup-js', plugins_url( 'assets/js/infinite-uploads.js', __FILE__ ), [ 'wp-color-picker' ], INFINITE_UPLOADS_VERSION );
 
+        wp_enqueue_script(
+                'jstree',
+                'https://cdn.jsdelivr.net/npm/jstree@3.3.15/dist/jstree.min.js',
+                ['jquery'],
+                '3.3.15',
+                true
+        );
+        wp_enqueue_style(
+                'jstree-style',
+                'https://cdn.jsdelivr.net/npm/jstree@3.3.15/dist/themes/default/style.min.css',
+                [],
+                '3.3.15'
+        );
+
 		$data            = [];
 		$data['strings'] = [
 			'leave_confirm'      => esc_html__( 'Are you sure you want to leave this tab? The current bulk action will be canceled and you will need to continue where it left off later.', 'infinite-uploads' ),
@@ -809,7 +824,8 @@ class Infinite_Uploads_Admin {
 			'download' => wp_create_nonce( 'iup_download' ),
 			'toggle'   => wp_create_nonce( 'iup_toggle' ),
 			'video'    => wp_create_nonce( 'iup_video' ),
-            'excludedFiles'  => wp_create_nonce( 'iu_excluded_files_nonce' ),
+            'saveExcludedFiles'  => wp_create_nonce( 'iu_excluded_files_nonce' ),
+            'getTree'  => wp_create_nonce( 'get_tree_nonce' ),
 		];
 
         $data['excludedFiles'] = get_option('iu_excluded_files', '');
@@ -984,12 +1000,76 @@ class Infinite_Uploads_Admin {
 		require_once( dirname( __FILE__ ) . '/templates/footer.php' );
 	}
 
+    public function prepare_directory_tree( $dir, $preselected = [] ) {
+        $result = [];
+
+        foreach ( scandir( $dir ) as $file ) {
+            if ( $file === '.' || $file === '..' ) {
+                continue;
+            }
+
+            $path = $dir . DIRECTORY_SEPARATOR . $file;
+
+            $node = [
+                    "text"  => $file,
+                    "icon"  => is_dir( $path ) ? "jstree-folder" : "jstree-file",
+                    "data"  => [ "path" => $path ],
+                    "state" => [
+                            "opened"   => false,
+                            "selected" => in_array( $path, $preselected ),
+                    ],
+            ];
+
+            if ( is_dir( $path ) ) {
+                $node["children"] = $this->prepare_directory_tree( $path );
+            }
+
+            $result[] = $node;
+        }
+
+        return $result;
+    }
+
+    /**
+     * AJAX handler to get directory tree
+     */
+    public function get_direcotry_tree() {
+
+        // Verify nonce.
+        check_ajax_referer('get_tree_nonce', 'nonce');
+
+        $dir = $this->iup_instance->get_original_upload_dir();
+
+        $excluded_files = $this->get_excluded_files();
+        // Get the existing excluded files from options
+        $upload_dir = $dir['basedir'];
+        $tree = $this->prepare_directory_tree( $upload_dir, $excluded_files );
+        //wp_send_json_success( $tree );
+
+        echo json_encode($tree);
+        die();
+
+    }
+
+    /**
+     * Get excluded files from options.
+     *
+     * @return array
+     */
+    public function get_excluded_files() {
+        $excluded_files       = get_option( 'iu_excluded_files', '' );
+        $excluded_files_array = maybe_unserialize( $excluded_files );
+        if ( ! is_array( $excluded_files_array ) ) {
+            $excluded_files_array = [];
+        }
+
+        return $excluded_files_array;
+    }
+
     /**
      * Save excluded files from settings page.
      *
      * @return void
-     *
-     * @since 3.0.5
      */
     public function infinite_uploads_save_excluded_files() {
         // Verify nonce.
@@ -1000,10 +1080,43 @@ class Infinite_Uploads_Admin {
             wp_send_json_error( 'Insufficient permissions' );
         }
 
-        $excluded_files = sanitize_textarea_field( $_POST['excluded_files'] );
+        $excluded_files_array = $_POST['excluded_files'];
 
-        update_option('iu_excluded_files', $excluded_files);
+        $current_excluded_files_array = $this->get_excluded_files();
+
+        $removed_files = array_diff( $current_excluded_files_array, $excluded_files_array );
+
+        $added_files = array_diff( $excluded_files_array, $current_excluded_files_array );
+
+        //$this->process_added_removed_excluded_files( $added_files, $removed_files );
+
+        update_option( 'iu_excluded_files', maybe_serialize( $excluded_files_array ) );
 
         wp_send_json_success();
+    }
+
+    public function process_added_removed_excluded_files( $added_files, $removed_files ) {
+
+            if ( ! empty( $removed_files ) ) {
+                // TODO: Sync these files again to cloud.
+    //            global $wpdb;
+    //            foreach ( $removed_files as $file ) {
+    //                $wpdb->update( "{$wpdb->base_prefix}infinite_uploads_files", [
+    //                        'synced'          => 0,
+    //                        'deleted'         => 0,
+    //                        'errors'          => 0,
+    //                        'transfer_status' => null,
+    //                ], [ 'file' => str_replace( untrailingslashit( $this->iup_instance->get_original_upload_dir_root()['basedir'] ), '', $file ) ], [
+    //                        '%d',
+    //                        '%d',
+    //                        '%d',
+    //                        null,
+    //                ] );
+    //            }
+            }
+
+            if( ! empty( $added_files ) ) {
+                // TODO: Mark these files as excluded so that they are not scanned again.
+            }
     }
 }
