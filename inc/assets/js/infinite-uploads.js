@@ -725,7 +725,7 @@ jQuery(document).ready(function ($) {
 		var selected = $('#folderTree').jstree("get_selected", true);
 		var paths = selected.map(node => node.data.path);
 		var excludedFiles = paths;
-	
+
 		$.ajax({
 			url: ajaxurl,
 			type: 'POST',

@@ -597,15 +597,15 @@ class Infinite_Uploads {
     /**
      * Get the list of excluded files from the WordPress option.
      *
-     * @return array|false An array of excluded file paths, or false if none are set.
+     * @return array|false An array of excluded file paths.
      */
     public function get_excluded_paths() {
-        $excluded_files_option = get_option( 'iu_excluded_files', '' );
-        if ( empty( $excluded_files_option ) ) {
-            return false;
+        $excluded_files_array = maybe_unserialize( get_option( 'iu_excluded_files', '' ) );
+        if ( ! is_array( $excluded_files_array ) ) {
+            $excluded_files_array = [];
         }
 
-        return array_map( 'trim', explode( "\n", $excluded_files_option ) );
+        return array_map( 'trim', $excluded_files_array );
     }
 
     /**
