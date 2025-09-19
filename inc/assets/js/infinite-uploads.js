@@ -729,8 +729,6 @@ jQuery(document).ready(function ($) {
 			excludedFiles = selected.map(node => node.data.path);
 		}
 
-		console.log(excludedFiles);
-
 		$.ajax({
 			url: ajaxurl,
 			type: 'POST',
