@@ -81,6 +81,20 @@
 				</div>
 			</div>
 		</div>
+        <div class="row justify-content-center mb-5">
+            <div class="col-md-6 col-sm-12">
+                <h5><?php esc_html_e( 'Files to exclude', 'infinite-uploads' ); ?></h5>
+                <p class="lead"><?php esc_html_e( 'Specify files or directories to exclude from cloud sync. For example, exclude log files with ".log" or specific directories with "/directory-path/". One entry per line.', 'infinite-uploads' ); ?></p>
+            </div>
+            <div class="col-md-6 col-sm-12">
+                <div class="row">
+                    <div class="col text-left p-3">
+                        <div id="folderTree" style="max-height:300px; overflow:auto; border:1px solid #ddd; border-radius:5px; background:#f9f9f9;"></div>
+                        <button class="btn text-nowrap btn-primary btn-lg m-4" id="saveExcludedFilesSettings">Save Settings</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 		<?php if ( infinite_uploads_enabled() && (bool) $stats['deletable_files'] ) { ?>
 			<div class="row justify-content-center iup-settings-row-delete">
 				<div class="col-md-6 col-sm-12">
