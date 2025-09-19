@@ -622,7 +622,7 @@ class Infinite_Uploads {
         }
 
         foreach ( $excluded_files_array as $excluded_file ) {
-            if ( stripos( $path, $excluded_file ) !== false ) {
+            if ( stripos( $excluded_file, $path ) !== false ) {
                 return true;
             }
         }
@@ -632,7 +632,7 @@ class Infinite_Uploads {
 
 	public function filter_upload_dir( $dirs ) {
         // bail if path is excluded.
-        if ( $this->is_path_excluded( $dirs['path'] ) ) {
+        if ( $this->is_path_excluded( $dirs['basedir'] ) ) {
             return $dirs;
         }
 
