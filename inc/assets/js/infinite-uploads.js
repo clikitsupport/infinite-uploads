@@ -42,7 +42,7 @@ jQuery(document).ready(function ($) {
 					$('#iup-scan-storage').text(json.data.local_size);
 					$('#iup-scan-files').text(json.data.local_files);
 					$('#iup-scan-progress').show();
-					if (!json.data.is_done) {
+					if ( !json.data.is_done) {
 						buildFilelist(
 							json.data.remaining_dirs,
 							json.data.nonce
@@ -88,7 +88,7 @@ jQuery(document).ready(function ($) {
 					);
 					$('#iup-scan-remote-files').text(json.data.cloud_files);
 					$('#iup-scan-remote-progress').show();
-					if (!json.data.is_done) {
+					if ( !json.data.is_done) {
 						fetchRemoteFilelist(
 							json.data.next_token,
 							json.data.nonce
@@ -170,7 +170,7 @@ jQuery(document).ready(function ($) {
 						.css('width', json.data.pcnt_complete + '%')
 						.attr('aria-valuenow', json.data.pcnt_complete)
 						.text(json.data.pcnt_complete + '%');
-					if (!json.data.is_done) {
+					if ( !json.data.is_done) {
 						data.nonce = json.data.nonce; //save for future errors
 						syncFilelist(json.data.nonce);
 					} else {
@@ -239,7 +239,7 @@ jQuery(document).ready(function ($) {
 	};
 
 	var getSyncStatus = function () {
-		if (!iupProcessingLoop) {
+		if ( !iupProcessingLoop) {
 			return false;
 		}
 
@@ -286,7 +286,7 @@ jQuery(document).ready(function ($) {
 					//$('.iup-progress-pcnt').text(json.data.pcnt_complete);
 					$('#iup-delete-size').text(json.data.deletable_size);
 					$('#iup-delete-files').text(json.data.deletable_files);
-					if (!json.data.is_done) {
+					if ( !json.data.is_done) {
 						deleteFiles();
 					} else {
 						location.reload();
@@ -332,7 +332,7 @@ jQuery(document).ready(function ($) {
 						.css('width', json.data.pcnt_downloaded + '%')
 						.attr('aria-valuenow', json.data.pcnt_downloaded)
 						.text(json.data.pcnt_downloaded + '%');
-					if (!json.data.is_done) {
+					if ( !json.data.is_done) {
 						data.nonce = json.data.nonce; //save for future errors
 						downloadFiles(json.data.nonce);
 					} else {
@@ -659,12 +659,12 @@ jQuery(document).ready(function ($) {
 	excludedFiles.val(iup_data.excludedFiles || '');
 
 	// Save on change with debounce
-	excludedFiles.on('input', function() {
+	excludedFiles.on('input', function () {
 		clearTimeout(saveTimeout);
 
 		$('.iu-success-message').remove();
 
-		saveTimeout = setTimeout(function() {
+		saveTimeout = setTimeout(function () {
 			$.ajax({
 				url: ajaxurl,
 				type: 'POST',
@@ -673,15 +673,15 @@ jQuery(document).ready(function ($) {
 					excluded_files: excludedFiles.val(),
 					nonce: iup_data.nonce.excludedFiles
 				},
-				success: function(response) {
+				success: function (response) {
 					if (response.success) {
 						// Create and insert success message
 						const successMessage = $('<div class="iu-success-message" style="color: #008000; margin-top: 8px;">Settings saved successfully!</div>');
 						excludedFiles.after(successMessage);
 
 						// Remove the message after 3 seconds
-						setTimeout(function() {
-							successMessage.fadeOut(400, function() {
+						setTimeout(function () {
+							successMessage.fadeOut(400, function () {
 								$(this).remove();
 							});
 						}, 3000);
@@ -723,8 +723,13 @@ jQuery(document).ready(function ($) {
 	// Get selected paths
 	$('#saveExcludedFilesSettings').on("click", function () {
 		var selected = $('#folderTree').jstree("get_selected", true);
-		var paths = selected.map(node => node.data.path);
-		var excludedFiles = paths;
+
+		var excludedFiles = [];
+		if (selected.length) {
+			excludedFiles = selected.map(node => node.data.path);
+		}
+
+		console.log(excludedFiles);
 
 		$.ajax({
 			url: ajaxurl,
@@ -734,7 +739,7 @@ jQuery(document).ready(function ($) {
 				excluded_files: excludedFiles,
 				nonce: iup_data.nonce.saveExcludedFiles
 			},
-			success: function(response) {
+			success: function (response) {
 				if (response.success) {
 					// Create and insert success message
 					const successMessage = $('<span class="iu-success-message" style="color: #008000; margin-top: 8px;">Settings saved successfully!</span>');
@@ -744,8 +749,8 @@ jQuery(document).ready(function ($) {
 					$('#saveExcludedFilesSettings').after(successMessage);
 
 					// Remove the message after 3 seconds
-					setTimeout(function() {
-						successMessage.fadeOut(400, function() {
+					setTimeout(function () {
+						successMessage.fadeOut(400, function () {
 							$(this).remove();
 						});
 					}, 3000);

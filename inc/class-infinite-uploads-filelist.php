@@ -155,6 +155,54 @@ class Infinite_Uploads_Filelist {
 		$this->is_done = false;
 	}
 
+	public function add_files_to_sync() {
+		$paths = ( empty( $this->paths_left ) ) ? [ $this->root_path ] : $this->paths_left;
+
+		while ( ! empty( $paths ) ) {
+			$path = array_pop( $paths );
+
+			// Skip ".." items.
+			if ( preg_match( '/\.\.([\/\\\\]|$)/', $path ) ) {
+				continue;
+			}
+
+			if ( 0 !== strpos( $path, $this->root_path ) ) {
+				// Build the absolute path in case it's not the first iteration.
+				$path = rtrim( $this->root_path, '/' ) . $path;
+			}
+
+			$contents = defined( 'GLOB_BRACE' )
+				? glob( trailingslashit( $path ) . '{,.}[!.,!..]*', GLOB_BRACE )
+				: glob( trailingslashit( $path ) . '[!.,!..]*' );
+
+			foreach ( $contents as $item ) {
+				$file = [];
+				if ( is_link( $item ) ) {
+					continue;
+				} elseif ( is_file( $item ) ) {
+					if ( is_readable( $item ) ) {
+						$file = $this->get_file_info( $item );
+					} else {
+						$file = null;
+						error_log( sprintf( '[INFINITE_UPLOADS Filelist Error] %s could not be read for syncing', $item ) );
+					}
+
+					$file['name'] = $this->relative_path( $item );
+
+					$this->add_file( $file );
+				} elseif ( is_dir( $item ) ) {
+					if ( ! in_array( $item, $paths, true ) ) {
+						$paths[] = $this->relative_path( $item );
+					}
+				}
+			}
+
+			$this->paths_left = $paths;
+		}
+
+		$this->flush_to_db();
+	}
+
 	/**
 	 * Checks path against excluded pattern.
 	 *
