@@ -59,7 +59,7 @@ class Infinite_Uploads_Admin {
                 wp_schedule_event( time(), 'daily', 'infinite_uploads_do_sync' );
             }
 
-            // add_action( 'infinite_uploads_do_sync', [ $this, 'do_sync' ] );
+            add_action( 'infinite_uploads_do_sync', [ $this, 'do_sync' ] );
         }
     }
 
@@ -1308,7 +1308,7 @@ class Infinite_Uploads_Admin {
             ];
 
             if ( is_dir( $path ) ) {
-                $node["children"] = $this->prepare_directory_tree( $path );
+                $node["children"] = $this->prepare_directory_tree( $path, $preselected );
             }
 
             $result[] = $node;
