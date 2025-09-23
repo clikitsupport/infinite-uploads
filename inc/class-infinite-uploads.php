@@ -632,11 +632,19 @@ class Infinite_Uploads {
 
 	public function filter_upload_dir( $dirs ) {
         // bail if path is excluded.
-        if ( $this->is_path_excluded( $dirs['basedir'] ) ) {
+		$root_dirs = $this->get_original_upload_dir_root();
+
+        $original_base_dir = $root_dirs['basedir'];
+
+        $path = $dirs['basedir'];
+        if ( $original_base_dir === $dirs['basedir'] ) {
+            $path = $dirs['path'];
+        }
+
+        if ( $this->is_path_excluded( $path ) ) {
             return $dirs;
         }
 
-		$root_dirs = $this->get_original_upload_dir_root();
 		$dirs['path']    = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $this->bucket ), $dirs['path'] );
 		$dirs['basedir'] = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $this->bucket ), $dirs['basedir'] );
 

@@ -1195,7 +1195,7 @@ class Infinite_Uploads_Admin {
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
-            <?php
+                <?php
             } ?>
 
             <div id="iup-error" class="alert alert-danger mt-1" role="alert"></div>
@@ -1206,13 +1206,13 @@ class Infinite_Uploads_Admin {
                     <?php
                     printf( __( "Files can't be uploaded and your CDN is disabled due to a billing issue with your Infinite Uploads account. Please <a href='%s' class='alert-link'>visit your account page</a> to fix, or disconnect this site from the cloud. Images and links to media on your site may be broken until you take action. <a href='%s' class='alert-link' data-toggle='tooltip' title='Refresh account data'>Already fixed?</a>", 'infinite-uploads' ), esc_url( $this->api_url( '/account/billing/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin' ) ), esc_url( $this->settings_url( [ 'refresh' => 1 ] ) ) ); ?>
                 </div>
-            <?php
+                <?php
             } elseif ( isset( $api_data->site ) && ! $api_data->site->upload_writeable ) { ?>
                 <div class="alert alert-warning mt-1" role="alert">
                     <?php
                     printf( __( "Files can't be uploaded and your CDN will be disabled soon due to a billing issue with your Infinite Uploads account. Please <a href='%s' class='alert-link'>visit your account page</a> to fix, or disconnect this site from the cloud. <a href='%s' class='alert-link' data-toggle='tooltip' title='Refresh account data'>Already fixed?</a>", 'infinite-uploads' ), esc_url( $this->api_url( '/account/billing/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin' ) ), esc_url( $this->settings_url( [ 'refresh' => 1 ] ) ) ); ?>
                 </div>
-            <?php
+                <?php
             } ?>
 
             <?php
@@ -1230,7 +1230,7 @@ class Infinite_Uploads_Admin {
                         </div>
                     </div>
                 </div>
-            <?php
+                <?php
             } ?>
 
             <?php
@@ -1372,16 +1372,16 @@ class Infinite_Uploads_Admin {
 
         $files_to_resync = array_diff( $current_excluded_files_array, $excluded_files_array );
 
-        $files_to_stop_sync = array_diff( $excluded_files_array, $current_excluded_files_array );
+        $files_to_download_from_infinite_upload_server = array_diff( $excluded_files_array, $current_excluded_files_array );
 
-        $this->process_added_removed_excluded_files( $files_to_resync, $files_to_stop_sync );
+        $this->process_added_removed_excluded_files( $files_to_resync, $files_to_download_from_infinite_upload_server );
 
         update_option( 'iu_excluded_files', maybe_serialize( $excluded_files_array ) );
 
         wp_send_json_success();
     }
 
-    public function process_added_removed_excluded_files( $files_to_resync, $files_to_stop_sync ) {
+    public function process_added_removed_excluded_files( $files_to_resync, $files_to_download_from_infinite_upload_server ) {
         global $wpdb;
 
         if ( ! empty( $files_to_resync ) ) {
@@ -1392,10 +1392,115 @@ class Infinite_Uploads_Admin {
 
             $filelist = new Infinite_Uploads_Filelist( $path, 20, $files_to_resync );
             $filelist->add_files_to_sync();
+
+            //$this->do_sync();
         }
 
-        if ( ! empty( $files_to_stop_sync ) ) {
-            // TODO: Mark these files as excluded so that they are not scanned again.
+        if ( ! empty( $files_to_download_from_infinite_upload_server ) ) {
+            // TODO: Mark these files as excluded so that they are not scanned again. Also download it to local if it's in cloud.
+            $this->do_download( $files_to_download_from_infinite_upload_server );
+        }
+    }
+
+    public function do_download( $files ) {
+        global $wpdb;
+
+        if ( ! current_user_can( $this->iup_instance->capability ) ) {
+            return false;
+        }
+
+        if ( empty( $files ) || ! is_array( $files ) ) {
+            return false;
+        }
+
+        foreach ( $files as $file ) {
+            $wpdb->query( $wpdb->prepare( "INSERT INTO `{$wpdb->base_prefix}infinite_uploads_files` (file, size, synced, deleted, errors) VALUES (%s, 0, 1, 1, 1) ON DUPLICATE KEY UPDATE deleted = 1, errors = 1", $file ) );
+        }
+
+        $progress = get_site_option( 'iup_files_scanned' );
+        if ( empty( $progress['download_started'] ) ) {
+//            $progress['download_started'] = time();
+//            update_site_option( 'iup_files_scanned', $progress );
+        }
+
+        $downloaded = 0;
+        $errors     = [];
+        $break      = false;
+        $path       = $this->iup_instance->get_original_upload_dir_root();
+        $s3         = $this->iup_instance->s3();
+        while ( ! $break ) {
+            // Insert/Update query to add files to be downloaded. set deleted = 1 for these files.
+
+            $to_sync = $wpdb->get_results( $wpdb->prepare( "SELECT file, size FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 1 AND errors < 3 ORDER BY errors ASC, file ASC LIMIT %d", INFINITE_UPLOADS_SYNC_PER_LOOP ) );
+            //build full paths
+            $to_sync_full = [];
+            $to_sync_size = 0;
+            $to_sync_sql  = [];
+            foreach ( $to_sync as $file ) {
+                $to_sync_size += $file->size;
+                if ( count( $to_sync_full ) && $to_sync_size > INFINITE_UPLOADS_SYNC_MAX_BYTES ) { //upload at minimum one file even if it's huuuge
+                    break;
+                }
+                $to_sync_full[] = 's3://' . untrailingslashit( $this->iup_instance->bucket ) . $file->file;
+                $to_sync_sql[]  = esc_sql( $file->file );
+            }
+            //preset the error count in case request times out. Successful sync will clear error count.
+            $wpdb->query( "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` SET errors = ( errors + 1 ) WHERE file IN ('" . implode( "','", $to_sync_sql ) . "')" );
+
+            $obj  = new ArrayObject( $to_sync_full );
+            $from = $obj->getIterator();
+
+            $transfer_args = [
+                    'concurrency' => INFINITE_UPLOADS_SYNC_CONCURRENCY,
+                    'base_dir'    => 's3://' . $this->iup_instance->bucket,
+                    'before'      => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$downloaded ) {//add middleware to intercept result of each file upload
+                        if ( in_array( $command->getName(), [ 'GetObject' ], true ) ) {
+                            $command->getHandlerList()->appendSign(
+                                    Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, &$downloaded ) {
+                                        $downloaded ++;
+                                        $file = $this->iup_instance->get_file_from_result( $result );
+                                        $wpdb->update( "{$wpdb->base_prefix}infinite_uploads_files", [
+                                                'deleted' => 0,
+                                                'errors'  => 0,
+                                        ], [ 'file' => $file ] );
+
+                                        return $result;
+                                    } )
+                            );
+                        }
+                    },
+            ];
+            try {
+                $manager = new Transfer( $s3, $from, $path['basedir'], $transfer_args );
+                $manager->transfer();
+            } catch ( Exception $e ) {
+                if ( method_exists( $e, 'getRequest' ) ) {
+                    $file        = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
+                    $error_count = $wpdb->get_var( $wpdb->prepare( "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s", $file ) );
+                    if ( $error_count >= 3 ) {
+                        $errors[] = sprintf( esc_html__( 'Error downloading %s. Retries exceeded.', 'infinite-uploads' ), $file );
+                    } else {
+                        $errors[] = sprintf( esc_html__( 'Error downloading %s. Queued for retry.', 'infinite-uploads' ), $file );
+                    }
+                } else {
+                    $errors[] = esc_html__( 'Error downloading file. Queued for retry.', 'infinite-uploads' );
+                }
+            }
+
+            $is_done = ! (bool) $wpdb->get_var( "SELECT count(*) FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 1 AND errors < 3" );
+            if ( $is_done || timer_stop() >= $this->ajax_timelimit ) {
+                $break = true;
+
+                if ( $is_done ) {
+//                    $progress                      = get_site_option( 'iup_files_scanned' );
+//                    $progress['download_finished'] = time();
+//                    update_site_option( 'iup_files_scanned', $progress );
+
+                    $this->api->disconnect();
+                }
+
+                return true;
+            }
         }
     }
 }
