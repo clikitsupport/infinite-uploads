@@ -43,8 +43,10 @@ class Infinite_Uploads_Admin {
 
         add_action( 'wp_ajax_save_iu_excluded_files', [ $this, 'infinite_uploads_save_excluded_files' ] );
         add_action( 'wp_ajax_get_directory_tree', [ $this, 'get_direcotry_tree' ] );
-        add_action( 'wp_ajax_nopriv_infinite-uploads-do-sync', [ $this, 'do_sync' ] );
-        add_action( 'wp_ajax_nopriv_infinite-uploads-do-download', [ $this, 'do_download' ] );
+
+        // Handle it via Action Schedular.
+        add_action( 'infinite-uploads-do-sync', [ $this, 'do_sync' ] );
+        add_action( 'infinite-uploads-do-download', [ $this, 'do_download' ] );
 
         if ( is_main_site() ) {
             add_action( 'wp_ajax_infinite-uploads-filelist', [ &$this, 'ajax_filelist' ] );
@@ -573,9 +575,9 @@ class Infinite_Uploads_Admin {
 
     public function do_sync() {
         error_log( 'Do Sync Called...... >>>>> ' );
-//        if ( ! current_user_can( $this->iup_instance->capability )) {
-//            wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
-//        }
+        if ( ! current_user_can( $this->iup_instance->capability )) {
+            wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
+        }
 
         global $wpdb;
 
@@ -1401,59 +1403,39 @@ class Infinite_Uploads_Admin {
             $filelist = new Infinite_Uploads_Filelist( $path, 20, $files_to_resync );
             $filelist->add_files_to_sync();
 
-            error_log( 'Syncing Files Removed from Excluded List...... >>>>> ' . print_r( $files_to_resync, true ) );
-
-            //$this->do_sync();
-            $post = wp_remote_post( admin_url( 'admin-ajax.php' ), [
-                    'blocking'  => true,
-                    'sslverify' => false,
-                    'body'      => [
-                            'action' => 'infinite-uploads-do-sync',
-                            'nonce'  => wp_create_nonce( 'iup_do_sync' ),
-                    ],
-            ] );
+            as_schedule_single_action( time(), 'infinite-uploads-do-sync', array() );
         }
 
         if ( ! empty( $files_to_download_from_infinite_upload_server ) ) {
-            error_log( 'Downloading files...... >>>>> ' . print_r( $files_to_download_from_infinite_upload_server, true ) );
-            // TODO: Mark these files as excluded so that they are not scanned again. Also download it to local if it's in cloud.
-            //$this->do_download( $files_to_download_from_infinite_upload_server );
-            $post = wp_remote_post( admin_url( 'admin-ajax.php' ), [
-                    'blocking'  => true,
-                    'sslverify' => false,
-                    'body'      => [
-                            'action' => 'infinite-uploads-do-download',
-                            'nonce'  => wp_create_nonce( 'iup_do_download' ),
-                            'files'  => $files_to_download_from_infinite_upload_server,
-                    ],
-            ] );
+            as_schedule_single_action( time(), 'infinite-uploads-do-download', array(
+                    'files' => $files_to_download_from_infinite_upload_server,
+            ) );
         }
     }
 
-    public function do_download() {
-        error_log( 'Do Download Called...... >>>>> ' );
+    public function do_download( $files = [] ) {
         global $wpdb;
 
-//        if ( ! current_user_can( $this->iup_instance->capability ) ) {
-//            wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
-//        }
+        if ( ! current_user_can( $this->iup_instance->capability ) ) {
+            wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
+        }
 
-        $files = isset( $_POST['files'] ) ? $_POST['files'] : [];
+        $path          = $this->iup_instance->get_original_upload_dir_root();
+        $base_dir_path = $path['basedir'];
+
+        // $files = isset( $_POST['files'] ) ? $_POST['files'] : [];
 
         if ( empty( $files ) || ! is_array( $files ) ) {
             return false;
         }
 
         foreach ( $files as $file ) {
+            if ( file_exists( $file ) ) {
+                continue;
+            }
+
+            $file = '/' . trim( $file, $base_dir_path );
             $wpdb->query( $wpdb->prepare( "INSERT INTO `{$wpdb->base_prefix}infinite_uploads_files` (file, size, synced, deleted, errors) VALUES (%s, 0, 1, 1, 1) ON DUPLICATE KEY UPDATE deleted = 1, errors = 1", $file ) );
-        }
-
-        error_log( 'Started Do DPWNLOAD...... >>>>> ' );
-
-        $progress = get_site_option( 'iup_files_scanned' );
-        if ( empty( $progress['download_started'] ) ) {
-//            $progress['download_started'] = time();
-//            update_site_option( 'iup_files_scanned', $progress );
         }
 
         $downloaded = 0;
@@ -1525,11 +1507,7 @@ class Infinite_Uploads_Admin {
                 $break = true;
 
                 if ( $is_done ) {
-//                    $progress                      = get_site_option( 'iup_files_scanned' );
-//                    $progress['download_finished'] = time();
-//                    update_site_option( 'iup_files_scanned', $progress );
 
-                    // $this->api->disconnect();
                 }
 
                 return true;

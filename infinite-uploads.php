@@ -27,6 +27,9 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 
 register_activation_hook( __FILE__, 'infinite_uploads_install' );
 
+// Load action scheduler.
+require_once dirname( __FILE__ ) . '/libs/action-scheduler/action-scheduler.php';
+
 add_action( 'plugins_loaded', 'infinite_uploads_init' );
 
 function infinite_uploads_init() {
@@ -53,6 +56,7 @@ function infinite_uploads_init() {
 	}
 
 	// Require Our custom AWS Autoloader file.
+
 	require_once dirname( __FILE__ ) . '/vendor/Aws3/aws-autoloader.php';
 
 	if ( ! infinite_uploads_check_requirements() ) {
