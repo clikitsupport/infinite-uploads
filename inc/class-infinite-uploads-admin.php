@@ -574,14 +574,12 @@ class Infinite_Uploads_Admin {
     }
 
     public function do_sync() {
-        error_log( 'Do Sync Called...... >>>>> ' );
         if ( ! current_user_can( $this->iup_instance->capability )) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
 
         global $wpdb;
 
-        error_log( 'Started Do SYNC...... >>>>> ' );
         //this loop has a parallel status check, so we make the timeout 2/3 of max execution time.
         $this->ajax_timelimit = max( 20, floor( ini_get( 'max_execution_time' ) * .6666 ) );
         $this->sync_debug_log( "Ajax time limit: " . $this->ajax_timelimit );
