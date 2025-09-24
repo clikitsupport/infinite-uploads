@@ -594,8 +594,57 @@ class Infinite_Uploads {
 		return scandir( trailingslashit( $dir ) . $name . '*' );
 	}
 
+    /**
+     * Get the list of excluded files from the WordPress option.
+     *
+     * @return array|false An array of excluded file paths.
+     */
+    public function get_excluded_paths() {
+        $excluded_files_array = maybe_unserialize( get_option( 'iu_excluded_files', '' ) );
+        if ( ! is_array( $excluded_files_array ) ) {
+            $excluded_files_array = [];
+        }
+
+        return array_map( 'trim', $excluded_files_array );
+    }
+
+    /**
+     * Check if a given path is in the excluded list.
+     *
+     * @param  string  $path  The file path to check.
+     *
+     * @return bool True if the path is excluded, false otherwise.
+     */
+    public function is_path_excluded( $path ) {
+        $excluded_files_array = $this->get_excluded_paths();
+        if ( empty( $excluded_files_array ) ) {
+            return false;
+        }
+
+        foreach ( $excluded_files_array as $excluded_file ) {
+            if ( stripos( $excluded_file, $path ) !== false ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 	public function filter_upload_dir( $dirs ) {
-		$root_dirs = $this->get_original_upload_dir_root();		
+        // bail if path is excluded.
+		$root_dirs = $this->get_original_upload_dir_root();
+
+        $original_base_dir = $root_dirs['basedir'];
+
+        $path = $dirs['basedir'];
+        if ( $original_base_dir === $dirs['basedir'] ) {
+            $path = $dirs['path'];
+        }
+
+        if ( $this->is_path_excluded( $path ) ) {
+            return $dirs;
+        }
+
 		$dirs['path']    = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $this->bucket ), $dirs['path'] );
 		$dirs['basedir'] = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $this->bucket ), $dirs['basedir'] );
 
@@ -1025,19 +1074,32 @@ add_filter( 'woocommerce_log_directory', 'infinite_uploads_wc_uploads' );
  */
 add_action( 'admin_init', 'wc_iu_export_fix' );
 function wc_iu_export_fix() {
-	if( defined('DOING_AJAX') && DOING_AJAX && current_user_can('manage_options') ) {
-		switch($_POST['action']) {
-			case 'woocommerce_do_ajax_product_export':
-				if(class_exists('Infinite_Uploads')){
-					remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );	
-				}
-		}
-	}
-	if( isset( $_GET['page'] ) && $_GET['page'] == 'product_exporter' ) {
-		if(class_exists('Infinite_Uploads')){
-			remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );	
-		}
-	}
+    if ( defined( 'DOING_AJAX' ) && DOING_AJAX && current_user_can( 'manage_options' ) ) {
+        if ( isset( $_POST['action'] ) && $_POST['action'] == 'woocommerce_do_ajax_product_export' && class_exists( 'Infinite_Uploads' ) ) {
+            remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );
+        }
+    }
+
+    if ( isset( $_GET['page'] ) && $_GET['page'] == 'product_exporter' ) {
+        if ( class_exists( 'Infinite_Uploads' ) ) {
+            remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );
+        }
+    }
+}
+
+
+// Disable Smush filter on Media Library.
+add_action( 'admin_init', 'disable_smush_on_media_library' );
+
+function disable_smush_on_media_library() {
+    if ( class_exists( '\Smush\App\Media_Library' ) ) {
+        $wp_smush               = WP_Smush::get_instance();
+        $media_library_instance = $wp_smush->library();
+
+        if ( $media_library_instance instanceof \Smush\App\Media_Library ) {
+            remove_filter( 'wp_prepare_attachment_for_js', array( $media_library_instance, 'smush_send_status' ), 99 );
+        }
+    }
 }
 
 /**
