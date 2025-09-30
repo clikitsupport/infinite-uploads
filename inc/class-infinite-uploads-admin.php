@@ -47,6 +47,7 @@ class Infinite_Uploads_Admin {
         // Handle it via Action Schedular.
         add_action( 'infinite-uploads-do-sync', [ $this, 'do_sync' ] );
         add_action( 'infinite-uploads-do-download', [ $this, 'do_download' ] );
+        add_action( 'admin_init', [ $this, 'do_download' ] );
 
         if ( is_main_site() ) {
             add_action( 'wp_ajax_infinite-uploads-filelist', [ &$this, 'ajax_filelist' ] );
@@ -574,7 +575,7 @@ class Infinite_Uploads_Admin {
     }
 
     public function do_sync() {
-        if ( ! current_user_can( $this->iup_instance->capability )) {
+        if ( ! current_user_can( $this->iup_instance->capability ) ) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
 
@@ -807,20 +808,9 @@ class Infinite_Uploads_Admin {
                 }
             }
 
-//            if ( $is_done || timer_stop() >= $this->ajax_timelimit ) {
-//                $break            = true;
-//                $permanent_errors = false;
-//
-//                if ( $is_done ) {
-//                    $permanent_errors          = (int) $wpdb->get_var( "SELECT count(*) FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 0 AND errors >= 3" );
-//                    $progress                  = get_site_option( 'iup_files_scanned' );
-//                    $progress['sync_finished'] = time();
-//                    update_site_option( 'iup_files_scanned', $progress );
-//                }
-//
-//                $nonce = wp_create_nonce( 'iup_sync' );
-//                wp_send_json_success( array_merge( compact( 'uploaded', 'is_done', 'errors', 'permanent_errors', 'nonce' ), $this->iup_instance->get_sync_stats() ) );
-//            }
+            if ( $is_done || timer_stop() >= $this->ajax_timelimit ) {
+                $break = true;
+            }
         }
     }
 
@@ -864,11 +854,13 @@ class Infinite_Uploads_Admin {
             update_site_option( 'iup_files_scanned', $progress );
         }
 
+
         $downloaded = 0;
         $errors     = [];
         $break      = false;
         $path       = $this->iup_instance->get_original_upload_dir_root();
         $s3         = $this->iup_instance->s3();
+
         while ( ! $break ) {
             $to_sync = $wpdb->get_results( $wpdb->prepare( "SELECT file, size FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 1 AND errors < 3 ORDER BY errors ASC, file ASC LIMIT %d", INFINITE_UPLOADS_SYNC_PER_LOOP ) );
             //build full paths
@@ -1405,15 +1397,28 @@ class Infinite_Uploads_Admin {
         }
 
         if ( ! empty( $files_to_download_from_infinite_upload_server ) ) {
-            as_schedule_single_action( time(), 'infinite-uploads-do-download', array(
-                    'files' => $files_to_download_from_infinite_upload_server,
-            ) );
+            $files_to_download = maybe_unserialize( get_option( 'iup_files_to_downloads', '' ) );
+
+            if ( ! is_array( $files_to_download ) ) {
+                $files_to_download = [];
+            }
+
+            $files_to_download = array_merge( $files_to_download, $files_to_download_from_infinite_upload_server );
+            update_option( 'iup_files_to_downloads', maybe_serialize( $files_to_download ) );
+            as_schedule_single_action( time(), 'infinite-uploads-do-download' );
         }
     }
 
-    public function do_download( $files = [] ) {
+    public function do_download() {
         global $wpdb;
 
+        $debug = $_GET['debug'] ?? '';
+
+        if ( $debug !== 'true' ) {
+            return;
+        }
+
+        error_log('Step 1 - Starting download process>>>>');
         if ( ! current_user_can( $this->iup_instance->capability ) ) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
@@ -1421,14 +1426,15 @@ class Infinite_Uploads_Admin {
         $path          = $this->iup_instance->get_original_upload_dir_root();
         $base_dir_path = $path['basedir'];
 
-        // $files = isset( $_POST['files'] ) ? $_POST['files'] : [];
+        $files = maybe_unserialize( get_option( 'iup_files_to_downloads', '' ) );
 
+        error_log( "Files to Download" . print_r( $files, true ) );
         if ( empty( $files ) || ! is_array( $files ) ) {
             return false;
         }
 
         foreach ( $files as $file ) {
-            if ( file_exists( $file ) ) {
+            if ( is_dir( $file ) || file_exists( $file ) ) {
                 continue;
             }
 
@@ -1460,8 +1466,12 @@ class Infinite_Uploads_Admin {
             //preset the error count in case request times out. Successful sync will clear error count.
             $wpdb->query( "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` SET errors = ( errors + 1 ) WHERE file IN ('" . implode( "','", $to_sync_sql ) . "')" );
 
+            error_log('Step 2 - Files to be downloaded in this batch>>>>' . print_r( $to_sync_full, true ) );
             $obj  = new ArrayObject( $to_sync_full );
             $from = $obj->getIterator();
+
+            // Write a code to download directories too
+
 
             $transfer_args = [
                     'concurrency' => INFINITE_UPLOADS_SYNC_CONCURRENCY,
@@ -1483,11 +1493,13 @@ class Infinite_Uploads_Admin {
                         }
                     },
             ];
+
             try {
                 $manager = new Transfer( $s3, $from, $path['basedir'], $transfer_args );
                 $manager->transfer();
             } catch ( Exception $e ) {
                 if ( method_exists( $e, 'getRequest' ) ) {
+                    error_log('Step 3 - Error while downloading files>>>>' . $e->getMessage() );
                     $file        = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
                     $error_count = $wpdb->get_var( $wpdb->prepare( "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s", $file ) );
                     if ( $error_count >= 3 ) {
@@ -1505,11 +1517,31 @@ class Infinite_Uploads_Admin {
                 $break = true;
 
                 if ( $is_done ) {
-
                 }
 
                 return true;
             }
         }
+    }
+
+    public function remove_downloaded_files_from_list() {
+        $files = maybe_unserialize( get_option( 'iup_files_to_downloads', '' ) );
+
+        if ( empty( $files ) || ! is_array( $files ) ) {
+            return false;
+        }
+
+        $files_to_keep = [];
+        foreach ( $files as $file ) {
+            $full_path = $this->iup_instance->get_original_upload_dir_root();
+            $full_path = $full_path['basedir'] . '/' . ltrim( $file, '/' );
+            if ( ! file_exists( $full_path ) ) {
+                $files_to_keep[] = $file;
+            }
+        }
+
+        update_option( 'iup_files_to_downloads', maybe_serialize( $files_to_keep ) );
+
+        return true;
     }
 }
