@@ -112,7 +112,6 @@ class Infinite_Uploads {
 				//];
 				return $params;
 			} );
-			
 		} else { //if we don't have cloud data we have to disable everything to avoid errors
 			//turn off enabled flag
 			if ( infinite_uploads_enabled() ) {

@@ -191,9 +191,10 @@ class Infinite_Uploads_Filelist {
 
 					$this->add_file( $file );
 				} elseif ( is_dir( $item ) ) {
-					if ( ! in_array( $item, $paths, true ) ) {
-						$paths[] = $this->relative_path( $item );
-					}
+					// Note: No need to sync directory.
+//					if ( ! in_array( $item, $paths, true ) ) {
+//						$paths[] = $this->relative_path( $item );
+//					}
 				}
 			}
 

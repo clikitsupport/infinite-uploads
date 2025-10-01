@@ -47,7 +47,9 @@ class Infinite_Uploads_Admin {
         // Handle it via Action Schedular.
         add_action( 'infinite-uploads-do-sync', [ $this, 'do_sync' ] );
         add_action( 'infinite-uploads-do-download', [ $this, 'do_download' ] );
-        add_action( 'admin_init', [ $this, 'do_download' ] );
+        //add_action( 'admin_init', [ $this, 'do_download' ] );
+        add_action( 'admin_init', [ $this, 'download_s3_directory' ] );
+
 
         if ( is_main_site() ) {
             add_action( 'wp_ajax_infinite-uploads-filelist', [ &$this, 'ajax_filelist' ] );
@@ -65,7 +67,49 @@ class Infinite_Uploads_Admin {
             }
 
             add_action( 'infinite_uploads_do_sync', [ $this, 'do_sync' ] );
+
+            add_filter( 'wp_get_attachment_url', [ $this, 'filter_attachment_url' ], 10, 2 );
         }
+    }
+
+    public function filter_attachment_url( $url, $post_id ) {
+        if ( $this->url_file_exists( $url ) ) {
+            return $url;
+        }
+
+        /**
+         * TODO: Optimize this by storing the S3 URL in postmeta when the file is first uploaded
+         *
+         * Replace local file path with S3 URL for media library and front-end requests if the file is not found locally
+         */
+
+        // Write code to determine if the attachment is synced to Infinite Uploads
+        $root_dirs = $this->iup_instance->get_original_upload_dir_root();
+
+        $original_base_dir = $root_dirs['basedir'];
+
+        $search  = $root_dirs['baseurl'];
+        $replace = untrailingslashit( $this->iup_instance->get_s3_url() );
+
+        $url = str_replace( $search, $replace, $url );
+
+        //echo $file;
+
+//        $meta = wp_get_attachment_metadata( $attachment_id );
+//        if ( isset( $meta['iup_synced'] ) && $meta['iup_synced'] ) {
+//            $file = $this->iup_instance->get_s3_url( ltrim( str_replace( wp_get_upload_dir()['basedir'], '', $file ), '/' ) );
+//        }
+
+        return $url;
+    }
+
+    function url_file_exists( $url ) {
+        $headers = @get_headers( $url );
+        if ( $headers && strpos( $headers[0], '200' ) !== false ) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -582,8 +626,8 @@ class Infinite_Uploads_Admin {
         global $wpdb;
 
         //this loop has a parallel status check, so we make the timeout 2/3 of max execution time.
-        $this->ajax_timelimit = max( 20, floor( ini_get( 'max_execution_time' ) * .6666 ) );
-        $this->sync_debug_log( "Ajax time limit: " . $this->ajax_timelimit );
+        $timelimit = max( 20, floor( ini_get( 'max_execution_time' ) * .6666 ) );
+        $this->sync_debug_log( "Ajax time limit: " . $timelimit );
         $uploaded = 0;
         $errors   = [];
         $break    = false;
@@ -808,9 +852,16 @@ class Infinite_Uploads_Admin {
                 }
             }
 
-            if ( $is_done || timer_stop() >= $this->ajax_timelimit ) {
+            if ( $is_done ) {
+                $break = true;
+            } elseif ( timer_stop() >= $timelimit ) {
+                // Still more to do, but out of time
+                $this->sync_debug_log( "Sync time limit reached, exiting and rescheduling." );
+                wp_clear_scheduled_hook( 'infinite-uploads-do-sync' );
+                as_schedule_single_action( time() + 5, 'infinite-uploads-do-sync' );
                 $break = true;
             }
+
         }
     }
 
@@ -1385,7 +1436,6 @@ class Infinite_Uploads_Admin {
         global $wpdb;
 
         if ( ! empty( $files_to_resync ) ) {
-            // TODO: Sync these files again to cloud.
 
             $path = $this->iup_instance->get_original_upload_dir_root();
             $path = $path['basedir'];
@@ -1393,7 +1443,7 @@ class Infinite_Uploads_Admin {
             $filelist = new Infinite_Uploads_Filelist( $path, 20, $files_to_resync );
             $filelist->add_files_to_sync();
 
-            as_schedule_single_action( time(), 'infinite-uploads-do-sync', array() );
+            as_schedule_single_action( time(), 'infinite-uploads-do-sync' );
         }
 
         if ( ! empty( $files_to_download_from_infinite_upload_server ) ) {
@@ -1409,16 +1459,10 @@ class Infinite_Uploads_Admin {
         }
     }
 
-    public function do_download() {
+
+    public function add_files_to_download() {
         global $wpdb;
 
-        $debug = $_GET['debug'] ?? '';
-
-        if ( $debug !== 'true' ) {
-            return;
-        }
-
-        error_log('Step 1 - Starting download process>>>>');
         if ( ! current_user_can( $this->iup_instance->capability ) ) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
@@ -1430,27 +1474,117 @@ class Infinite_Uploads_Admin {
 
         error_log( "Files to Download" . print_r( $files, true ) );
         if ( empty( $files ) || ! is_array( $files ) ) {
+            error_log( "No Files To Download >>>>> " );
+
             return false;
         }
 
-        foreach ( $files as $file ) {
-            if ( is_dir( $file ) || file_exists( $file ) ) {
+        error_log( "Setup File Downloads >>>>> " );
+        foreach ( $files as $key => $file ) {
+            $file = '/' . ltrim( trim( $file, $base_dir_path ), '/' );
+
+            if ( is_dir( $file ) ) {
+                $dirs_to_download[] = $file;
+                unset( $files[ $key ] );
                 continue;
             }
 
-            $file = '/' . trim( $file, $base_dir_path );
+            if ( file_exists( $file ) ) {
+                unset( $files[ $key ] );
+                continue;
+            }
+
             $wpdb->query( $wpdb->prepare( "INSERT INTO `{$wpdb->base_prefix}infinite_uploads_files` (file, size, synced, deleted, errors) VALUES (%s, 0, 1, 1, 1) ON DUPLICATE KEY UPDATE deleted = 1, errors = 1", $file ) );
         }
+
+        // Now process directories
+        if ( ! empty( $dirs_to_download ) ) {
+            $dirs_to_download = maybe_serialize( $dirs_to_download );
+            update_option( 'iup_dirs_to_downloads', $dirs_to_download );
+            as_schedule_single_action( time(), 'infinite-uploads-fetch-s3-files-from-directory-to-download' );
+        }
+
+        update_option( 'iup_files_to_downloads', maybe_serialize( $files ) );
+    }
+
+
+    public function fetch_s3_files_from_directory_to_download() {
+
+        $dirs = get_option('iup_dirs_to_downloads', '');
+
+        if(empty($dirs)) {
+            return;
+        }
+
+        $dirs = maybe_unserialize( $dirs );
+    }
+
+
+
+    public function do_download() {
+        global $wpdb;
+
+        $debug = $_GET['debug'] ?? '';
+
+        if ( $debug !== 'true' ) {
+            return;
+        }
+
+        error_log( 'Step 1 - Starting download process>>>>' );
+        if ( ! current_user_can( $this->iup_instance->capability ) ) {
+            wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
+        }
+
+        $path          = $this->iup_instance->get_original_upload_dir_root();
+        $base_dir_path = $path['basedir'];
+
+        $files = maybe_unserialize( get_option( 'iup_files_to_downloads', '' ) );
+
+        error_log( "Files to Download" . print_r( $files, true ) );
+        if ( empty( $files ) || ! is_array( $files ) ) {
+            error_log( "No Files To Download >>>>> " );
+
+            return false;
+        }
+
+        error_log( "Setup File Downloads >>>>> " );
+        foreach ( $files as $key => $file ) {
+            $file = '/' . ltrim( trim( $file, $base_dir_path ), '/' );
+
+            if ( is_dir( $file ) ) {
+                $dirs_to_download[] = $file;
+                unset( $files[ $key ] );
+                continue;
+            }
+
+            if ( file_exists( $file ) ) {
+                unset( $files[ $key ] );
+                continue;
+            }
+
+            $wpdb->query( $wpdb->prepare( "INSERT INTO `{$wpdb->base_prefix}infinite_uploads_files` (file, size, synced, deleted, errors) VALUES (%s, 0, 1, 1, 1) ON DUPLICATE KEY UPDATE deleted = 1, errors = 1", $file ) );
+        }
+
+        // Now process directories
+        if ( ! empty( $dirs_to_download ) ) {
+            $dirs_to_download = maybe_serialize( $dirs_to_download );
+            update_option( 'iup_dirs_to_downloads', $dirs_to_download );
+        }
+
+        update_option( 'iup_files_to_downloads', maybe_serialize( $files ) );
 
         $downloaded = 0;
         $errors     = [];
         $break      = false;
         $path       = $this->iup_instance->get_original_upload_dir_root();
         $s3         = $this->iup_instance->s3();
+
+
         while ( ! $break ) {
             // Insert/Update query to add files to be downloaded. set deleted = 1 for these files.
 
             $to_sync = $wpdb->get_results( $wpdb->prepare( "SELECT file, size FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 1 AND errors < 3 ORDER BY errors ASC, file ASC LIMIT %d", INFINITE_UPLOADS_SYNC_PER_LOOP ) );
+
             //build full paths
             $to_sync_full = [];
             $to_sync_size = 0;
@@ -1463,14 +1597,13 @@ class Infinite_Uploads_Admin {
                 $to_sync_full[] = 's3://' . untrailingslashit( $this->iup_instance->bucket ) . $file->file;
                 $to_sync_sql[]  = esc_sql( $file->file );
             }
+
             //preset the error count in case request times out. Successful sync will clear error count.
             $wpdb->query( "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` SET errors = ( errors + 1 ) WHERE file IN ('" . implode( "','", $to_sync_sql ) . "')" );
 
-            error_log('Step 2 - Files to be downloaded in this batch>>>>' . print_r( $to_sync_full, true ) );
+            error_log( 'Step 2 - Files to be downloaded in this batch>>>>' . print_r( $to_sync_full, true ) );
             $obj  = new ArrayObject( $to_sync_full );
             $from = $obj->getIterator();
-
-            // Write a code to download directories too
 
 
             $transfer_args = [
@@ -1499,7 +1632,7 @@ class Infinite_Uploads_Admin {
                 $manager->transfer();
             } catch ( Exception $e ) {
                 if ( method_exists( $e, 'getRequest' ) ) {
-                    error_log('Step 3 - Error while downloading files>>>>' . $e->getMessage() );
+                    error_log( 'Step 3 - Error while downloading files>>>>' . $e->getMessage() );
                     $file        = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
                     $error_count = $wpdb->get_var( $wpdb->prepare( "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s", $file ) );
                     if ( $error_count >= 3 ) {
@@ -1544,4 +1677,54 @@ class Infinite_Uploads_Admin {
 
         return true;
     }
+
+    public function download_s3_directory() {
+        $debug = $_GET['debug'] ?? '';
+
+        if ( $debug != 'true' ) {
+            return;
+        }
+
+        global $wpdb;
+
+        $this->sync_debug_log( "Ajax time limit: " . $this->ajax_timelimit );
+
+        $s3     = $this->iup_instance->s3();
+        $prefix = $this->iup_instance->get_s3_prefix();
+
+        $args = [
+                'Bucket' => $this->iup_instance->get_s3_bucket(),
+                'Prefix' => trailingslashit( $prefix ),
+        ];
+
+        if ( ! empty( $_POST['next_token'] ) ) {
+            $args['ContinuationToken'] = sanitize_text_field( $_POST['next_token'] );
+        }
+
+        try {
+            $results    = $s3->getPaginator( 'ListObjectsV2', $args );
+            $req_count  = $file_count = 0;
+            $is_done    = false;
+            $next_token = null;
+            $files      = [];
+            foreach ( $results as $result ) {
+                $req_count ++;
+                $is_done          = ! $result['IsTruncated'];
+                $next_token       = isset( $result['NextContinuationToken'] ) ? $result['NextContinuationToken'] : null;
+                $cloud_only_files = [];
+                if ( $result['Contents'] ) {
+                    foreach ( $result['Contents'] as $object ) {
+                        $file_count ++;
+                        $local_key = str_replace( $prefix, '', $object['Key'] );
+                        $file      = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->base_prefix}infinite_uploads_files WHERE file = %s", $local_key ) );
+                        $files[]   = $file;
+                    }
+                }
+            }
+        } catch ( Exception $e ) {
+            wp_send_json_error( $e->getMessage() );
+        }
+    }
+
+
 }
