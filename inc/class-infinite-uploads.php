@@ -616,6 +616,9 @@ class Infinite_Uploads {
      */
     public function is_path_excluded( $path ) {
         $excluded_files_array = $this->get_excluded_paths();
+
+        error_log('[INFINITE_UPLOADS] Checking if path is excluded: ' . $path);
+        error_log('[INFINITE_UPLOADS] Excluded paths: ' . print_r($excluded_files_array, true));
         if ( empty( $excluded_files_array ) ) {
             return false;
         }
@@ -636,6 +639,8 @@ class Infinite_Uploads {
         $original_base_dir = $root_dirs['basedir'];
 
         $path = $dirs['basedir'];
+
+        error_log('[INFINITE_UPLOADS] filter_upload_dir called with path: ' . $path);
         if ( $original_base_dir === $dirs['basedir'] ) {
             $path = $dirs['path'];
         }
