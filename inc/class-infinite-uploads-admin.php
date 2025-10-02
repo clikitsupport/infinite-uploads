@@ -70,7 +70,7 @@ class Infinite_Uploads_Admin {
 
             add_action( 'infinite_uploads_do_sync', [ $this, 'do_sync' ] );
 
-            //add_filter( 'wp_get_attachment_url', [ $this, 'filter_attachment_url' ], 10, 2 );
+            add_filter( 'wp_get_attachment_url', [ $this, 'filter_attachment_url' ], 10, 2 );
         }
     }
 
@@ -891,7 +891,7 @@ class Infinite_Uploads_Admin {
                 'getTree'           => wp_create_nonce( 'get_tree_nonce' ),
         ];
 
-        $data['excludedFiles'] = get_option( 'iu_excluded_files', '' );
+        $data['excludedFiles'] = get_site_option( 'iu_excluded_files', '' );
 
         wp_localize_script( 'iup-js', 'iup_data', $data );
     }
@@ -1134,7 +1134,7 @@ class Infinite_Uploads_Admin {
      * @return array
      */
     public function get_excluded_files() {
-        $excluded_files = get_option( 'iu_excluded_files', '' );
+        $excluded_files = get_site_option( 'iu_excluded_files', '' );
         if ( ! is_array( $excluded_files ) ) {
             $excluded_files = [];
         }
@@ -1166,7 +1166,7 @@ class Infinite_Uploads_Admin {
 
         $this->process_added_removed_excluded_files( $files_to_resync, $files_to_download_from_infinite_upload_server );
 
-        update_option( 'iu_excluded_files', $excluded_files_array );
+        update_site_option( 'iu_excluded_files', $excluded_files_array );
 
         wp_send_json_success();
     }
@@ -1185,7 +1185,7 @@ class Infinite_Uploads_Admin {
         }
 
         if ( ! empty( $files_to_download_from_infinite_upload_server ) ) {
-            $files_to_download = get_option( 'iup_files_to_downloads', '' );
+            $files_to_download = get_site_option( 'iup_files_to_downloads', '' );
 
             error_log( 'Files TO Download Before Merge: ' . print_r( $files_to_download, true ) );
             if ( ! is_array( $files_to_download ) ) {
@@ -1198,7 +1198,7 @@ class Infinite_Uploads_Admin {
 
             $files_to_download = array_unique( $files_to_download );
 
-            update_option( 'iup_files_to_downloads', $files_to_download );
+            update_site_option( 'iup_files_to_downloads', $files_to_download );
             as_schedule_single_action( time(), 'infinite-uploads-add-files-to-download' );
         }
     }
@@ -1212,7 +1212,7 @@ class Infinite_Uploads_Admin {
         $path          = $this->iup_instance->get_original_upload_dir_root();
         $base_dir_path = $path['basedir'];
 
-        $files = get_option( 'iup_files_to_downloads', '' );
+        $files = get_site_option( 'iup_files_to_downloads', '' );
 
         error_log( "Files to Download: " . print_r( $files, true ) );
         if ( empty( $files ) || ! is_array( $files ) ) {
@@ -1244,11 +1244,11 @@ class Infinite_Uploads_Admin {
         error_log( "Dirs to download >>>>> " . print_r( $dirs_to_download, true ) );
         // Now process directories
         if ( ! empty( $dirs_to_download ) ) {
-            update_option( 'iup_dirs_to_downloads', $dirs_to_download );
+            update_site_option( 'iup_dirs_to_downloads', $dirs_to_download );
             as_schedule_single_action( time(), 'infinite-uploads-fetch-s3-files-from-directory-to-download' );
         }
 
-        update_option( 'iup_files_to_downloads', $files );
+        update_site_option( 'iup_files_to_downloads', $files );
         as_schedule_single_action( time(), 'infinite-uploads-do-download' );
 
         return true;
@@ -1257,7 +1257,7 @@ class Infinite_Uploads_Admin {
     public function fetch_s3_files_from_directory_to_download() {
         global $wpdb;
 
-        $dirs = get_option( 'iup_dirs_to_downloads', '' );
+        $dirs = get_site_option( 'iup_dirs_to_downloads', '' );
 
         $this->sync_debug_log( '[INFINITE_UPLOADS] Fetch S3 files from directory to download' );
         $this->sync_debug_log( '[INFINITE_UPLOADS] Fetch S3 files from directory to download >> Step 1' );
@@ -1277,7 +1277,7 @@ class Infinite_Uploads_Admin {
                 'Prefix' => trailingslashit( $prefix ),
         ];
 
-        $next_token = get_option( 'iup_s3_next_token_to_download', '' );
+        $next_token = get_site_option( 'iup_s3_next_token_to_download', '' );
 
         if ( ! empty( $next_token ) ) {
             $args['ContinuationToken'] = sanitize_text_field( $next_token );
@@ -1292,7 +1292,7 @@ class Infinite_Uploads_Admin {
             foreach ( $results as $result ) {
                 $is_done    = ! $result['IsTruncated'];
                 $next_token = isset( $result['NextContinuationToken'] ) ? $result['NextContinuationToken'] : '';
-                update_option( 'iup_s3_next_token_to_download', $next_token );
+                update_site_option( 'iup_s3_next_token_to_download', $next_token );
                 $cloud_only_files = [];
                 if ( $result['Contents'] ) {
                     foreach ( $result['Contents'] as $object ) {
@@ -1360,7 +1360,7 @@ class Infinite_Uploads_Admin {
             }
 
             if ( $is_done ) {
-                update_option( 'iup_dirs_to_downloads', '' );
+                update_site_option( 'iup_dirs_to_downloads', '' );
             }
         } catch ( Exception $e ) {
             wp_send_json_error( $e->getMessage() );
@@ -1698,7 +1698,7 @@ class Infinite_Uploads_Admin {
     }
 
     public function remove_downloaded_files_from_list() {
-        $files = get_option( 'iup_files_to_downloads', '' );
+        $files = get_site_option( 'iup_files_to_downloads', '' );
 
         if ( empty( $files ) || ! is_array( $files ) ) {
             return false;
@@ -1713,7 +1713,7 @@ class Infinite_Uploads_Admin {
             }
         }
 
-        update_option( 'iup_files_to_downloads', $files_to_keep );
+        update_site_option( 'iup_files_to_downloads', $files_to_keep );
 
         return true;
     }
