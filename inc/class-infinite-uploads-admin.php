@@ -75,29 +75,89 @@ class Infinite_Uploads_Admin {
     }
 
     public function filter_attachment_url( $url, $post_id ) {
-        if ( $this->url_file_exists( $url ) ) {
-            return $url;
-        }
-
-        $root_dirs = $this->iup_instance->get_original_upload_dir_root();
-
-        $original_base_dir = $root_dirs['basedir'];
-
-        $search  = $root_dirs['baseurl'];
-        $replace = untrailingslashit( $this->iup_instance->get_s3_url() );
-
-        $url = str_replace( $search, $replace, $url );
-
-        return $url;
+        return $this->serve_media_url( $url );
     }
 
-    function url_file_exists( $url ) {
-        $headers = @get_headers( $url );
-        if ( $headers && strpos( $headers[0], '200' ) !== false ) {
-            return true;
-        }
+    public function serve_media_url( $url ) {
+        /**
+         * TODO: Implement a code to check following conditions.
+         *
+         * 1. Check if $url is a local server url or a cloud url.
+         * 2. If it is a local server url, check if the file exists on the local server.
+         * 3. If the file exists on the local server, return the local server url.
+         * 4. If the file does not exist on the local server, check if it exists on the cloud.
+         * 5. If it exists on the cloud, return the cloud url.
+         * 6. If it does not exist on the cloud, return the local server url (which will result in a 404).
+         * 7. If it is a cloud url, check whether this is synced to cloud or not.
+         * 8. If it is synced to cloud, return the cloud url.
+         * 9. If it is not synced to cloud, check if the file exists on the local server.
+         * 10. If the file exists on the local server, return the local server url.
+         * 11. If the file does not exist on the local server, return the cloud url (which will result in a 404).
+         */
 
-        return false;
+        // Get root directories for comparison
+        $root_dirs = $this->iup_instance->get_original_upload_dir_root();
+        $base_url  = $root_dirs['baseurl'];
+        $base_dir  = $root_dirs['basedir'];
+        $cloud_url = untrailingslashit( $this->iup_instance->get_s3_url() );
+
+        // 1. Check if URL is local or cloud
+        $is_local_url = ( strpos( $url, $base_url ) !== false );
+
+        error_log( 'Is Local URL: ' . ( $is_local_url ? 'Yes' : 'No' ) );
+
+        if ( $is_local_url ) {
+            // Handle local URL scenario
+            $file_path = str_replace( $base_url, $base_dir, $url );
+
+            // 2 & 3. Check if file exists locally
+            if ( file_exists( $file_path ) ) {
+                return $url;
+            }
+
+            // 4. Check if file exists in cloud
+            $cloud_path    = str_replace( $base_url, $cloud_url, $url );
+            $relative_path = str_replace( $base_url, '', $url );
+
+            error_log( 'Relative Path: ' . $relative_path );
+
+            global $wpdb;
+            $is_synced = $wpdb->get_var( $wpdb->prepare(
+                    "SELECT synced FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s AND synced = 1",
+                    $relative_path
+            ) );
+
+            // 5 & 6. Return cloud URL if synced, otherwise return local URL
+            return $is_synced ? $cloud_path : $url;
+
+        } else {
+            // Handle cloud URL scenario
+            $relative_path = str_replace( $cloud_url, '', $url );
+
+            error_log( 'Relative Path: ' . $relative_path );
+            // 7. Check if file is synced to cloud
+            global $wpdb;
+            $is_synced = $wpdb->get_var( $wpdb->prepare(
+                    "SELECT synced FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s AND synced = 1",
+                    $relative_path
+            ) );
+
+            // 8. If synced to cloud, return cloud URL
+            if ( $is_synced ) {
+                return $url;
+            }
+
+            // 9 & 10. Check if file exists locally
+            $local_path = $base_dir . $relative_path;
+            $local_url  = $base_url . $relative_path;
+
+            if ( file_exists( $local_path ) ) {
+                return $local_url;
+            }
+
+            // 11. File doesn't exist locally, return cloud URL (will result in 404)
+            return $url;
+        }
     }
 
     /**
@@ -891,7 +951,7 @@ class Infinite_Uploads_Admin {
                 'getTree'           => wp_create_nonce( 'get_tree_nonce' ),
         ];
 
-        $data['excludedFiles'] = get_site_option( 'iu_excluded_files', '' );
+        $data['excludedFiles'] = get_site_option( 'iup_excluded_files', '' );
 
         wp_localize_script( 'iup-js', 'iup_data', $data );
     }
@@ -1134,7 +1194,7 @@ class Infinite_Uploads_Admin {
      * @return array
      */
     public function get_excluded_files() {
-        $excluded_files = get_site_option( 'iu_excluded_files', '' );
+        $excluded_files = get_site_option( 'iup_excluded_files', '' );
         if ( ! is_array( $excluded_files ) ) {
             $excluded_files = [];
         }
@@ -1166,7 +1226,7 @@ class Infinite_Uploads_Admin {
 
         $this->process_added_removed_excluded_files( $files_to_resync, $files_to_download_from_infinite_upload_server );
 
-        update_site_option( 'iu_excluded_files', $excluded_files_array );
+        update_site_option( 'iup_excluded_files', $excluded_files_array );
 
         wp_send_json_success();
     }
@@ -1285,6 +1345,7 @@ class Infinite_Uploads_Admin {
 
         $timelimit = max( 20, floor( ini_get( 'max_execution_time' ) * .6666 ) );
         try {
+            error_log( 'Start fetching S3 files from directory to download' );
             $results    = $s3->getPaginator( 'ListObjectsV2', $args );
             $req_count  = $file_count = 0;
             $is_done    = false;
@@ -1302,7 +1363,8 @@ class Infinite_Uploads_Admin {
                         // Check if the file is in one of the directories to download
                         $in_dir = false;
                         foreach ( $dirs as $dir => $v ) {
-                            if ( strpos( $local_key, trailingslashit( ltrim( $dir, '/' ) ) ) === 0 ) {
+                            $position = strpos( $local_key, trailingslashit( ltrim( $dir, '/' ) ) );
+                            if ( $position ) {
                                 $in_dir = true;
                                 break;
                             }
@@ -1311,8 +1373,6 @@ class Infinite_Uploads_Admin {
                         if ( ! $in_dir ) {
                             continue;
                         }
-
-                        error_log( 'Local KEY: ' . $local_key );
 
                         $file = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->base_prefix}infinite_uploads_files WHERE file = %s", $local_key ) );
 
@@ -1430,6 +1490,7 @@ class Infinite_Uploads_Admin {
                 if ( method_exists( $e, 'getRequest' ) ) {
                     error_log( 'Step 3 - Error while downloading files>>>>' . $e->getMessage() );
                     $file        = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
+                    // TODO: Remove file from the download list if 404.
                     $error_count = $wpdb->get_var( $wpdb->prepare( "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s", $file ) );
                     if ( $error_count >= 3 ) {
                         $errors[] = sprintf( esc_html__( 'Error downloading %s. Retries exceeded.', 'infinite-uploads' ), $file );

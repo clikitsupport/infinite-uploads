@@ -599,7 +599,7 @@ class Infinite_Uploads {
      * @return array|false An array of excluded file paths.
      */
     public function get_excluded_paths() {
-        $excluded_files_array = maybe_unserialize( get_option( 'iu_excluded_files', '' ) );
+        $excluded_files_array = get_site_option( 'iup_excluded_files', '' );
         if ( ! is_array( $excluded_files_array ) ) {
             $excluded_files_array = [];
         }
