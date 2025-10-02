@@ -1202,11 +1202,17 @@ class Infinite_Uploads_Admin {
         if ( ! empty( $files_to_download_from_infinite_upload_server ) ) {
             $files_to_download = maybe_unserialize( get_option( 'iup_files_to_downloads', '' ) );
 
+            error_log( 'Files TO Download Before Merge: ' . print_r( $files_to_download, true ) );
             if ( ! is_array( $files_to_download ) ) {
                 $files_to_download = [];
             }
 
             $files_to_download = array_merge( $files_to_download, $files_to_download_from_infinite_upload_server );
+
+            error_log( 'Files TO Download After Merge: ' . print_r( $files_to_download, true ) );
+
+            $files_to_download = array_unique( $files_to_download );
+
             update_option( 'iup_files_to_downloads', maybe_serialize( $files_to_download ) );
             as_schedule_single_action( time(), 'infinite-uploads-add-files-to-download' );
         }
@@ -1223,12 +1229,13 @@ class Infinite_Uploads_Admin {
 
         $files = maybe_unserialize( get_option( 'iup_files_to_downloads', '' ) );
 
-        error_log( "Files to Download" . print_r( $files, true ) );
+        error_log( "Files to Download: " . print_r( $files, true ) );
         if ( empty( $files ) || ! is_array( $files ) ) {
             error_log( "No Files To Download >>>>> " );
 
             return false;
         }
+        $dirs_to_download = [];
 
         error_log( "Setup File Downloads >>>>> " );
         foreach ( $files as $key => $file ) {
@@ -1250,6 +1257,7 @@ class Infinite_Uploads_Admin {
             $wpdb->query( $wpdb->prepare( "INSERT INTO `{$wpdb->base_prefix}infinite_uploads_files` (file, size, synced, deleted, errors) VALUES (%s, 0, 1, 1, 1) ON DUPLICATE KEY UPDATE deleted = 1, errors = 1", $file ) );
         }
 
+        error_log( "Dirs to download >>>>> " . print_r( $dirs_to_download, true ) );
         // Now process directories
         if ( ! empty( $dirs_to_download ) ) {
             $dirs_to_download = maybe_serialize( $dirs_to_download );
@@ -1266,6 +1274,10 @@ class Infinite_Uploads_Admin {
         global $wpdb;
 
         $dirs = maybe_unserialize( get_option( 'iup_dirs_to_downloads', '' ) );
+
+        error_log('[INFINITE_UPLOADS] Fetch S3 files from directory to download');
+        error_log('[INFINITE_UPLOADS] Fetch S3 files from directory to download >> Step 1');
+        error_log( "Dirs to download >>>>> " . print_r( $dirs, true ) );
 
         if ( empty( $dirs ) ) {
             error_log( "No Dirs To Download >>>>> " );
@@ -1302,7 +1314,6 @@ class Infinite_Uploads_Admin {
                     foreach ( $result['Contents'] as $object ) {
                         $file_count ++;
                         $local_key = str_replace( $prefix, '', $object['Key'] );
-                        error_log('Local KEY: ' . $local_key);
 
                         // Check if the file is in one of the directories to download
                         $in_dir = false;
@@ -1317,7 +1328,11 @@ class Infinite_Uploads_Admin {
                             continue;
                         }
 
+                        error_log('Local KEY: ' . $local_key);
+
                         $file = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->base_prefix}infinite_uploads_files WHERE file = %s", $local_key ) );
+
+
                         if ( $file && ! $file->synced && $file->size == $object['Size'] ) {
                             $this->sync_debug_log( "Already synced file found: $local_key " . size_format( $file->size, 2 ) );
                             $wpdb->update( "{$wpdb->base_prefix}infinite_uploads_files", [
@@ -1325,6 +1340,7 @@ class Infinite_Uploads_Admin {
                                     'transferred' => $file->size,
                             ], [ 'file' => $local_key ] );
                         }
+
                         if ( ! $file ) {
                             $this->sync_debug_log( "Cloud only file found: $local_key " . size_format( $object['Size'], 2 ) );
                             $cloud_only_files[] = [
@@ -1350,6 +1366,8 @@ class Infinite_Uploads_Admin {
                     $query .= " ON DUPLICATE KEY UPDATE size = VALUES(size), modified = VALUES(modified), type = VALUES(type), transferred = VALUES(transferred), synced = 1, deleted = 1, errors = 0";
                     $wpdb->query( $query );
                 }
+
+                error_log('File Count Processed in this request: ');
 
                 if ( ( $timer = timer_stop() ) >= $timelimit ) {
                     as_schedule_single_action( time(), 'infinite-uploads-fetch-s3-files-from-directory-to-download' );
