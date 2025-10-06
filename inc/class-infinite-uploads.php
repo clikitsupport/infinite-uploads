@@ -632,38 +632,25 @@ class Infinite_Uploads {
         return false;
     }
 
-	public function filter_upload_dir( $dirs ) {
+    public function filter_upload_dir( $dirs ) {
         // bail if path is excluded.
-		$root_dirs = $this->get_original_upload_dir_root();
+        $root_dirs = $this->get_original_upload_dir_root();
 
-        $original_base_dir = $root_dirs['basedir'];
+        $dirs['path']    = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $this->bucket ), $dirs['path'] );
+        $dirs['basedir'] = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $this->bucket ), $dirs['basedir'] );
 
-        $path = $dirs['basedir'];
-
-        error_log('[INFINITE_UPLOADS] filter_upload_dir called with path: ' . $path);
-        if ( $original_base_dir === $dirs['basedir'] ) {
-            $path = $dirs['path'];
+        if ( ! defined( 'INFINITE_UPLOADS_DISABLE_REPLACE_UPLOAD_URL' ) || ! INFINITE_UPLOADS_DISABLE_REPLACE_UPLOAD_URL ) {
+            if ( defined( 'INFINITE_UPLOADS_USE_LOCAL' ) && INFINITE_UPLOADS_USE_LOCAL ) {
+                $dirs['url']     = str_replace( 'iu://' . untrailingslashit( $this->bucket ), $dirs['baseurl'] . '/iu/' . $this->bucket, $dirs['path'] );
+                $dirs['baseurl'] = str_replace( 'iu://' . untrailingslashit( $this->bucket ), $dirs['baseurl'] . '/iu/' . $this->bucket, $dirs['basedir'] );
+            } else {
+                $dirs['url']     = str_replace( 'iu://' . untrailingslashit( $this->bucket ), $this->get_s3_url(), $dirs['path'] );
+                $dirs['baseurl'] = str_replace( 'iu://' . untrailingslashit( $this->bucket ), $this->get_s3_url(), $dirs['basedir'] );
+            }
         }
 
-        if ( $this->is_path_excluded( $path ) ) {
-            return $dirs;
-        }
-
-		$dirs['path']    = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $this->bucket ), $dirs['path'] );
-		$dirs['basedir'] = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $this->bucket ), $dirs['basedir'] );
-
-		if ( ! defined( 'INFINITE_UPLOADS_DISABLE_REPLACE_UPLOAD_URL' ) || ! INFINITE_UPLOADS_DISABLE_REPLACE_UPLOAD_URL ) {
-
-			if ( defined( 'INFINITE_UPLOADS_USE_LOCAL' ) && INFINITE_UPLOADS_USE_LOCAL ) {
-				$dirs['url']     = str_replace( 'iu://' . untrailingslashit( $this->bucket ), $dirs['baseurl'] . '/iu/' . $this->bucket, $dirs['path'] );
-				$dirs['baseurl'] = str_replace( 'iu://' . untrailingslashit( $this->bucket ), $dirs['baseurl'] . '/iu/' . $this->bucket, $dirs['basedir'] );
-			} else {
-				$dirs['url']     = str_replace( 'iu://' . untrailingslashit( $this->bucket ), $this->get_s3_url(), $dirs['path'] );
-				$dirs['baseurl'] = str_replace( 'iu://' . untrailingslashit( $this->bucket ), $this->get_s3_url(), $dirs['basedir'] );
-			}
-		}
-		return $dirs;
-	}
+        return $dirs;
+    }
 
 	public function get_s3_url() {
 		if ( $this->bucket_url ) {

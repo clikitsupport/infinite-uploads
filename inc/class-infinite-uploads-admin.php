@@ -71,6 +71,9 @@ class Infinite_Uploads_Admin {
             add_action( 'infinite_uploads_do_sync', [ $this, 'do_sync' ] );
 
             add_filter( 'wp_get_attachment_url', [ $this, 'filter_attachment_url' ], 10, 2 );
+
+            add_filter( 'pre_move_uploaded_file', [ $this, 'set_the_new_file_path' ], 10, 4 );
+            add_filter( 'wp_handle_upload', [ $this, 'handle_upload' ], 10, 2 );
         }
     }
 
@@ -159,6 +162,46 @@ class Infinite_Uploads_Admin {
             return $url;
         }
     }
+
+    public function set_the_new_file_path( $uploaded, $file, $new_file, $type ) {
+        /**
+         * TODO: Implement a code to check whethether to upload to cloud or not.
+         */
+
+        // Check if the file is excluded
+        if ( Infinite_Uploads_Helper::is_path_excluded( $new_file ) ) {
+            $new_file = Infinite_Uploads_Helper::get_local_file_path( $new_file );
+        } else {
+            $new_file = Infinite_Uploads_Helper::get_cloud_file_path( $new_file );
+        }
+
+
+        $move_new_file = @move_uploaded_file( $file['tmp_name'], $new_file );
+
+        if ( false === $move_new_file ) {
+            return wp_handle_upload_error(
+                    $file,
+                    sprintf(
+                    /* translators: %s: Destination file path. */
+                            __( 'The uploaded file could not be moved to %s.' ),
+                            $new_file
+                    )
+            );
+        }
+
+        return true;
+    }
+
+    public function handle_upload($file_data, $action) {
+        $file = $file_data['file'];
+        $url = $file_data['url'];
+
+        $file_data['file'] = Infinite_Uploads_Helper::get_valid_file_path( $file );
+        $file_data['url'] = Infinite_Uploads_Helper::get_valid_file_url( $url );
+
+        return $file_data;
+    }
+
 
     /**
      *
@@ -1489,7 +1532,7 @@ class Infinite_Uploads_Admin {
             } catch ( Exception $e ) {
                 if ( method_exists( $e, 'getRequest' ) ) {
                     error_log( 'Step 3 - Error while downloading files>>>>' . $e->getMessage() );
-                    $file        = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
+                    $file = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
                     // TODO: Remove file from the download list if 404.
                     $error_count = $wpdb->get_var( $wpdb->prepare( "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s", $file ) );
                     if ( $error_count >= 3 ) {

@@ -134,12 +134,23 @@ class Infinite_Uploads_Rewriter {
 	 *
 	 */
 	protected function rewrite_url( $matches ) {
-
 		//don't filter excluded dirs
 		foreach ( $this->exclusions as $exclusion ) {
 			if ( 0 === strpos( $matches[0], $exclusion ) ) {
 				return $matches[0];
 			}
+		}
+
+		// If the path is in the exclusion list, return the original match.
+		$path = isset( $matches[2] ) ? $matches[2] : '';
+
+		$original_upload = Infinite_Uploads_Helper::get_original_upload_dir_root();
+
+		$original_base_dir = $original_upload['basedir'];
+
+		$path = $original_base_dir . '/' . $path;
+		if ( Infinite_Uploads_Helper::is_path_excluded( $path ) ) {
+			return $matches[0];
 		}
 
 		$replace = str_replace( $matches[1], $this->cdn_url, $matches[0] );
