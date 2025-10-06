@@ -593,45 +593,6 @@ class Infinite_Uploads {
 		return scandir( trailingslashit( $dir ) . $name . '*' );
 	}
 
-    /**
-     * Get the list of excluded files from the WordPress option.
-     *
-     * @return array|false An array of excluded file paths.
-     */
-    public function get_excluded_paths() {
-        $excluded_files_array = get_site_option( 'iup_excluded_files', '' );
-        if ( ! is_array( $excluded_files_array ) ) {
-            $excluded_files_array = [];
-        }
-
-        return array_map( 'trim', $excluded_files_array );
-    }
-
-    /**
-     * Check if a given path is in the excluded list.
-     *
-     * @param  string  $path  The file path to check.
-     *
-     * @return bool True if the path is excluded, false otherwise.
-     */
-    public function is_path_excluded( $path ) {
-        $excluded_files_array = $this->get_excluded_paths();
-
-        error_log('[INFINITE_UPLOADS] Checking if path is excluded: ' . $path);
-        error_log('[INFINITE_UPLOADS] Excluded paths: ' . print_r($excluded_files_array, true));
-        if ( empty( $excluded_files_array ) ) {
-            return false;
-        }
-
-        foreach ( $excluded_files_array as $excluded_file ) {
-            if ( stripos( $excluded_file, $path ) !== false ) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     public function filter_upload_dir( $dirs ) {
         // bail if path is excluded.
         $root_dirs = $this->get_original_upload_dir_root();
