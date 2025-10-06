@@ -1,25 +1,44 @@
 jQuery(document).ready(function ($) {
-	// Poll for sync/download status every 10 seconds and show a notice when complete
-	var pollInterval = 1000;
-	var poller = setInterval(function () {
+	let pollInterval = 5000; // start with 5 second
+	const maxInterval = 300000; // max 5 minutes
+
+	function poll() {
 		$.post(iup_sync_status_params.ajax_url, {
 			action: 'infinite-uploads-sync-status',
-			nonce: iup_sync_status_params.nonce // or .download for download status
+			nonce: iup_sync_status_params.nonce
 		}, function (response) {
 			if (response.success && response.data && response.data.is_done) {
-				var notice = '<div id="message" class="notice is-dismissible updated"><p>Sync/Download Complete successfully!</p><button type="button" class="notice-dismiss"><span class="screen-reader-text">Dismiss this notice.</span></button></div>';
+				const notice = `
+					<div id="message" class="notice is-dismissible updated">
+						<p>Sync/Download completed successfully!</p>
+						<button type="button" class="notice-dismiss">
+							<span class="screen-reader-text">Dismiss this notice.</span>
+						</button>
+					</div>
+				`;
 
-				// Add the notice to the top of the page.
-				$('#wpbody-content .wrap').prepend(notice);
-
-				// Don't add notice if it already exists.
 				if ($('#message').length === 0) {
 					$('#wpbody-content .wrap').prepend(notice);
 				}
 
-				// Stop polling.
-				clearInterval(poller);
+				return; // stop polling
 			}
+
+			// Not done yet: increase interval exponentially up to max.
+			pollInterval = Math.min(pollInterval * 2, maxInterval);
+
+			if (pollInterval === maxInterval) {
+				return; // stop polling when max interval is reached
+			}
+			// Schedule next poll
+			setTimeout(poll, pollInterval);
+		}).fail(function () {
+			// Optional: retry with same interval if request fails
+			console.warn('Polling failed, retrying in ' + pollInterval / 1000 + ' seconds');
+			setTimeout(poll, pollInterval);
 		});
-	}, pollInterval);
+	}
+
+	// Start polling
+	poll();
 });
