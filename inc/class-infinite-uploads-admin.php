@@ -47,7 +47,10 @@ class Infinite_Uploads_Admin {
         // Handle it via Action Schedular.
         add_action( 'infinite-uploads-do-sync', [ $this, 'do_sync' ] );
         add_action( 'infinite-uploads-add-files-to-download', [ $this, 'add_files_to_download' ] );
-        add_action( 'infinite-uploads-fetch-s3-files-from-directory-to-download', [ $this, 'fetch_s3_files_from_directory_to_download' ] );
+        add_action( 'infinite-uploads-fetch-s3-files-from-directory-to-download', [
+                $this,
+                'fetch_s3_files_from_directory_to_download',
+        ] );
         add_action( 'infinite-uploads-do-download', [ $this, 'do_download' ] );
 
         if ( is_main_site() ) {
@@ -61,6 +64,7 @@ class Infinite_Uploads_Admin {
             add_action( 'wp_ajax_infinite-uploads-toggle', [ &$this, 'ajax_toggle' ] );
             add_action( 'wp_ajax_infinite-uploads-status', [ &$this, 'ajax_status' ] );
 
+
             if ( ! wp_next_scheduled( 'infinite_uploads_do_sync' ) ) {
                 wp_schedule_event( time(), 'daily', 'infinite_uploads_do_sync' );
             }
@@ -73,6 +77,7 @@ class Infinite_Uploads_Admin {
             add_filter( 'wp_handle_upload', [ $this, 'handle_upload' ], 10, 2 );
         }
     }
+
 
     public function filter_attachment_url( $url, $post_id ) {
         return $this->serve_media_url( $url );
@@ -1278,6 +1283,7 @@ class Infinite_Uploads_Admin {
             $filelist = new Infinite_Uploads_Filelist( $path, 20, $files_to_resync );
             $filelist->add_files_to_sync();
 
+            update_site_option( 'iup_do_sync_complete', 'no' );
             as_schedule_single_action( time(), 'infinite-uploads-do-sync' );
         }
 
@@ -1295,6 +1301,7 @@ class Infinite_Uploads_Admin {
 
             $files_to_download = array_unique( $files_to_download );
 
+            update_site_option( 'iup_do_download_complete', 'no' );
             update_site_option( 'iup_files_to_downloads', $files_to_download );
             as_schedule_single_action( time(), 'infinite-uploads-add-files-to-download' );
         }
@@ -1542,6 +1549,7 @@ class Infinite_Uploads_Admin {
             $is_done = ! (bool) $wpdb->get_var( "SELECT count(*) FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 1 AND errors < 3" );
 
             if ( $is_done ) {
+                update_site_option( 'iup_do_download_complete', 'yes', true );
                 $break = true;
             }
 
@@ -1783,6 +1791,7 @@ class Infinite_Uploads_Admin {
             }
 
             if ( $is_done ) {
+                update_site_option( 'iup_do_sync_complete', 'yes', true );
                 $break = true;
             } elseif ( timer_stop() >= $timelimit ) {
                 // Still more to do, but out of time
