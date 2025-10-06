@@ -10,17 +10,20 @@ class Infinite_Uploads_Helper {
 	 * @return bool True if the path is excluded, false otherwise.
 	 */
 	public static function is_path_excluded( $path ) {
+		//error_log( '[INFINITE_UPLOADS] Checking if path is excluded: ' . $path );
+
+		$local_path = self::get_local_file_path( $path );
+
 		$excluded_files_array = self::get_excluded_paths();
 
-		error_log( '[INFINITE_UPLOADS] Checking if path is excluded: ' . $path );
-		error_log( '[INFINITE_UPLOADS] Excluded paths: ' . print_r( $excluded_files_array, true ) );
+		//error_log( '[INFINITE_UPLOADS] Excluded paths: ' . print_r( $excluded_files_array, true ) );
 
 		if ( empty( $excluded_files_array ) ) {
 			return false;
 		}
 
 		foreach ( $excluded_files_array as $excluded_file ) {
-			if ( stripos( $excluded_file, $path ) !== false ) {
+			if ( stripos( $local_path, $excluded_file ) !== false ) {
 				return true;
 			}
 		}
@@ -125,11 +128,21 @@ class Infinite_Uploads_Helper {
 		return str_replace( self::get_local_upload_url(), self::get_cloud_upload_url(), $url );
 	}
 
+	public static function get_local_upload_url() {
+		$local_upload_dir = self::get_original_upload_dir_root();
+
+		return untrailingslashit( $local_upload_dir['baseurl'] );
+	}
+
+	public static function get_cloud_upload_url() {
+		$cloud_upload_dir = self::get_cloud_upload_dir();
+
+		return untrailingslashit( $cloud_upload_dir['baseurl'] );
+	}
+
 	public static function get_local_file_path( $file_path ) {
 		$local_upload_path = self::get_local_upload_path();
-		$cloud_upload_dir  = self::get_cloud_upload_dir();
-
-		$cloud_upload_path = $cloud_upload_dir['path'];
+		$cloud_upload_path = self::get_cloud_upload_path();
 
 		$local_path = str_replace( $cloud_upload_path, $local_upload_path, $file_path );
 
@@ -139,9 +152,9 @@ class Infinite_Uploads_Helper {
 	public static function get_cloud_file_path( $file_path ) {
 		$cloud_upload_dir = self::get_cloud_upload_dir();
 
-		$cloud_upload_path = $cloud_upload_dir['path'];
+		$cloud_upload_path = $cloud_upload_dir['basedir'];
 
-		$cloud_path        = str_replace( self::get_local_upload_path(), $cloud_upload_path, $file_path );
+		$cloud_path = str_replace( self::get_local_upload_path(), $cloud_upload_path, $file_path );
 
 		return $cloud_path;
 	}
@@ -155,25 +168,20 @@ class Infinite_Uploads_Helper {
 
 	public static function get_cloud_upload_dir() {
 		$root_dirs = self::get_original_upload_dir_root();
-		$api_data  = self::get_iu_api_data();
-		$dirs      = $root_dirs;
+
+		// error_log( 'Root Dirs: ' . print_r( $root_dirs, true ) );
+
+		$api_data = self::get_iu_api_data();
+		$dirs     = $root_dirs;
 		if ( $api_data && isset( $api_data->site ) && ! empty( $api_data->site->upload_key ) && ! empty( $api_data->site->upload_secret ) ) {
-			$bucket     = $api_data->site->upload_bucket;
-			$key        = $api_data->site->upload_key;
-			$secret     = $api_data->site->upload_secret;
-			$bucket_url = $api_data->site->cdn_url;
-			$region     = $api_data->site->upload_region;
+			$bucket = $api_data->site->upload_bucket;
 
-
-			$dirs['path']    = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $bucket ), $root_dirs['path'] );
 			$dirs['basedir'] = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $bucket ), $root_dirs['basedir'] );
 
 			if ( ! defined( 'INFINITE_UPLOADS_DISABLE_REPLACE_UPLOAD_URL' ) || ! INFINITE_UPLOADS_DISABLE_REPLACE_UPLOAD_URL ) {
 				if ( defined( 'INFINITE_UPLOADS_USE_LOCAL' ) && INFINITE_UPLOADS_USE_LOCAL ) {
-					$dirs['url']     = str_replace( 'iu://' . untrailingslashit( $bucket ), $root_dirs['baseurl'] . '/iu/' . $bucket, $dirs['path'] );
 					$dirs['baseurl'] = str_replace( 'iu://' . untrailingslashit( $bucket ), $root_dirs['baseurl'] . '/iu/' . $bucket, $dirs['basedir'] );
 				} else {
-					$dirs['url']     = str_replace( 'iu://' . untrailingslashit( $bucket ), self::get_s3_url(), $dirs['path'] );
 					$dirs['baseurl'] = str_replace( 'iu://' . untrailingslashit( $bucket ), self::get_s3_url(), $dirs['basedir'] );
 				}
 			}
@@ -184,6 +192,12 @@ class Infinite_Uploads_Helper {
 
 	public static function get_local_upload_path() {
 		$root_dirs = self::get_original_upload_dir_root();
+
+		return untrailingslashit( $root_dirs['basedir'] );
+	}
+
+	public static function get_cloud_upload_path() {
+		$root_dirs = self::get_cloud_upload_dir();
 
 		return untrailingslashit( $root_dirs['basedir'] );
 	}
@@ -206,6 +220,4 @@ class Infinite_Uploads_Helper {
 
 		return apply_filters( 'infinite_uploads_bucket_url', 'https://' . $bucket . '.s3.amazonaws.com' . $path );
 	}
-
-
 }

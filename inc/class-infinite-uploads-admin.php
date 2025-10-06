@@ -47,10 +47,7 @@ class Infinite_Uploads_Admin {
         // Handle it via Action Schedular.
         add_action( 'infinite-uploads-do-sync', [ $this, 'do_sync' ] );
         add_action( 'infinite-uploads-add-files-to-download', [ $this, 'add_files_to_download' ] );
-        add_action( 'infinite-uploads-fetch-s3-files-from-directory-to-download', [
-                $this,
-                'fetch_s3_files_from_directory_to_download',
-        ] );
+        add_action( 'infinite-uploads-fetch-s3-files-from-directory-to-download', [ $this, 'fetch_s3_files_from_directory_to_download' ] );
         add_action( 'infinite-uploads-do-download', [ $this, 'do_download' ] );
 
         if ( is_main_site() ) {
@@ -107,7 +104,7 @@ class Infinite_Uploads_Admin {
         // 1. Check if URL is local or cloud
         $is_local_url = ( strpos( $url, $base_url ) !== false );
 
-        error_log( 'Is Local URL: ' . ( $is_local_url ? 'Yes' : 'No' ) );
+        // error_log( 'Is Local URL: ' . ( $is_local_url ? 'Yes' : 'No' ) );
 
         if ( $is_local_url ) {
             // Handle local URL scenario
@@ -122,7 +119,7 @@ class Infinite_Uploads_Admin {
             $cloud_path    = str_replace( $base_url, $cloud_url, $url );
             $relative_path = str_replace( $base_url, '', $url );
 
-            error_log( 'Relative Path: ' . $relative_path );
+            // error_log( 'Relative Path: ' . $relative_path );
 
             global $wpdb;
             $is_synced = $wpdb->get_var( $wpdb->prepare(
@@ -137,7 +134,7 @@ class Infinite_Uploads_Admin {
             // Handle cloud URL scenario
             $relative_path = str_replace( $cloud_url, '', $url );
 
-            error_log( 'Relative Path: ' . $relative_path );
+            // error_log( 'Relative Path: ' . $relative_path );
             // 7. Check if file is synced to cloud
             global $wpdb;
             $is_synced = $wpdb->get_var( $wpdb->prepare(
@@ -164,9 +161,7 @@ class Infinite_Uploads_Admin {
     }
 
     public function set_the_new_file_path( $uploaded, $file, $new_file, $type ) {
-        /**
-         * TODO: Implement a code to check whethether to upload to cloud or not.
-         */
+        // error_log( 'Set New File Path Called for: >>>> ' . $new_file );
 
         // Check if the file is excluded
         if ( Infinite_Uploads_Helper::is_path_excluded( $new_file ) ) {
@@ -174,7 +169,6 @@ class Infinite_Uploads_Admin {
         } else {
             $new_file = Infinite_Uploads_Helper::get_cloud_file_path( $new_file );
         }
-
 
         $move_new_file = @move_uploaded_file( $file['tmp_name'], $new_file );
 
@@ -192,12 +186,12 @@ class Infinite_Uploads_Admin {
         return true;
     }
 
-    public function handle_upload($file_data, $action) {
+    public function handle_upload( $file_data, $action ) {
         $file = $file_data['file'];
-        $url = $file_data['url'];
+        $url  = $file_data['url'];
 
         $file_data['file'] = Infinite_Uploads_Helper::get_valid_file_path( $file );
-        $file_data['url'] = Infinite_Uploads_Helper::get_valid_file_url( $url );
+        $file_data['url']  = Infinite_Uploads_Helper::get_valid_file_url( $url );
 
         return $file_data;
     }
@@ -1290,14 +1284,14 @@ class Infinite_Uploads_Admin {
         if ( ! empty( $files_to_download_from_infinite_upload_server ) ) {
             $files_to_download = get_site_option( 'iup_files_to_downloads', '' );
 
-            error_log( 'Files TO Download Before Merge: ' . print_r( $files_to_download, true ) );
+            // error_log( 'Files TO Download Before Merge: ' . print_r( $files_to_download, true ) );
             if ( ! is_array( $files_to_download ) ) {
                 $files_to_download = [];
             }
 
             $files_to_download = array_merge( $files_to_download, $files_to_download_from_infinite_upload_server );
 
-            error_log( 'Files TO Download After Merge: ' . print_r( $files_to_download, true ) );
+            // error_log( 'Files TO Download After Merge: ' . print_r( $files_to_download, true ) );
 
             $files_to_download = array_unique( $files_to_download );
 
@@ -1309,15 +1303,15 @@ class Infinite_Uploads_Admin {
     public function add_files_to_download() {
         global $wpdb;
 
-        error_log( '[INFINITE_UPLOADS] Add files to download' );
-        error_log( '[INFINITE_UPLOADS] Add files to download >> Step 1' );
+        // error_log( '[INFINITE_UPLOADS] Add files to download' );
+        // error_log( '[INFINITE_UPLOADS] Add files to download >> Step 1' );
 
         $path          = $this->iup_instance->get_original_upload_dir_root();
         $base_dir_path = $path['basedir'];
 
         $files = get_site_option( 'iup_files_to_downloads', '' );
 
-        error_log( "Files to Download: " . print_r( $files, true ) );
+        /// error_log( "Files to Download: " . print_r( $files, true ) );
         if ( empty( $files ) || ! is_array( $files ) ) {
             error_log( "No Files To Download >>>>> " );
 
@@ -1325,7 +1319,7 @@ class Infinite_Uploads_Admin {
         }
         $dirs_to_download = [];
 
-        error_log( "Setup File Downloads >>>>> " );
+        // error_log( "Setup File Downloads >>>>> " );
         foreach ( $files as $key => $file ) {
             if ( is_dir( $file ) ) {
                 $file                      = '/' . ltrim( trim( $file, $base_dir_path ), '/' );
@@ -1344,7 +1338,7 @@ class Infinite_Uploads_Admin {
             $wpdb->query( $wpdb->prepare( "INSERT INTO `{$wpdb->base_prefix}infinite_uploads_files` (file, size, synced, deleted, errors) VALUES (%s, 0, 1, 1, 1) ON DUPLICATE KEY UPDATE deleted = 1, errors = 1", $file ) );
         }
 
-        error_log( "Dirs to download >>>>> " . print_r( $dirs_to_download, true ) );
+        // error_log( "Dirs to download >>>>> " . print_r( $dirs_to_download, true ) );
         // Now process directories
         if ( ! empty( $dirs_to_download ) ) {
             update_site_option( 'iup_dirs_to_downloads', $dirs_to_download );
@@ -1367,7 +1361,7 @@ class Infinite_Uploads_Admin {
         $this->sync_debug_log( "Dirs to download >>>>> " . print_r( $dirs, true ) );
 
         if ( empty( $dirs ) ) {
-            error_log( "No Dirs To Download >>>>> " );
+            // error_log( "No Dirs To Download >>>>> " );
 
             return;
         }
@@ -1388,7 +1382,7 @@ class Infinite_Uploads_Admin {
 
         $timelimit = max( 20, floor( ini_get( 'max_execution_time' ) * .6666 ) );
         try {
-            error_log( 'Start fetching S3 files from directory to download' );
+            // error_log( 'Start fetching S3 files from directory to download' );
             $results    = $s3->getPaginator( 'ListObjectsV2', $args );
             $req_count  = $file_count = 0;
             $is_done    = false;
@@ -1442,7 +1436,7 @@ class Infinite_Uploads_Admin {
 
                 //flush new files to db
                 if ( count( $cloud_only_files ) ) {
-                    error_log( 'Cloud Only Files >>>> ' . print_r( $cloud_only_files, true ) );
+                    // error_log( 'Cloud Only Files >>>> ' . print_r( $cloud_only_files, true ) );
                     $values = [];
                     foreach ( $cloud_only_files as $file ) {
                         $values[] = $wpdb->prepare( "(%s,%d,%d,%s,%d,1,1)", $file['name'], $file['size'], $file['mtime'], $file['type'], $file['size'] );
@@ -1454,7 +1448,7 @@ class Infinite_Uploads_Admin {
                     $wpdb->query( $query );
                 }
 
-                error_log( 'File Count Processed in this request: ' );
+                // error_log( 'File Count Processed in this request: ' );
 
                 if ( ( $timer = timer_stop() ) >= $timelimit ) {
                     as_schedule_single_action( time(), 'infinite-uploads-fetch-s3-files-from-directory-to-download' );
@@ -1501,7 +1495,7 @@ class Infinite_Uploads_Admin {
             //preset the error count in case request times out. Successful sync will clear error count.
             $wpdb->query( "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` SET errors = ( errors + 1 ) WHERE file IN ('" . implode( "','", $to_sync_sql ) . "')" );
 
-            error_log( 'Step 2 - Files to be downloaded in this batch>>>>' . print_r( $to_sync_full, true ) );
+            // error_log( 'Step 2 - Files to be downloaded in this batch>>>>' . print_r( $to_sync_full, true ) );
             $obj  = new ArrayObject( $to_sync_full );
             $from = $obj->getIterator();
 
@@ -1531,7 +1525,7 @@ class Infinite_Uploads_Admin {
                 $manager->transfer();
             } catch ( Exception $e ) {
                 if ( method_exists( $e, 'getRequest' ) ) {
-                    error_log( 'Step 3 - Error while downloading files>>>>' . $e->getMessage() );
+                    // error_log( 'Step 3 - Error while downloading files>>>>' . $e->getMessage() );
                     $file = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
                     // TODO: Remove file from the download list if 404.
                     $error_count = $wpdb->get_var( $wpdb->prepare( "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s", $file ) );
