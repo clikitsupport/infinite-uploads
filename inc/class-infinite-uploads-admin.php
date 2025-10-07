@@ -100,6 +100,11 @@ class Infinite_Uploads_Admin {
          * 11. If the file does not exist on the local server, return the cloud url (which will result in a 404).
          */
 
+        // If the file is excluded, always return local URL.
+        if ( Infinite_Uploads_Helper::is_path_excluded( $url, true ) ) {
+            $url = Infinite_Uploads_Helper::get_local_file_url( $url );
+        }
+
         // Get root directories for comparison
         $root_dirs = $this->iup_instance->get_original_upload_dir_root();
         $base_url  = $root_dirs['baseurl'];
@@ -174,6 +179,8 @@ class Infinite_Uploads_Admin {
         } else {
             $new_file = Infinite_Uploads_Helper::get_cloud_file_path( $new_file );
         }
+
+        error_log('[set_the_new_file_path] New File Path To Move: >>>> ' . $new_file);
 
         $move_new_file = @move_uploaded_file( $file['tmp_name'], $new_file );
 
@@ -1268,6 +1275,9 @@ class Infinite_Uploads_Admin {
 
         $this->process_added_removed_excluded_files( $files_to_resync, $files_to_download_from_infinite_upload_server );
 
+        update_site_option( 'iup_do_sync_complete', 'yes' );
+        update_site_option( 'iup_do_download_complete', 'yes' );
+
         update_site_option( 'iup_excluded_files', $excluded_files_array );
 
         wp_send_json_success();
@@ -1277,18 +1287,21 @@ class Infinite_Uploads_Admin {
         global $wpdb;
 
         if ( ! empty( $files_to_resync ) ) {
+            error_log('There are files to resync');
+            update_site_option( 'iup_do_sync_complete', 'no' );
             $path = $this->iup_instance->get_original_upload_dir_root();
             $path = $path['basedir'];
 
             $filelist = new Infinite_Uploads_Filelist( $path, 20, $files_to_resync );
             $filelist->add_files_to_sync();
 
-            update_site_option( 'iup_do_sync_complete', 'no' );
             as_schedule_single_action( time(), 'infinite-uploads-do-sync' );
         }
 
         if ( ! empty( $files_to_download_from_infinite_upload_server ) ) {
             $files_to_download = get_site_option( 'iup_files_to_downloads', '' );
+            error_log('There are files to download from server');
+            update_site_option( 'iup_do_download_complete', 'no' );
 
             // error_log( 'Files TO Download Before Merge: ' . print_r( $files_to_download, true ) );
             if ( ! is_array( $files_to_download ) ) {
@@ -1301,7 +1314,6 @@ class Infinite_Uploads_Admin {
 
             $files_to_download = array_unique( $files_to_download );
 
-            update_site_option( 'iup_do_download_complete', 'no' );
             update_site_option( 'iup_files_to_downloads', $files_to_download );
             as_schedule_single_action( time(), 'infinite-uploads-add-files-to-download' );
         }
@@ -1310,6 +1322,7 @@ class Infinite_Uploads_Admin {
     public function add_files_to_download() {
         global $wpdb;
 
+        error_log('Add Files To Download');
         // error_log( '[INFINITE_UPLOADS] Add files to download' );
         // error_log( '[INFINITE_UPLOADS] Add files to download >> Step 1' );
 
@@ -1348,6 +1361,7 @@ class Infinite_Uploads_Admin {
         // error_log( "Dirs to download >>>>> " . print_r( $dirs_to_download, true ) );
         // Now process directories
         if ( ! empty( $dirs_to_download ) ) {
+            error_log('Dirs To Download');
             update_site_option( 'iup_dirs_to_downloads', $dirs_to_download );
             as_schedule_single_action( time(), 'infinite-uploads-fetch-s3-files-from-directory-to-download' );
         }
@@ -1361,6 +1375,7 @@ class Infinite_Uploads_Admin {
     public function fetch_s3_files_from_directory_to_download() {
         global $wpdb;
 
+        error_log('Fetch S3 Files To Download');
         $dirs = get_site_option( 'iup_dirs_to_downloads', '' );
 
         $this->sync_debug_log( '[INFINITE_UPLOADS] Fetch S3 files from directory to download' );
@@ -1465,6 +1480,7 @@ class Infinite_Uploads_Admin {
 
             if ( $is_done ) {
                 update_site_option( 'iup_dirs_to_downloads', '' );
+                as_schedule_single_action( time(), 'infinite-uploads-do-download' );
             }
         } catch ( Exception $e ) {
             wp_send_json_error( $e->getMessage() );
@@ -1475,11 +1491,13 @@ class Infinite_Uploads_Admin {
     public function do_download() {
         global $wpdb;
 
+        error_log('[Download] Do Download Started.');
         $downloaded = 0;
         $errors     = [];
         $break      = false;
         $path       = $this->iup_instance->get_original_upload_dir_root();
         $s3         = $this->iup_instance->s3();
+        $is_done = false;
         $timelimit  = max( 20, floor( ini_get( 'max_execution_time' ) * .6666 ) );
         while ( ! $break ) {
             // Insert/Update query to add files to be downloaded. set deleted = 1 for these files.
@@ -1549,7 +1567,6 @@ class Infinite_Uploads_Admin {
             $is_done = ! (bool) $wpdb->get_var( "SELECT count(*) FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 1 AND errors < 3" );
 
             if ( $is_done ) {
-                update_site_option( 'iup_do_download_complete', 'yes', true );
                 $break = true;
             }
 
@@ -1558,11 +1575,19 @@ class Infinite_Uploads_Admin {
                 $break = true;
             }
         }
+
+        if ( $is_done ) {
+            error_log('[Download] Do Download Completed.');
+            update_site_option( 'iup_do_download_complete', 'yes', true );
+        } else {
+            error_log('[Download] Do Download Paused. Will resume shortly.');
+        }
     }
 
     public function do_sync() {
         global $wpdb;
 
+        error_log('[Sync] Do Sync Started.');
         //this loop has a parallel status check, so we make the timeout 2/3 of max execution time.
         $timelimit = max( 20, floor( ini_get( 'max_execution_time' ) * .6666 ) );
         $this->sync_debug_log( "Ajax time limit: " . $timelimit );
@@ -1791,7 +1816,6 @@ class Infinite_Uploads_Admin {
             }
 
             if ( $is_done ) {
-                update_site_option( 'iup_do_sync_complete', 'yes', true );
                 $break = true;
             } elseif ( timer_stop() >= $timelimit ) {
                 // Still more to do, but out of time
@@ -1800,7 +1824,11 @@ class Infinite_Uploads_Admin {
                 as_schedule_single_action( time() + 5, 'infinite-uploads-do-sync' );
                 $break = true;
             }
+        }
 
+        if ( $is_done ) {
+            error_log('[Sync] All files synced.');
+            update_site_option( 'iup_do_sync_complete', 'yes', true );
         }
     }
 

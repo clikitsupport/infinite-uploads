@@ -9,10 +9,17 @@ class Infinite_Uploads_Helper {
 	 *
 	 * @return bool True if the path is excluded, false otherwise.
 	 */
-	public static function is_path_excluded( $path ) {
-		//error_log( '[INFINITE_UPLOADS] Checking if path is excluded: ' . $path );
+	public static function is_path_excluded( $path, $url = false ) {
+		error_log( '[INFINITE_UPLOADS >> is_path_excluded] Checking if path is excluded: ' . $path );
 
-		$local_path = self::get_local_file_path( $path );
+		if ( $url ) {
+			$local_url = self::get_local_file_url( $path );
+			$local_path = self::get_local_path_from_url( $local_url );
+		} else {
+			$local_path = self::get_local_file_path( $path );
+		}
+
+		error_log( '[INFINITE_UPLOADS >> is_path_excluded] Checking if local path is excluded: ' . $local_path );
 
 		$excluded_files_array = self::get_excluded_paths();
 
@@ -24,11 +31,19 @@ class Infinite_Uploads_Helper {
 
 		foreach ( $excluded_files_array as $excluded_file ) {
 			if ( stripos( $local_path, $excluded_file ) !== false ) {
+				error_log( '[INFINITE_UPLOADS >> is_path_excluded] Local Path Is Excluded: ' . $local_path );
 				return true;
 			}
 		}
 
 		return false;
+	}
+
+	public static function get_local_path_from_url( $url ) {
+		$local_upload_url = self::get_local_upload_url();
+		$local_path       = str_replace( $local_upload_url, self::get_local_upload_path(), $url );
+
+		return $local_path;
 	}
 
 	/**
@@ -108,10 +123,8 @@ class Infinite_Uploads_Helper {
 	}
 
 	public static function get_valid_file_path( $file_path ) {
-		$local_file_path = self::get_local_file_path( $file_path );
-
-		if ( self::is_path_excluded( $local_file_path ) ) {
-			return $local_file_path;
+		if ( self::is_path_excluded( $file_path ) ) {
+			return self::get_local_file_path( $file_path );
 		}
 
 		return self::get_cloud_file_path( $file_path );
@@ -147,6 +160,15 @@ class Infinite_Uploads_Helper {
 		$local_path = str_replace( $cloud_upload_path, $local_upload_path, $file_path );
 
 		return $local_path;
+	}
+
+	public static function get_local_file_url( $url ) {
+		$local_upload_url = self::get_local_upload_url();
+		$cloud_upload_url = self::get_cloud_upload_url();
+
+		$local_url = str_replace( $cloud_upload_url, $local_upload_url, $url );
+
+		return $local_url;
 	}
 
 	public static function get_cloud_file_path( $file_path ) {

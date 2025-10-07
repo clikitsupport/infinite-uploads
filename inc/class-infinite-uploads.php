@@ -210,10 +210,10 @@ class Infinite_Uploads {
         $data = [];
         if ( $do_sync_complete === 'yes' && $do_download_complete === 'yes' ) {
             $data['is_done'] = true;
-        }
 
-        update_site_option( 'iup_do_sync_complete', 'no' );
-        update_site_option( 'iup_do_download_complete', 'no' );
+            update_site_option( 'iup_do_sync_complete', 'no' );
+            update_site_option( 'iup_do_download_complete', 'no' );
+        }
 
         wp_send_json_success( $data );
     }
