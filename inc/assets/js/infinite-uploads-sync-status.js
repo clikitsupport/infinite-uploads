@@ -10,7 +10,7 @@ jQuery(document).ready(function ($) {
 			if (response.success && response.data && response.data.is_done) {
 				const notice = `
 					<div id="message" class="notice is-dismissible updated">
-						<p>Sync/Download completed successfully!</p>
+						<p>File syncing completed successfully!</p>
 						<button type="button" class="notice-dismiss">
 							<span class="screen-reader-text">Dismiss this notice.</span>
 						</button>
@@ -19,6 +19,11 @@ jQuery(document).ready(function ($) {
 
 				if ($('#message').length === 0) {
 					$('#wpbody-content .wrap').prepend(notice);
+					$('#message .notice-dismiss').on('click', function () {
+						$('#message').fadeOut(300, function () {
+							$(this).remove();
+						});
+					});
 				}
 
 				return; // stop polling
