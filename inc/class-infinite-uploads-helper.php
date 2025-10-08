@@ -181,6 +181,30 @@ class Infinite_Uploads_Helper {
 		return $cloud_path;
 	}
 
+	public static function get_file_name_from_url( $url ) {
+		// Check if url is local or cloud
+		if ( self::is_path_excluded( $url, true ) ) {
+			$local_path = self::get_local_file_path( $url );
+			return basename( $local_path );
+		} else {
+			$cloud_path = self::get_cloud_file_path( $url );
+
+			return basename( $cloud_path );
+		}
+	}
+
+	public static function get_file_name_from_path( $path ) {
+		if ( self::is_path_excluded( $path ) ) {
+			$local_path = self::get_local_file_path( $path );
+
+			return basename( $local_path );
+		} else {
+			$cloud_path = self::get_cloud_file_path( $path );
+
+			return basename( $cloud_path );
+		}
+	}
+
 	public static function get_iu_api_data() {
 		$api      = Infinite_Uploads_Api_Handler::get_instance();
 		$api_data = $api->get_site_data();

@@ -942,6 +942,22 @@ class Infinite_Uploads {
             $data['filesize'] = '';
         }
 
+        $file = $data['file'];
+
+        if ( ! Infinite_Uploads_Helper::is_path_excluded( $file ) ) {
+            $file      = Infinite_Uploads_Helper::get_file_name_from_path( $data['file'] );
+            $width     = $height = 150;
+            $mime_type = isset( $data['mime_type'] ) ? $data['mime_type'] : 'image/png';
+
+            $data['sizes']['thumbnail'] = [
+                    'file'      => $file,
+                    'width'     => $width,
+                    'height'    => $height,
+                    'mime-type' => $mime_type,
+            ];
+        }
+
+
         return $data;
     }
 
