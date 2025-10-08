@@ -949,12 +949,18 @@ class Infinite_Uploads {
             $width     = $height = 150;
             $mime_type = isset( $data['mime_type'] ) ? $data['mime_type'] : 'image/png';
 
-            $data['sizes']['thumbnail'] = [
+            $file_data = [
                     'file'      => $file,
                     'width'     => $width,
                     'height'    => $height,
                     'mime-type' => $mime_type,
             ];
+
+            $data['sizes']['thumbnail'] = $file_data;
+            $data['sizes']['medium'] = $file_data;
+            $data['sizes']['full'] = $file_data;
+
+
         }
 
 
