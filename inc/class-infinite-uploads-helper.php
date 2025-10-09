@@ -266,4 +266,16 @@ class Infinite_Uploads_Helper {
 
 		return apply_filters( 'infinite_uploads_bucket_url', 'https://' . $bucket . '.s3.amazonaws.com' . $path );
 	}
+
+	public static function is_file_exclusion_enabled() {
+		return get_site_option( 'iu_file_exclusion_enabled', 'no' );
+	}
+
+	public static function set_file_exclusion_enabled( $value ) {
+		if ( $value !== 'yes' && $value !== 'no' ) {
+			return false;
+		}
+
+		return update_site_option( 'iu_file_exclusion_enabled', $value );
+	}
 }

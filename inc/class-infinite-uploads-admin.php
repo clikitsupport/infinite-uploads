@@ -1146,6 +1146,8 @@ class Infinite_Uploads_Admin {
                     $cloud_total_size = $api_data->stats->cloud->storage;
                 }
 
+                $is_file_exclusion_enabled = Infinite_Uploads_Helper::is_file_exclusion_enabled();
+
                 require_once( dirname( __FILE__ ) . '/templates/header-columns.php' );
 
                 if ( ! infinite_uploads_enabled() ) {
@@ -1266,6 +1268,9 @@ class Infinite_Uploads_Admin {
         }
 
         $excluded_files_array = isset( $_POST['excluded_files'] ) ? $_POST['excluded_files'] : [];
+        $is_file_excluded_enabled = isset( $_POST['enabled_excluded_files'] ) ? $_POST['enabled_excluded_files'] : 'no';
+
+        Infinite_Uploads_Helper::set_file_exclusion_enabled( $is_file_excluded_enabled );
 
         $current_excluded_files_array = $this->get_excluded_files();
 

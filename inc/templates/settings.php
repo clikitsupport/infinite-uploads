@@ -1,4 +1,4 @@
-<div class="card mt-0">
+<div class="card mt-0" xmlns="http://www.w3.org/1999/html">
 	<div class="card-header h5">
 		<div class="d-flex align-items-center">
 			<h5 class="m-0 mr-auto p-0"><?php esc_html_e( 'Account & Settings', 'infinite-uploads' ); ?> <span class="dashicons dashicons-info text-muted" data-toggle="tooltip" title="<?php esc_attr_e( 'Includes usage data for all connected sites', 'infinite-uploads' ); ?>"></span></h5>
@@ -87,6 +87,21 @@
                 <p class="lead"><?php esc_html_e( 'Specify files or directories to exclude from cloud sync. For example, exclude log files with ".log" or specific directories with "/directory-path/". One entry per line.', 'infinite-uploads' ); ?></p>
             </div>
             <div class="col-md-6 col-sm-12">
+                <div class="row">
+                    <div class="col"><?php esc_html_e( 'Enable File Exclusions', 'infinite-uploads' ); ?> </div>
+                </div>
+                <div class="">
+                    <input type="radio" name="iu_file_exclusion_enabled" value="yes" <?php
+                    if ( $is_file_exclusion_enabled == 'yes' ) {
+                        echo "checked";
+                    } ?>/><?php
+                    esc_html_e( 'Yes', 'infinite-uploads' ); ?>
+                    <input type="radio" name="iu_file_exclusion_enabled" value="no" <?php
+                    if ( $is_file_exclusion_enabled == 'no' ) {
+                        echo "checked";
+                    } ?> /><?php
+                    esc_html_e( 'No', 'infinite-uploads' ); ?>
+                </div>
                 <div class="row">
                     <div class="col text-left p-3">
                         <div id="folderTree" style="max-height:300px; overflow:auto; border:1px solid #ddd; border-radius:5px; background:#f9f9f9;"></div>

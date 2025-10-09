@@ -729,12 +729,15 @@ jQuery(document).ready(function ($) {
 			excludedFiles = selected.map(node => node.data.path);
 		}
 
+		const excludedFilesOption = $('input[name="iu_file_exclusion_enabled"]:checked').val();
+
 		$.ajax({
 			url: ajaxurl,
 			type: 'POST',
 			data: {
 				action: 'save_iu_excluded_files',
 				excluded_files: excludedFiles,
+				enabled_excluded_files: excludedFilesOption,
 				nonce: iup_data.nonce.saveExcludedFiles
 			},
 			success: function (response) {
