@@ -1148,7 +1148,7 @@ class Infinite_Uploads_Admin {
                     $cloud_total_size = $api_data->stats->cloud->storage;
                 }
 
-                $is_file_exclusion_enabled = Infinite_Uploads_Helper::is_file_exclusion_enabled();
+                $file_exclusion_setting = Infinite_Uploads_Helper::get_file_exclusion_setting();
 
                 require_once( dirname( __FILE__ ) . '/templates/header-columns.php' );
 

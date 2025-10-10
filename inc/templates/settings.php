@@ -92,12 +92,12 @@
                 </div>
                 <div class="">
                     <input type="radio" name="iu_file_exclusion_enabled" value="yes" <?php
-                    if ( $is_file_exclusion_enabled == 'yes' ) {
+                    if ( $file_exclusion_setting == 'yes' ) {
                         echo "checked";
                     } ?>/><?php
                     esc_html_e( 'Yes', 'infinite-uploads' ); ?>
                     <input type="radio" name="iu_file_exclusion_enabled" value="no" <?php
-                    if ( $is_file_exclusion_enabled == 'no' ) {
+                    if ( $file_exclusion_setting == 'no' ) {
                         echo "checked";
                     } ?> /><?php
                     esc_html_e( 'No', 'infinite-uploads' ); ?>
