@@ -71,10 +71,12 @@ class Infinite_Uploads_Admin {
 
             add_action( 'infinite_uploads_do_sync', [ $this, 'do_sync' ] );
 
-            add_filter( 'wp_get_attachment_url', [ $this, 'filter_attachment_url' ], 10, 2 );
-
-            add_filter( 'pre_move_uploaded_file', [ $this, 'set_the_new_file_path' ], 10, 4 );
-            add_filter( 'wp_handle_upload', [ $this, 'handle_upload' ], 10, 2 );
+            // This is to handle file exclusions.
+            if ( Infinite_Uploads_Helper::is_file_exclusion_enabled() ) {
+                add_filter( 'wp_get_attachment_url', [ $this, 'filter_attachment_url' ], 10, 2 );
+                add_filter( 'pre_move_uploaded_file', [ $this, 'set_the_new_file_path' ], 10, 4 );
+                add_filter( 'wp_handle_upload', [ $this, 'handle_upload' ], 10, 2 );
+            }
         }
     }
 
@@ -180,7 +182,7 @@ class Infinite_Uploads_Admin {
             $new_file = Infinite_Uploads_Helper::get_cloud_file_path( $new_file );
         }
 
-        error_log('[set_the_new_file_path] New File Path To Move: >>>> ' . $new_file);
+        error_log( '[set_the_new_file_path] New File Path To Move: >>>> ' . $new_file );
 
         $move_new_file = @move_uploaded_file( $file['tmp_name'], $new_file );
 
@@ -1267,23 +1269,55 @@ class Infinite_Uploads_Admin {
             wp_send_json_error( 'Insufficient permissions' );
         }
 
-        $excluded_files_array = isset( $_POST['excluded_files'] ) ? $_POST['excluded_files'] : [];
-        $is_file_excluded_enabled = isset( $_POST['enabled_excluded_files'] ) ? $_POST['enabled_excluded_files'] : 'no';
+        $excluded_files_array           = isset( $_POST['excluded_files'] ) ? $_POST['excluded_files'] : [];
+        $current_file_exclusion_setting = isset( $_POST['enabled_excluded_files'] ) ? $_POST['enabled_excluded_files'] : 'no';
 
-        Infinite_Uploads_Helper::set_file_exclusion_enabled( $is_file_excluded_enabled );
+        $previous_file_exclusion_setting = Infinite_Uploads_Helper::get_file_exclusion_setting();
 
-        $current_excluded_files_array = $this->get_excluded_files();
-
-        $files_to_resync = array_diff( $current_excluded_files_array, $excluded_files_array );
-
+        /**
+         * Possible values for $previous_file_exclusion_setting and $file_exclusion_setting:
+         * 'no'  - File exclusion is disabled.
+         * 'yes' - File exclusion is enabled.
+         *
+         * Possible transitions:
+         *
+         * 1. 'no'  -> 'no'  : No change, file exclusion remains disabled.
+         * 2. 'no'  -> 'yes' : File exclusion is being enabled.
+         * 3. 'yes' -> 'no'  : File exclusion is being disabled.
+         * 4. 'yes' -> 'yes' : No change, file exclusion remains enabled.
+         *
+         * We need to handle cases 2 and 3 specifically.
+         *
+         * Case 2 ('no' -> 'yes'): We simply enable file exclusion, no special action needed. Any files already in the excluded list will be respected.
+         * Case 3 ('yes' -> 'no'): We need to clear the excluded files list since file exclusion is being disabled. And also resync any files that were previously excluded.
+         *
+         * Case 1 and 4: No action needed, just update the setting.
+         */
+        $current_excluded_files_array                  = $this->get_excluded_files();
+        $files_to_resync                               = array_diff( $current_excluded_files_array, $excluded_files_array );
         $files_to_download_from_infinite_upload_server = array_diff( $excluded_files_array, $current_excluded_files_array );
-
-        $this->process_added_removed_excluded_files( $files_to_resync, $files_to_download_from_infinite_upload_server );
 
         update_site_option( 'iup_do_sync_complete', 'yes' );
         update_site_option( 'iup_do_download_complete', 'yes' );
+        if ( 'no' === $previous_file_exclusion_setting && 'yes' === $current_file_exclusion_setting ) {
+            // Case 2: File exclusion is being enabled.
+            // No special action needed, just update the setting below.
+            $this->process_added_removed_excluded_files( $files_to_resync, $files_to_download_from_infinite_upload_server );
+
+        } elseif ( 'yes' === $previous_file_exclusion_setting && 'no' === $current_file_exclusion_setting ) {
+            // Case 3: File exclusion is being disabled.
+            // Clear the excluded files list.
+            $excluded_files_array = [];
+            $this->process_added_removed_excluded_files( $files_to_resync, [] );
+        } elseif ( 'no' === $current_file_exclusion_setting && 'no' === $previous_file_exclusion_setting ) {
+            $excluded_files_array = [];
+        } elseif ( 'yes' === $current_file_exclusion_setting && 'yes' === $previous_file_exclusion_setting ) {
+            $this->process_added_removed_excluded_files( $files_to_resync, $files_to_download_from_infinite_upload_server );
+        }
 
         update_site_option( 'iup_excluded_files', $excluded_files_array );
+
+        Infinite_Uploads_Helper::set_file_exclusion_setting( $current_file_exclusion_setting );
 
         wp_send_json_success();
     }
@@ -1292,7 +1326,7 @@ class Infinite_Uploads_Admin {
         global $wpdb;
 
         if ( ! empty( $files_to_resync ) ) {
-            error_log('There are files to resync');
+            error_log( 'There are files to resync' );
             update_site_option( 'iup_do_sync_complete', 'no' );
             $path = $this->iup_instance->get_original_upload_dir_root();
             $path = $path['basedir'];
@@ -1305,7 +1339,7 @@ class Infinite_Uploads_Admin {
 
         if ( ! empty( $files_to_download_from_infinite_upload_server ) ) {
             $files_to_download = get_site_option( 'iup_files_to_downloads', '' );
-            error_log('There are files to download from server');
+            error_log( 'There are files to download from server' );
             update_site_option( 'iup_do_download_complete', 'no' );
 
             // error_log( 'Files TO Download Before Merge: ' . print_r( $files_to_download, true ) );
@@ -1327,7 +1361,7 @@ class Infinite_Uploads_Admin {
     public function add_files_to_download() {
         global $wpdb;
 
-        error_log('Add Files To Download');
+        error_log( 'Add Files To Download' );
         // error_log( '[INFINITE_UPLOADS] Add files to download' );
         // error_log( '[INFINITE_UPLOADS] Add files to download >> Step 1' );
 
@@ -1366,7 +1400,7 @@ class Infinite_Uploads_Admin {
         // error_log( "Dirs to download >>>>> " . print_r( $dirs_to_download, true ) );
         // Now process directories
         if ( ! empty( $dirs_to_download ) ) {
-            error_log('Dirs To Download');
+            error_log( 'Dirs To Download' );
             update_site_option( 'iup_dirs_to_downloads', $dirs_to_download );
             as_schedule_single_action( time(), 'infinite-uploads-fetch-s3-files-from-directory-to-download' );
         }
@@ -1380,7 +1414,7 @@ class Infinite_Uploads_Admin {
     public function fetch_s3_files_from_directory_to_download() {
         global $wpdb;
 
-        error_log('Fetch S3 Files To Download');
+        error_log( 'Fetch S3 Files To Download' );
         $dirs = get_site_option( 'iup_dirs_to_downloads', '' );
 
         $this->sync_debug_log( '[INFINITE_UPLOADS] Fetch S3 files from directory to download' );
@@ -1496,13 +1530,13 @@ class Infinite_Uploads_Admin {
     public function do_download() {
         global $wpdb;
 
-        error_log('[Download] Do Download Started.');
+        error_log( '[Download] Do Download Started.' );
         $downloaded = 0;
         $errors     = [];
         $break      = false;
         $path       = $this->iup_instance->get_original_upload_dir_root();
         $s3         = $this->iup_instance->s3();
-        $is_done = false;
+        $is_done    = false;
         $timelimit  = max( 20, floor( ini_get( 'max_execution_time' ) * .6666 ) );
         while ( ! $break ) {
             // Insert/Update query to add files to be downloaded. set deleted = 1 for these files.
@@ -1582,17 +1616,17 @@ class Infinite_Uploads_Admin {
         }
 
         if ( $is_done ) {
-            error_log('[Download] Do Download Completed.');
+            error_log( '[Download] Do Download Completed.' );
             update_site_option( 'iup_do_download_complete', 'yes', true );
         } else {
-            error_log('[Download] Do Download Paused. Will resume shortly.');
+            error_log( '[Download] Do Download Paused. Will resume shortly.' );
         }
     }
 
     public function do_sync() {
         global $wpdb;
 
-        error_log('[Sync] Do Sync Started.');
+        error_log( '[Sync] Do Sync Started.' );
         //this loop has a parallel status check, so we make the timeout 2/3 of max execution time.
         $timelimit = max( 20, floor( ini_get( 'max_execution_time' ) * .6666 ) );
         $this->sync_debug_log( "Ajax time limit: " . $timelimit );
@@ -1832,7 +1866,7 @@ class Infinite_Uploads_Admin {
         }
 
         if ( $is_done ) {
-            error_log('[Sync] All files synced.');
+            error_log( '[Sync] All files synced.' );
             update_site_option( 'iup_do_sync_complete', 'yes', true );
         }
     }

@@ -942,27 +942,26 @@ class Infinite_Uploads {
             $data['filesize'] = '';
         }
 
-        $file = $data['file'];
+        // Do thumbnail, medium and full sizes for excluded files so they show in media library.
+        if ( Infinite_Uploads_Helper::is_file_exclusion_enabled() ) {
+            $file = $data['file'];
+            if ( ! Infinite_Uploads_Helper::is_path_excluded( $file ) ) {
+                $file      = Infinite_Uploads_Helper::get_file_name_from_path( $data['file'] );
+                $width     = $height = 150;
+                $mime_type = isset( $data['mime_type'] ) ? $data['mime_type'] : 'image/png';
 
-        if ( ! Infinite_Uploads_Helper::is_path_excluded( $file ) ) {
-            $file      = Infinite_Uploads_Helper::get_file_name_from_path( $data['file'] );
-            $width     = $height = 150;
-            $mime_type = isset( $data['mime_type'] ) ? $data['mime_type'] : 'image/png';
+                $file_data = [
+                        'file'      => $file,
+                        'width'     => $width,
+                        'height'    => $height,
+                        'mime-type' => $mime_type,
+                ];
 
-            $file_data = [
-                    'file'      => $file,
-                    'width'     => $width,
-                    'height'    => $height,
-                    'mime-type' => $mime_type,
-            ];
-
-            $data['sizes']['thumbnail'] = $file_data;
-            $data['sizes']['medium'] = $file_data;
-            $data['sizes']['full'] = $file_data;
-
-
+                $data['sizes']['thumbnail'] = $file_data;
+                $data['sizes']['medium']    = $file_data;
+                $data['sizes']['full']      = $file_data;
+            }
         }
-
 
         return $data;
     }

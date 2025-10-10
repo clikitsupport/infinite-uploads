@@ -13,7 +13,7 @@ class Infinite_Uploads_Helper {
 		error_log( '[INFINITE_UPLOADS >> is_path_excluded] Checking if path is excluded: ' . $path );
 
 		if ( $url ) {
-			$local_url = self::get_local_file_url( $path );
+			$local_url  = self::get_local_file_url( $path );
 			$local_path = self::get_local_path_from_url( $local_url );
 		} else {
 			$local_path = self::get_local_file_path( $path );
@@ -32,6 +32,7 @@ class Infinite_Uploads_Helper {
 		foreach ( $excluded_files_array as $excluded_file ) {
 			if ( stripos( $local_path, $excluded_file ) !== false ) {
 				error_log( '[INFINITE_UPLOADS >> is_path_excluded] Local Path Is Excluded: ' . $local_path );
+
 				return true;
 			}
 		}
@@ -185,6 +186,7 @@ class Infinite_Uploads_Helper {
 		// Check if url is local or cloud
 		if ( self::is_path_excluded( $url, true ) ) {
 			$local_path = self::get_local_file_path( $url );
+
 			return basename( $local_path );
 		} else {
 			$cloud_path = self::get_cloud_file_path( $url );
@@ -268,10 +270,20 @@ class Infinite_Uploads_Helper {
 	}
 
 	public static function is_file_exclusion_enabled() {
+		$file_exclusion_setting = self::get_file_exclusion_setting();
+
+		if ( $file_exclusion_setting === 'yes' ) {
+			return true;
+		}
+
+		return false;
+	}
+
+	public static function get_file_exclusion_setting() {
 		return get_site_option( 'iu_file_exclusion_enabled', 'no' );
 	}
 
-	public static function set_file_exclusion_enabled( $value ) {
+	public static function set_file_exclusion_setting( $value ) {
 		if ( $value !== 'yes' && $value !== 'no' ) {
 			return false;
 		}
