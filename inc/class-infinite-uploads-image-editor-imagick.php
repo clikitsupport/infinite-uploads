@@ -33,16 +33,17 @@ class Infinite_Uploads_Image_Editor_Imagick extends WP_Image_Editor_Imagick {
 			return parent::load();
 		}
 
-		$temp_filename = tempnam( get_temp_dir(), 'infinite-uploads' );
+		$temp_filename                 = tempnam( get_temp_dir(), 'infinite-uploads' );
 		$this->temp_files_to_cleanup[] = $temp_filename;
 
 		copy( $this->file, $temp_filename );
 		$this->remote_filename = $this->file;
-		$this->file = $temp_filename;
+		$this->file            = $temp_filename;
 
 		$result = parent::load();
 
 		$this->file = $this->remote_filename;
+
 		return $result;
 	}
 
@@ -57,16 +58,22 @@ class Infinite_Uploads_Image_Editor_Imagick extends WP_Image_Editor_Imagick {
 			$filename = $this->generate_filename( null, null, $extension );
 		}
 
-		$upload_dir = wp_upload_dir();
+		// $upload_dir = wp_upload_dir();
 
-		if ( strpos( $filename, $upload_dir['basedir'] ) === 0 ) {
-			$temp_filename = tempnam( get_temp_dir(), 'infinite-uploads' );
+		//error_log( 'Upload DIR IMAGICK: ' . print_r( $upload_dir, true ) );
+		//error_log( 'Filename IMAGICK: ' . $filename );
+
+		if ( ! Infinite_Uploads_Helper::is_path_excluded( $filename ) ) {
+			return [];
 		}
+
+		$temp_filename = tempnam( get_temp_dir(), 'infinite-uploads' );
 
 		$save = parent::_save( $image, $temp_filename, $mime_type );
 
 		if ( is_wp_error( $save ) ) {
 			unlink( $temp_filename );
+
 			return $save;
 		}
 
