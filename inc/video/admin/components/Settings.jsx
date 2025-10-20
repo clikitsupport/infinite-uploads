@@ -92,6 +92,23 @@ export default function Settings() {
 									<ColorPick {...{settings, setSettings}} />
 								</Col>
 							</Row>
+							<Row>
+								<Col>
+									<h5>{__('Enable Direct Play', 'infinite-uploads')}</h5>
+									<p className="lead">{__('Enables video playback in the browser using the direct video URL. Anyone with the URL or video ID will be able to watch the video.', 'infinite-uploads')}</p>
+								</Col>
+								<Col>
+									<Form>
+										<Form.Check
+											type="switch"
+											id="enable-direct-play"
+											label=""
+											checked={!!settings.enableDirectPlay}
+											onChange={() => setSettings({...settings, enableDirectPlay: !settings.enableDirectPlay})}
+										/>
+									</Form>
+								</Col>
+							</Row>
 							<Row className="justify-content-center mb-5" xs={1} md={2}>
 								<Col>
 									<h5>{__('Player Language', 'infinite-uploads')}</h5>
