@@ -103,8 +103,8 @@ export default function Settings() {
 											type="switch"
 											id="enable-direct-play"
 											label=""
-											checked={!!settings.enableDirectPlay}
-											onChange={() => setSettings({...settings, enableDirectPlay: !settings.enableDirectPlay})}
+											checked={!!settings.AllowDirectPlay}
+											onChange={() => setSettings({...settings, AllowDirectPlay: !settings.AllowDirectPlay})}
 										/>
 									</Form>
 								</Col>
