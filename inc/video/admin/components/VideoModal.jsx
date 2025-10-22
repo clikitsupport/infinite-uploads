@@ -535,32 +535,36 @@ export default function VideoModal({
 												/>
 											</Col>
 										</Row>
-										<Row>
-											<Col>
-												<label htmlFor="direct-play-url" className="mt-4 mb-2">
-													{__(
-														'Direct Play URL',
-														'infinite-uploads'
-													)}
-												</label>
-											</Col>
-										</Row>
-										<Row>
-											<Col>
-												<Form.Control
-													type="text"
-													aria-label="Embed Code"
-													readOnly
-													value={`https://iframe.mediadelivery.net/play/${video.videoLibraryId}/${video.guid}`}
-													onClick={(e) => {
-														e.target.select();
-														document.execCommand(
-															'copy'
-														);
-													}}
-												/>
-											</Col>
-										</Row>
+										{IUP_VIDEO?.settings?.AllowDirectPlay && (
+											<>
+												<Row>
+													<Col>
+														<label htmlFor="direct-play-url" className="mt-4 mb-2">
+															{__(
+																'Direct Play URL',
+																'infinite-uploads'
+															)}
+														</label>
+													</Col>
+												</Row>
+												<Row>
+													<Col>
+														<Form.Control
+															type="text"
+															aria-label="Embed Code"
+															readOnly
+															value={`https://iframe.mediadelivery.net/play/${video.videoLibraryId}/${video.guid}`}
+															onClick={(e) => {
+																e.target.select();
+																document.execCommand(
+																	'copy'
+																);
+															}}
+														/>
+													</Col>
+												</Row>
+											</>
+										)}
 									</Col>
 								</Row>
 							</Tab>
