@@ -553,7 +553,7 @@ export default function VideoModal({
 															type="text"
 															aria-label="Embed Code"
 															readOnly
-															value={`https://iframe.mediadelivery.net/play/${video.videoLibraryId}/${video.guid}`}
+															value={`https://iframe.infiniteuploads.com/play/${video.videoLibraryId}/${video.guid}`}
 															onClick={(e) => {
 																e.target.select();
 																document.execCommand(

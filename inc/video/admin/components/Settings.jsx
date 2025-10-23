@@ -101,10 +101,16 @@ export default function Settings() {
 									<Form>
 										<Form.Check
 											type="switch"
-											id="enable-direct-play"
+											id="allow-direct-play"
 											label=""
+											className={`custom-switch ${settings.AllowDirectPlay ? 'on' : 'off'}`}
 											checked={!!settings.AllowDirectPlay}
-											onChange={() => setSettings({...settings, AllowDirectPlay: !settings.AllowDirectPlay})}
+											onChange={() =>
+												setSettings({
+													...settings,
+													AllowDirectPlay: !settings.AllowDirectPlay,
+												})
+											}
 										/>
 									</Form>
 								</Col>

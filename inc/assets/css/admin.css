@@ -251,3 +251,42 @@ li.nav-item {
     width: 40px;
     height: 40px;
 }
+
+/* Override Bootstrap's default switch styling */
+.form-switch .form-check-input {
+    width: 2.6em;
+    height: 1.4em;
+    border-radius: 1.4em;
+    background-color: #dc3545; /* red when off */
+    border: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    position: relative;
+    transition: background-color 0.3s ease-in-out;
+    --bs-form-switch-bg: unset;
+}
+
+/* The white toggle knob */
+.form-switch .form-check-input::before {
+    content: "";
+    position: absolute;
+    top: 0.15em;
+    left: 0.15em;
+    width: 1em;
+    height: 1em;
+    border-radius: 50%;
+    background-color: #fff;
+    transition: transform 0.3s ease-in-out;
+    --bs-form-switch-bg: unset;
+}
+
+/* Green when checked (ON) */
+.form-switch .form-check-input:checked {
+    background-color: #28a745; /* green */
+    --bs-form-switch-bg: unset;
+}
+
+.form-switch .form-check-input:checked::before {
+    transform: translateX(1.2em);
+}
