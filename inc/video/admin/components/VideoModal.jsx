@@ -586,6 +586,32 @@ export default function VideoModal({
 															type="text"
 															aria-label="Embed Code"
 															readOnly
+															value={`https://iframe.infiniteuploads.com/play/${video.videoLibraryId}/${video.guid}`}
+															onClick={(e) => {
+																e.target.select();
+																document.execCommand(
+																	'copy'
+																);
+															}}
+														/>
+													</Col>
+												</Row>
+												<Row>
+													<Col>
+														<label htmlFor="hsl-url" className="mt-4 mb-2">
+															{__(
+																'HSL URL',
+																'infinite-uploads'
+															)}
+														</label>
+													</Col>
+												</Row>
+												<Row>
+													<Col>
+														<Form.Control
+															type="text"
+															aria-label="Embed Code"
+															readOnly
 															value={`https://iframe.infiniteuploads.com/play/${video.videoLibraryId}/${video.guid}/playlist.m3u8`}
 															onClick={(e) => {
 																e.target.select();
