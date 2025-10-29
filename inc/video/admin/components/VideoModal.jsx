@@ -446,6 +446,43 @@ export default function VideoModal({
 							>
 								<Row className="justify-content-center mt-2">
 									<Col>
+										{IUP_VIDEO?.settings?.AllowDirectPlay && (
+											<>
+												<Row>
+													<Col>
+														<label htmlFor="direct-play-url" className="mt-4 mb-2">
+															{__(
+																'Embed Code',
+																'infinite-uploads'
+															)}
+														</label>
+													</Col>
+												</Row>
+												<Row>
+													<Col>
+														<Form.Control
+															as="textarea"
+															rows={3}
+															aria-label="Embed iframe"
+															readOnly
+															value={`<iframe src="https://iframe.infiniteuploads.com/play/${video.videoLibraryId}/${video.guid}" style="width: 100%; aspect-ratio: 16/9; border: 0;" allowfullscreen ></iframe>`}
+															onClick={(e) => {
+																e.target.select();
+																const text = e.target.value;
+																if (navigator.clipboard && navigator.clipboard.writeText) {
+																	navigator.clipboard.writeText(text).catch(() => {
+																		document.execCommand('copy');
+																	});
+																} else {
+																	document.execCommand('copy');
+																}
+															}}
+														/>
+
+													</Col>
+												</Row>
+											</>
+										)}
 										<Row>
 											<Col>
 												<p>
@@ -553,7 +590,7 @@ export default function VideoModal({
 															type="text"
 															aria-label="Embed Code"
 															readOnly
-															value={`https://iframe.infiniteuploads.com/play/${video.videoLibraryId}/${video.guid}`}
+															value={`https://iframe.infiniteuploads.com/play/${video.videoLibraryId}/${video.guid}/playlist.m3u8`}
 															onClick={(e) => {
 																e.target.select();
 																document.execCommand(
