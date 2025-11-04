@@ -598,9 +598,9 @@ export default function VideoModal({
 												</Row>
 												<Row>
 													<Col>
-														<label htmlFor="hsl-url" className="mt-4 mb-2">
+														<label htmlFor="hls-url" className="mt-4 mb-2">
 															{__(
-																'HSL URL',
+																'HLS URL',
 																'infinite-uploads'
 															)}
 														</label>
