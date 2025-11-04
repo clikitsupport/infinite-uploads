@@ -290,3 +290,20 @@ li.nav-item {
 .form-switch .form-check-input:checked::before {
     transform: translateX(1.2em);
 }
+
+.form-switch .form-check-input:focus {
+    --bs-form-switch-bg: unset;
+}
+
+.form-switch .form-check-input:checked::before {
+    content: "";
+    position: absolute;
+    top: 0.30em;
+    left: 0.30em;
+    width: 1em;
+    height: 1em;
+    border-radius: 50%;
+    background-color: #fff;
+    transition: transform 0.3s ease-in-out;
+    --bs-form-switch-bg: unset;
+}
