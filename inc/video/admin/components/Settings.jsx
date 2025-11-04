@@ -155,7 +155,7 @@ export default function Settings() {
 									</Form.Select>
 								</Col>
 							</Row>
-							<Row className="justify-content-center mb-5" xs={1} md={2}>
+							<Row className="justify-content-center mb-5 iu-player-control" xs={1} md={2}>
 								<Col>
 									<h5>{__('Player Controls', 'infinite-uploads')}</h5>
 									<p className="lead">{__('Select the UI controls that will be displayed on the player.', 'infinite-uploads')}</p>

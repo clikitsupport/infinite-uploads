@@ -307,3 +307,12 @@ li.nav-item {
     transition: transform 0.3s ease-in-out;
     --bs-form-switch-bg: unset;
 }
+
+
+.form-check-input:checked {
+    background-color: #fff;
+}
+
+.iu-player-control .row .col {
+    min-width: 200px;
+}
