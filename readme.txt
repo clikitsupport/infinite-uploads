@@ -1,8 +1,8 @@
 === Infinite Uploads - Offload Media and Video to Cloud Storage ===
 
 Requires at least: 6.0
-Tested up to: 6.8.2
-Stable tag: 3.0.4
+Tested up to: 6.8
+Stable tag: 3.0.5
 Requires PHP: 8.0
 Contributors: bww
 Tags: cloud storage, media cloud, encoding, offload, video, streaming, s3, google cloud storage, spaces, storage, cdn, cloud sync
@@ -196,6 +196,11 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 8. Create a custom CDN URL, track storage, and free up space.
 
 == Changelog ==
+
+3.0.5
+----------------------------------------------------------------------
+- New: Added support to access videos directly via URL
+- Update: WordPress 6.8.3 compatibility
 
 3.0.4
 ----------------------------------------------------------------------
