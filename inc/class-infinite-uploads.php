@@ -1005,6 +1005,7 @@ class Infinite_Uploads {
 			$exclusions[] = '/buddypress/';
 		}
 		$exclusions[] = '/bb-plugin/';
+		$exclusions[]  = '/ShortpixelBackups/';
 		return $exclusions;
 	}
 }
@@ -1090,6 +1091,31 @@ function infinite_uploads_complainz_fix() {
 	}
 }
 add_action( 'init', 'infinite_uploads_complainz_fix' );
+
+/**
+ * Check if a file is already offloaded to S3.
+ *
+ * @param string $url The URL of the file to check.
+ *
+ * @return bool True if the file is offloaded, false otherwise.
+ */
+function infinite_uploads_check_offloaded( $url ) {
+	global $wpdb;
+	$parsed = wp_parse_url( $url );
+
+	if ( isset( $parsed['path'] ) ) {
+		// Check if the file is already offloaded to S3.
+		$total     = $wpdb->get_row( "SELECT * FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file LIKE '%{$parsed['path']}%'" );
+		if($total && isset( $total->synced ) && $total->synced == 1 ) {
+			return true;
+		} else {
+			return false;
+
+		}
+	} else {
+		return false;
+	}	
+}
 
 /**
  * Exclude beaver builder cache directories from being synced.
