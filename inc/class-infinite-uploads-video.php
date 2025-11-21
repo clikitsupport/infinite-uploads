@@ -52,6 +52,7 @@ class Infinite_Uploads_Video {
         add_shortcode( 'infinite-uploads-vid', [ &$this, 'shortcode' ] );
     }
 
+
     /**
      *
      * @return Infinite_Uploads_Video
@@ -584,13 +585,13 @@ class Infinite_Uploads_Video {
                     <?php
                     printf( __( "Files can't be uploaded and your CDN is disabled due to a billing issue with your Infinite Uploads account. Please <a href='%s' class='alert-link'>visit your account page</a> to fix, or disconnect this site from the cloud. Images and links to media on your site may be broken until you take action. <a href='%s' class='alert-link' data-toggle='tooltip' title='Refresh account data'>Already fixed?</a>", 'infinite-uploads' ), esc_url( $this->api_url( '/account/billing/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin' ) ), esc_url( $this->settings_url( [ 'refresh' => 1 ] ) ) ); ?>
                 </div>
-            <?php
+                <?php
             } elseif ( isset( $api_data->site ) && ! $api_data->site->upload_writeable ) { ?>
                 <div class="alert alert-warning mt-1" role="alert">
                     <?php
                     printf( __( "Files can't be uploaded and your CDN will be disabled soon due to a billing issue with your Infinite Uploads account. Please <a href='%s' class='alert-link'>visit your account page</a> to fix, or disconnect this site from the cloud. <a href='%s' class='alert-link' data-toggle='tooltip' title='Refresh account data'>Already fixed?</a>", 'infinite-uploads' ), esc_url( $this->api_url( '/account/billing/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin' ) ), esc_url( $this->settings_url( [ 'refresh' => 1 ] ) ) ); ?>
                 </div>
-            <?php
+                <?php
             } ?>
         </div>
 
