@@ -62,6 +62,8 @@ function infinite_uploads_init() {
 
 	infinite_uploads_upgrade();
 
+    require_once dirname( __FILE__ ) . '/inc/functions.php';
+
 	$instance = Infinite_Uploads::get_instance();
 	$instance->setup();
 }
