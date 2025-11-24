@@ -283,19 +283,19 @@ class Infinite_Uploads_Video {
     public function ajax_video_library() {
         $this->ajax_check_permissions();
 
-        $page         = isset( $_REQUEST['page'] ) ? intval( $_REQUEST['page'] ) : 1;
-        $itemsPerPage = isset( $_REQUEST['itemsPerPage'] ) ? intval( $_REQUEST['itemsPerPage'] ) : 10;
-        $orderBy      = isset( $_REQUEST['orderBy'] ) ? sanitize_text_field( $_REQUEST['orderBy'] ) : 'dateCreated';
-        $search       = isset( $_REQUEST['search'] ) ? sanitize_text_field( $_REQUEST['search'] ) : '';
+        $page     = isset( $_REQUEST['page'] ) ? intval( $_REQUEST['page'] ) : 1;
+        $per_page = isset( $_REQUEST['itemsPerPage'] ) ? intval( $_REQUEST['itemsPerPage'] ) : 10;
+        $order_by = isset( $_REQUEST['orderBy'] ) ? sanitize_text_field( $_REQUEST['orderBy'] ) : 'dateCreated';
+        $search   = isset( $_REQUEST['search'] ) ? sanitize_text_field( $_REQUEST['search'] ) : '';
 
-        $params       = [
-                'page'         => $page,
-                'itemsPerPage' => $itemsPerPage,
-                'orderBy'      => $orderBy,
-                'search'       => $search,
+        $params = [
+                'page'     => $page,
+                'per_page' => $per_page,
+                'order_by' => $order_by,
+                'search'   => $search,
         ];
 
-        $result = $this->get_videos($params);
+        $result = $this->get_videos( $params );
 
         if ( is_wp_error( $result ) ) {
             wp_send_json_error( $result );
@@ -312,15 +312,15 @@ class Infinite_Uploads_Video {
      * @return object|WP_Error
      */
     public function get_videos( $params = [] ) {
-        $page         = isset( $params['page'] ) ? intval( $params['page'] ) : 1;
-        $itemsPerPage = isset( $params['itemsPerPage'] ) ? intval( $params['itemsPerPage'] ) : 10;
-        $orderBy      = isset( $params['orderBy'] ) ? sanitize_text_field( $params['orderBy'] ) : 'dateCreated';
-        $search       = isset( $params['search'] ) ? sanitize_text_field( $params['search'] ) : '';
+        $page     = isset( $params['page'] ) ? intval( $params['page'] ) : 1;
+        $per_page = isset( $params['per_page'] ) ? intval( $params['per_page'] ) : 10;
+        $order_by = isset( $params['order_by'] ) ? sanitize_text_field( $params['order_by'] ) : 'dateCreated';
+        $search   = isset( $params['search'] ) ? sanitize_text_field( $params['search'] ) : '';
 
         $params = [
                 'page'         => $page,
-                'itemsPerPage' => $itemsPerPage,
-                'orderBy'      => $orderBy,
+                'itemsPerPage' => $per_page,
+                'orderBy'      => $order_by,
                 'search'       => $search,
         ];
 
