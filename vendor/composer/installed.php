@@ -3,7 +3,7 @@
         'name' => 'clikit/infinite-uploads',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => 'f3cdd4db6bfd316d35a043a021b5dca74c8cb149',
+        'reference' => '75d959082a6f99cc918487fcefde0ccb4dc85b70',
         'type' => 'wordpress-plugin',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -13,7 +13,7 @@
         'clikit/infinite-uploads' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => 'f3cdd4db6bfd316d35a043a021b5dca74c8cb149',
+            'reference' => '75d959082a6f99cc918487fcefde0ccb4dc85b70',
             'type' => 'wordpress-plugin',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

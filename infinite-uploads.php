@@ -192,4 +192,4 @@ function infinite_uploads_autoload( $class_name ) {
 	}
 }
 
-spl_autoload_register( 'infinite_uploads_autoload' );
+// spl_autoload_register( 'infinite_uploads_autoload' );

@@ -7,24 +7,21 @@ namespace Composer\Autoload;
 class ComposerStaticInitf8d1a57591bdd5dfc0791def8ac47b5a
 {
     public static $prefixLengthsPsr4 = array (
-        'I' => 
-        array (
-            'InfiniteUploads\\' => 16,
-        ),
         'C' => 
         array (
             'Composer\\Installers\\' => 20,
+            'ClikIT\\InfiniteUploads\\' => 23,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
-        'InfiniteUploads\\' => 
-        array (
-            0 => __DIR__ . '/../..' . '/inc',
-        ),
         'Composer\\Installers\\' => 
         array (
             0 => __DIR__ . '/..' . '/composer/installers/src/Composer/Installers',
+        ),
+        'ClikIT\\InfiniteUploads\\' => 
+        array (
+            0 => __DIR__ . '/../..' . '/inc',
         ),
     );
 

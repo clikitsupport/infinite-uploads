@@ -6,6 +6,6 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
-    'InfiniteUploads\\' => array($baseDir . '/inc'),
     'Composer\\Installers\\' => array($vendorDir . '/composer/installers/src/Composer/Installers'),
+    'ClikIT\\InfiniteUploads\\' => array($baseDir . '/inc'),
 );
