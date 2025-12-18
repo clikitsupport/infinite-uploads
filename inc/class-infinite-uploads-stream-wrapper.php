@@ -101,9 +101,9 @@ class Infinite_Uploads_Stream_Wrapper {
 	/**
 	 * Register the 'iu://' stream wrapper
 	 *
-	 * @param S3ClientInterface $client   Client to use with the stream wrapper
-	 * @param string            $protocol Protocol to register as.
-	 * @param CacheInterface    $cache    Default cache for the protocol.
+	 * @param  S3ClientInterface  $client    Client to use with the stream wrapper
+	 * @param  string             $protocol  Protocol to register as.
+	 * @param  CacheInterface     $cache     Default cache for the protocol.
 	 */
 	public static function register(
 		S3ClientInterface $client,
@@ -140,6 +140,7 @@ class Infinite_Uploads_Stream_Wrapper {
 		if ( $errors = $this->validate( $path, $this->mode ) ) {
 			return $this->triggerError( $errors );
 		}
+
 		return $this->boolCall( function () use ( $path ) {
 			switch ( $this->mode ) {
 				case 'r':
@@ -204,13 +205,14 @@ class Infinite_Uploads_Stream_Wrapper {
 		) {
 			$errors[] = "{$path} already exists on Infinite Uploads";
 		}
+
 		return $errors;
 	}
 
 	/**
 	 * Get a specific stream context option
 	 *
-	 * @param string $name Name of the option to retrieve
+	 * @param  string  $name  Name of the option to retrieve
 	 *
 	 * @return mixed|null
 	 */
@@ -223,8 +225,8 @@ class Infinite_Uploads_Stream_Wrapper {
 	/**
 	 * Get the stream context options available to the current stream
 	 *
-	 * @param bool $removeContextData Set to true to remove contextual kvp's
-	 *                                like 'client' from the result.
+	 * @param  bool  $removeContextData  Set to true to remove contextual kvp's
+	 *                                   like 'client' from the result.
 	 *
 	 * @return array
 	 */
@@ -255,8 +257,8 @@ class Infinite_Uploads_Stream_Wrapper {
 	/**
 	 * Writes info to debug log if feature is defined.
 	 *
-	 * @param string $action What cloud API call is being performed.
-	 * @param string $key    S3 path or prefix (key).
+	 * @param  string  $action  What cloud API call is being performed.
+	 * @param  string  $key     S3 path or prefix (key).
 	 */
 	private function debug( $action, $key ) {
 		if ( defined( 'INFINITE_UPLOADS_SW_DEBUG' ) && INFINITE_UPLOADS_SW_DEBUG ) {
@@ -281,7 +283,10 @@ class Infinite_Uploads_Stream_Wrapper {
 						$instance->stream_plugin_api_call_count[ $matches[1] ]['commands'][ $action ] = 1;
 					}
 				} else {
-					$instance->stream_plugin_api_call_count[ $matches[1] ] = [ 'total' => 1, 'commands' => [ $action => 1 ] ];
+					$instance->stream_plugin_api_call_count[ $matches[1] ] = [
+						'total'    => 1,
+						'commands' => [ $action => 1 ],
+					];
 				}
 			}
 
@@ -318,9 +323,9 @@ class Infinite_Uploads_Stream_Wrapper {
 	/**
 	 * Trigger one or more errors
 	 *
-	 * @param string|array $errors Errors to trigger
-	 * @param mixed        $flags  If set to STREAM_URL_STAT_QUIET, then no
-	 *                             error or exception occurs
+	 * @param  string|array  $errors  Errors to trigger
+	 * @param  mixed         $flags   If set to STREAM_URL_STAT_QUIET, then no
+	 *                                error or exception occurs
 	 *
 	 * @return bool Returns false
 	 * @throws \RuntimeException if throw_errors is true
@@ -343,7 +348,7 @@ class Infinite_Uploads_Stream_Wrapper {
 	/**
 	 * Prepare a url_stat result array
 	 *
-	 * @param string|array $result Data to add
+	 * @param  string|array  $result  Data to add
 	 *
 	 * @return array Returns the modified url_stat result
 	 */
@@ -414,16 +419,17 @@ class Infinite_Uploads_Stream_Wrapper {
 	 * Invokes a callable and triggers an error if an exception occurs while
 	 * calling the function.
 	 *
-	 * @param callable $fn
-	 * @param int      $flags
+	 * @param  callable  $fn
+	 * @param  int       $flags
 	 *
 	 * @return bool
 	 */
 	private function boolCall( callable $fn, $flags = null ) {
-		try {			
+		try {
 			return $fn();
 		} catch ( \Exception $e ) {
 			$this->debug( 'Error Message', $e->getMessage() );
+
 			return $this->triggerError( $e->getMessage(), $flags );
 		}
 	}
@@ -455,7 +461,7 @@ class Infinite_Uploads_Stream_Wrapper {
 	/**
 	 * Get cached put/get object
 	 *
-	 * @param string $key Cache key
+	 * @param  string  $key  Cache key
 	 *
 	 * @return mixed|null
 	 */
@@ -475,8 +481,8 @@ class Infinite_Uploads_Stream_Wrapper {
 	/**
 	 * Writes info to debug log if feature is defined.
 	 *
-	 * @param string $action Hit, Miss, Set, Delete.
-	 * @param string $key    S3 path or prefix (key).
+	 * @param  string  $action  Hit, Miss, Set, Delete.
+	 * @param  string  $key     S3 path or prefix (key).
 	 */
 	private function debug_cache( $action, $key ) {
 		if ( defined( 'INFINITE_UPLOADS_SW_DEBUG_CACHE' ) && INFINITE_UPLOADS_SW_DEBUG_CACHE ) {
@@ -509,8 +515,8 @@ class Infinite_Uploads_Stream_Wrapper {
 	/**
 	 * Cache last put/get object till the end of the request. This prevents multiple GetObject requests for the same object.
 	 *
-	 * @param string $key  Cache key
-	 * @param string $body Convert any streams to string before caching
+	 * @param  string  $key   Cache key
+	 * @param  string  $body  Convert any streams to string before caching
 	 */
 	private function cacheObjectSet( $key, $body ) {
 		//don't cache files that are too big in memory
@@ -528,6 +534,7 @@ class Infinite_Uploads_Stream_Wrapper {
 
 	private function openWriteStream( $path ) {
 		$this->body = new Stream( fopen( 'php://temp', 'r+' ) );
+
 		return true;
 	}
 
@@ -756,7 +763,6 @@ class Infinite_Uploads_Stream_Wrapper {
 
 		return $this->boolCall( function () use ( $parts, $path ) {
 			try {
-
 				$this->debug( 'HeadObjects', $parts['Key'] );
 
 				$result = $this->getClient()->headObject( $parts );
@@ -799,7 +805,7 @@ class Infinite_Uploads_Stream_Wrapper {
 	/**
 	 * Get the bucket and key from the passed path (e.g. iu://bucket/key)
 	 *
-	 * @param string $path Path passed to the stream wrapper
+	 * @param  string  $path  Path passed to the stream wrapper
 	 *
 	 * @return array Hash of 'Bucket', 'Key', and custom params from the context
 	 */
@@ -817,7 +823,6 @@ class Infinite_Uploads_Stream_Wrapper {
 		if ( ! $parts['Bucket'] ||
 		     $this->getClient()->doesBucketExist( $parts['Bucket'] )
 		) {
-
 			return $this->formatUrlStat( $path );
 		}
 
@@ -827,13 +832,13 @@ class Infinite_Uploads_Stream_Wrapper {
 	/**
 	 * Support for mkdir().
 	 *
-	 * @param string $path    Directory which should be created.
-	 * @param int    $mode    Permissions. 700-range permissions map to
-	 *                        ACL_PUBLIC. 600-range permissions map to
-	 *                        ACL_AUTH_READ. All other permissions map to
-	 *                        ACL_PRIVATE. Expects octal form.
-	 * @param int    $options A bitwise mask of values, such as
-	 *                        STREAM_MKDIR_RECURSIVE.
+	 * @param  string  $path     Directory which should be created.
+	 * @param  int     $mode     Permissions. 700-range permissions map to
+	 *                           ACL_PUBLIC. 600-range permissions map to
+	 *                           ACL_AUTH_READ. All other permissions map to
+	 *                           ACL_PRIVATE. Expects octal form.
+	 * @param  int     $options  A bitwise mask of values, such as
+	 *                           STREAM_MKDIR_RECURSIVE.
 	 *
 	 * @return bool
 	 * @link http://www.php.net/manual/en/streamwrapper.mkdir.php
@@ -858,7 +863,7 @@ class Infinite_Uploads_Stream_Wrapper {
 	/**
 	 * Clears a specific stat cache value from the stat cache and LRU cache.
 	 *
-	 * @param string $key S3 path (iu://bucket/key).
+	 * @param  string  $key  S3 path (iu://bucket/key).
 	 */
 	private function clearCacheKey( $key ) {
 		clearstatcache( true, $key );
@@ -869,7 +874,7 @@ class Infinite_Uploads_Stream_Wrapper {
 	/**
 	 * Determine the most appropriate ACL based on a file mode.
 	 *
-	 * @param int $mode File mode
+	 * @param  int  $mode  File mode
 	 *
 	 * @return string
 	 */
@@ -887,8 +892,8 @@ class Infinite_Uploads_Stream_Wrapper {
 	/**
 	 * Creates a bucket for the given parameters.
 	 *
-	 * @param string $path   Stream wrapper path
-	 * @param array  $params A result of StreamWrapper::withPath()
+	 * @param  string  $path    Stream wrapper path
+	 * @param  array   $params  A result of StreamWrapper::withPath()
 	 *
 	 * @return bool Returns true on success or false on failure
 	 */
@@ -910,8 +915,8 @@ class Infinite_Uploads_Stream_Wrapper {
 	/**
 	 * Creates a pseudo-folder by creating an empty "/" suffixed key
 	 *
-	 * @param string $path   Stream wrapper path
-	 * @param array  $params A result of StreamWrapper::withPath()
+	 * @param  string  $path    Stream wrapper path
+	 * @param  array   $params  A result of StreamWrapper::withPath()
 	 *
 	 * @return bool
 	 */
@@ -928,6 +933,7 @@ class Infinite_Uploads_Stream_Wrapper {
 		) {
 			return $this->triggerError( "Subfolder already exists: {$path}" );
 		}
+
 		return $this->boolCall( function () use ( $params, $path ) {
 			$this->debug( 'PutObject', $params['Key'] );
 			$bool = (bool) $this->getClient()->putObject( $params );
@@ -935,7 +941,10 @@ class Infinite_Uploads_Stream_Wrapper {
 			//Cache the stat for this file so we don't have to do another HeadObject in the same request
 			$cache_key = "iu://{$params['Bucket']}/{$params['Key']}";
 			if ( $bool ) {
-				$this->getCacheStorage()->set( $cache_key, $this->formatUrlStat( [ 'ContentLength' => 0, 'LastModified' => time() ] ) );
+				$this->getCacheStorage()->set( $cache_key, $this->formatUrlStat( [
+					'ContentLength' => 0,
+					'LastModified'  => time(),
+				] ) );
 				$this->debug_cache( 'SET', $cache_key );
 				//purposely don't cache this 0-length fake file
 			}
@@ -969,8 +978,8 @@ class Infinite_Uploads_Stream_Wrapper {
 	/**
 	 * Deletes a nested subfolder if it is empty.
 	 *
-	 * @param string $path   Path that is being deleted (e.g., 'iu://a/b/c')
-	 * @param array  $params A result of StreamWrapper::withPath()
+	 * @param  string  $path    Path that is being deleted (e.g., 'iu://a/b/c')
+	 * @param  array   $params  A result of StreamWrapper::withPath()
 	 *
 	 * @return bool
 	 */
@@ -1058,12 +1067,14 @@ class Infinite_Uploads_Stream_Wrapper {
 	 * accepts an associative array of object data and returns true if the
 	 * object should be yielded when iterating the keys in a bucket.
 	 *
-	 * @param string $path    The path to the directory
-	 *                        (e.g. "iu://dir[</prefix>]")
-	 * @param string $options Unused option variable
+	 * @see http://www.php.net/manual/en/function.opendir.php
+	 *
+	 * @param  string  $options  Unused option variable
+	 *
+	 * @param  string  $path     The path to the directory
+	 *                           (e.g. "iu://dir[</prefix>]")
 	 *
 	 * @return bool true on success
-	 * @see http://www.php.net/manual/en/function.opendir.php
 	 */
 	public function dir_opendir( $path, $options ) {
 		$this->initProtocol( $path );
@@ -1178,8 +1189,8 @@ class Infinite_Uploads_Stream_Wrapper {
 	 * Called in response to rename() to rename a file or directory. Currently
 	 * only supports renaming objects.
 	 *
-	 * @param string $path_from the path to the file to rename
-	 * @param string $path_to   the new path to the file
+	 * @param  string  $path_from  the path to the file to rename
+	 * @param  string  $path_to    the new path to the file
 	 *
 	 * @return bool true if file was successfully renamed
 	 * @link http://www.php.net/manual/en/function.rename.php

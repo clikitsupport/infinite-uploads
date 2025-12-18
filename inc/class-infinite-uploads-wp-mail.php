@@ -15,11 +15,11 @@ if ( ! function_exists( 'wp_mail' ) ) :
 	 * The default charset is based on the charset used on the blog. The charset can
 	 * be set using the {@see 'wp_mail_charset'} filter.
 	 *
-	 * @param string|string[]                $to          Array or comma-separated list of email addresses to send message.
-	 * @param string                         $subject     Email subject.
-	 * @param string                         $message     Message contents.
-	 * @param string|string[]                $headers     Optional. Additional headers.
-	 * @param string|string[]                $attachments Optional. Paths to files to attach.
+	 * @param  string|string[]               $to           Array or comma-separated list of email addresses to send message.
+	 * @param  string                        $subject      Email subject.
+	 * @param  string                        $message      Message contents.
+	 * @param  string|string[]               $headers      Optional. Additional headers.
+	 * @param  string|string[]               $attachments  Optional. Paths to files to attach.
 	 *
 	 * @return bool Whether the email was sent successfully.
 	 * @since       1.2.1
@@ -35,7 +35,7 @@ if ( ! function_exists( 'wp_mail' ) ) :
 		/**
 		 * Filters the wp_mail() arguments.
 		 *
-		 * @param array          $args        {
+		 * @param  array         $args        {
 		 *                                    Array of the `wp_mail()` arguments.
 		 *
 		 * @type string|string[] $to          Array or comma-separated list of email addresses to send message.
@@ -56,8 +56,8 @@ if ( ! function_exists( 'wp_mail' ) ) :
 		 * that value instead. A boolean return value should be used to indicate whether
 		 * the email was successfully sent.
 		 *
-		 * @param null|bool      $return      Short-circuit return value.
-		 * @param array          $atts        {
+		 * @param  null|bool     $return      Short-circuit return value.
+		 * @param  array         $atts        {
 		 *                                    Array of the `wp_mail()` arguments.
 		 *
 		 * @type string|string[] $to          Array or comma-separated list of email addresses to send message.
@@ -179,7 +179,11 @@ if ( ! function_exists( 'wp_mail' ) ) :
 								if ( false !== stripos( $charset_content, 'charset=' ) ) {
 									$charset = trim( str_replace( array( 'charset=', '"' ), '', $charset_content ) );
 								} elseif ( false !== stripos( $charset_content, 'boundary=' ) ) {
-									$boundary = trim( str_replace( array( 'BOUNDARY=', 'boundary=', '"' ), '', $charset_content ) );
+									$boundary = trim( str_replace( array(
+										'BOUNDARY=',
+										'boundary=',
+										'"',
+									), '', $charset_content ) );
 									$charset  = '';
 								}
 
@@ -245,7 +249,7 @@ if ( ! function_exists( 'wp_mail' ) ) :
 		/**
 		 * Filters the email address to send from.
 		 *
-		 * @param string $from_email Email address to send from.
+		 * @param  string  $from_email  Email address to send from.
 		 *
 		 * @since 2.2.0
 		 *
@@ -255,7 +259,7 @@ if ( ! function_exists( 'wp_mail' ) ) :
 		/**
 		 * Filters the name to associate with the "from" email address.
 		 *
-		 * @param string $from_name Name associated with the "from" email address.
+		 * @param  string  $from_name  Name associated with the "from" email address.
 		 *
 		 * @since 2.3.0
 		 *
@@ -331,7 +335,7 @@ if ( ! function_exists( 'wp_mail' ) ) :
 		/**
 		 * Filters the wp_mail() content type.
 		 *
-		 * @param string $content_type Default wp_mail() content type.
+		 * @param  string  $content_type  Default wp_mail() content type.
 		 *
 		 * @since 2.3.0
 		 *
@@ -353,7 +357,7 @@ if ( ! function_exists( 'wp_mail' ) ) :
 		/**
 		 * Filters the default wp_mail() charset.
 		 *
-		 * @param string $charset Default email charset.
+		 * @param  string  $charset  Default email charset.
 		 *
 		 * @since 2.3.0
 		 *
@@ -391,7 +395,7 @@ if ( ! function_exists( 'wp_mail' ) ) :
 		/**
 		 * Fires after PHPMailer is initialized.
 		 *
-		 * @param PHPMailer $phpmailer The PHPMailer instance (passed by reference).
+		 * @param  PHPMailer  $phpmailer  The PHPMailer instance (passed by reference).
 		 *
 		 * @since 2.2.0
 		 *
@@ -411,7 +415,7 @@ if ( ! function_exists( 'wp_mail' ) ) :
 			 * email successfully. It only means that the `send` method above was able to
 			 * process the request without any errors.
 			 *
-			 * @param array   $mail_data   {
+			 * @param  array  $mail_data   {
 			 *                             An array containing the email recipient(s), subject, message, headers, and attachments.
 			 *
 			 * @type string[] $to          Email addresses to send message.
@@ -432,8 +436,8 @@ if ( ! function_exists( 'wp_mail' ) ) :
 			/**
 			 * Fires after a PHPMailer\PHPMailer\Exception is caught.
 			 *
-			 * @param WP_Error $error A WP_Error object with the PHPMailer\PHPMailer\Exception message, and an array
-			 *                        containing the mail recipient, subject, message, headers, and attachments.
+			 * @param  WP_Error  $error  A WP_Error object with the PHPMailer\PHPMailer\Exception message, and an array
+			 *                           containing the mail recipient, subject, message, headers, and attachments.
 			 *
 			 * @since 4.4.0
 			 *
@@ -461,12 +465,11 @@ class Infinite_Uploads_PHPMailer extends PHPMailer\PHPMailer\PHPMailer {
 	 * Used to reject URLs and phar files from functions that access local file paths,
 	 * such as addAttachment.
 	 *
-	 * @param string $path A relative or absolute path to a file
+	 * @param  string  $path  A relative or absolute path to a file
 	 *
 	 * @return bool
 	 */
 	protected static function isPermittedPath( $path ) {
-
 		return true;
 
 		//Matches scheme definition from https://tools.ietf.org/html/rfc3986#section-3.1
@@ -476,12 +479,11 @@ class Infinite_Uploads_PHPMailer extends PHPMailer\PHPMailer\PHPMailer {
 	/**
 	 * Check whether a file path is safe, accessible, and readable.
 	 *
-	 * @param string $path A relative or absolute path to a file
+	 * @param  string  $path  A relative or absolute path to a file
 	 *
 	 * @return bool
 	 */
 	protected static function fileIsAccessible( $path ) {
-
 		if ( ! static::isPermittedPath( $path ) ) {
 			return false;
 		}

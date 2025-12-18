@@ -30,9 +30,9 @@ class Infinite_Uploads_Filelist {
 	/**
 	 * Infinite_Uploads_Filelist constructor.
 	 *
-	 * @param string $root_path      The full path of the directory to iterate.
-	 * @param float  $timeout        Timeout in seconds.
-	 * @param array  $paths_left     Provide as returned if continuing the filelist after a timeout.
+	 * @param  string  $root_path   The full path of the directory to iterate.
+	 * @param  float   $timeout     Timeout in seconds.
+	 * @param  array   $paths_left  Provide as returned if continuing the filelist after a timeout.
 	 */
 	public function __construct( $root_path, $timeout = 25.0, $paths_left = [] ) {
 		$this->root_path  = rtrim( $root_path, '/' ); //expected no trailing slash.
@@ -91,7 +91,6 @@ class Infinite_Uploads_Filelist {
 	 * @todo test what happens if some files have no read permissions.
 	 */
 	protected function get_files() {
-
 		$paths = ( empty( $this->paths_left ) ) ? [ $this->root_path ] : $this->paths_left;
 
 		while ( ! empty( $paths ) ) {
@@ -177,7 +176,7 @@ class Infinite_Uploads_Filelist {
 	/**
 	 * Checks file health and returns as many info as it can.
 	 *
-	 * @param string $item The file to be investigated.
+	 * @param  string  $item  The file to be investigated.
 	 *
 	 * @return mixed File info or false for failure.
 	 */
@@ -198,7 +197,7 @@ class Infinite_Uploads_Filelist {
 	/**
 	 * Returns rel path of file/dir, relative to site root.
 	 *
-	 * @param string $item File's absolute path.
+	 * @param  string  $item  File's absolute path.
 	 *
 	 * @return string
 	 */

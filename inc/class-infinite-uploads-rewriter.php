@@ -15,14 +15,13 @@ class Infinite_Uploads_Rewriter {
 	/**
 	 * constructor
 	 *
-	 * @param string $uploads_url  Original upload url
-	 * @param array  $replacements Urls to filter
-	 * @param string $cdn_url      Destination CDN url
+	 * @param  string  $uploads_url   Original upload url
+	 * @param  array   $replacements  Urls to filter
+	 * @param  string  $cdn_url       Destination CDN url
 	 *
 	 * @since 1.0
 	 */
 	function __construct( $uploads_url, $replacements, $cdn_url ) {
-
 		$this->uploads_path = trailingslashit( parse_url( $uploads_url, PHP_URL_PATH ) );
 
 		$this->replacements = array_unique(
@@ -84,14 +83,13 @@ class Infinite_Uploads_Rewriter {
 	/**
 	 * rewrite url
 	 *
-	 * @param string $html current raw HTML doc
+	 * @param  string  $html  current raw HTML doc
 	 *
 	 * @return  string  updated HTML doc with CDN links
 	 * @since 1.0
 	 *
 	 */
 	public function rewrite( $html ) {
-
 		// start regex
 		$regex_rule = '#((?:https?:)?(?:';
 
@@ -114,7 +112,7 @@ class Infinite_Uploads_Rewriter {
 	/**
 	 * Get relative url
 	 *
-	 * @param string $url a full url
+	 * @param  string  $url  a full url
 	 *
 	 * @return  string  protocol relative url
 	 * @since   1.0
@@ -127,14 +125,13 @@ class Infinite_Uploads_Rewriter {
 	/**
 	 * rewrite url
 	 *
-	 * @param string $matches the matches from regex
+	 * @param  string  $matches  the matches from regex
 	 *
 	 * @return  string  updated url if not excluded
 	 * @since   1.0
 	 *
 	 */
 	protected function rewrite_url( $matches ) {
-
 		//don't filter excluded dirs
 		foreach ( $this->exclusions as $exclusion ) {
 			if ( 0 === strpos( $matches[0], $exclusion ) ) {

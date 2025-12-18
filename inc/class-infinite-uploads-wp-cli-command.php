@@ -80,7 +80,6 @@ class Infinite_Uploads_WP_CLI_Command extends WP_CLI_Command {
 	 * @synopsis [<path>]
 	 */
 	public function ls( $args ) {
-
 		// Verify first that we have the necessary access keys to connect to S3.
 		if ( ! $this->verify_s3_access_constants() ) {
 			return;
@@ -118,7 +117,6 @@ class Infinite_Uploads_WP_CLI_Command extends WP_CLI_Command {
 	 * @synopsis <from> <to>
 	 */
 	private function cp( $args ) {
-
 		$from = $args[0];
 		$to   = $args[1];
 
@@ -154,7 +152,6 @@ class Infinite_Uploads_WP_CLI_Command extends WP_CLI_Command {
 	 * @synopsis <from> [<to>] [--concurrency=<concurrency>] [--verbose]
 	 */
 	private function upload_directory( $args, $args_assoc ) {
-
 		$from = $args[0];
 		$to   = '';
 		if ( isset( $args[1] ) ) {
@@ -272,7 +269,10 @@ class Infinite_Uploads_WP_CLI_Command extends WP_CLI_Command {
 							Middleware::mapResult( function ( ResultInterface $result ) use ( $args_assoc, $progress_bar, $command, $wpdb, $unsynced, &$uploaded ) {
 								$uploaded ++;
 								$file = '/' . urldecode( strstr( substr( $result['@metadata']["effectiveUri"], ( strrpos( $result['@metadata']["effectiveUri"], Infinite_Uploads::get_instance()->bucket ) + strlen( Infinite_Uploads::get_instance()->bucket ) ) ), '?', true ) ?: substr( $result['@metadata']["effectiveUri"], ( strrpos( $result['@metadata']["effectiveUri"], Infinite_Uploads::get_instance()->bucket ) + strlen( Infinite_Uploads::get_instance()->bucket ) ) ) );
-								$wpdb->update( "{$wpdb->base_prefix}infinite_uploads_files", [ 'synced' => 1, 'errors' => 0 ], [ 'file' => $file ] );
+								$wpdb->update( "{$wpdb->base_prefix}infinite_uploads_files", [
+									'synced' => 1,
+									'errors' => 0,
+								], [ 'file' => $file ] );
 
 								if ( $args_assoc['verbose'] ) {
 									WP_CLI::success( sprintf( esc_html__( '%s - Synced %s of %s files.', 'infinite-uploads' ), $file, number_format_i18n( $uploaded ), number_format_i18n( $unsynced ) ) );
@@ -528,7 +528,10 @@ class Infinite_Uploads_WP_CLI_Command extends WP_CLI_Command {
 							Middleware::mapResult( function ( ResultInterface $result ) use ( $args_assoc, $progress_bar, $command, $wpdb, $unsynced, &$downloaded ) {
 								$downloaded ++;
 								$file = '/' . urldecode( strstr( substr( $result['@metadata']["effectiveUri"], ( strrpos( $result['@metadata']["effectiveUri"], Infinite_Uploads::get_instance()->bucket ) + strlen( Infinite_Uploads::get_instance()->bucket ) ) ), '?', true ) ?: substr( $result['@metadata']["effectiveUri"], ( strrpos( $result['@metadata']["effectiveUri"], Infinite_Uploads::get_instance()->bucket ) + strlen( Infinite_Uploads::get_instance()->bucket ) ) ) );
-								$wpdb->update( "{$wpdb->base_prefix}infinite_uploads_files", [ 'deleted' => 0, 'errors' => 0 ], [ 'file' => $file ] );
+								$wpdb->update( "{$wpdb->base_prefix}infinite_uploads_files", [
+									'deleted' => 0,
+									'errors'  => 0,
+								], [ 'file' => $file ] );
 
 								if ( $args_assoc['verbose'] ) {
 									WP_CLI::success( sprintf( esc_html__( '%s - Downloaded %s of %s files.', 'infinite-uploads' ), $file, number_format_i18n( $downloaded ), number_format_i18n( $unsynced->files ) ) );
@@ -586,7 +589,6 @@ class Infinite_Uploads_WP_CLI_Command extends WP_CLI_Command {
 	 * @synopsis <path> [--regex=<regex>]
 	 */
 	public function rm( $args, $args_assoc ) {
-
 		// Verify first that we have the necessary access keys to connect to S3.
 		if ( ! $this->verify_s3_access_constants() ) {
 			return;

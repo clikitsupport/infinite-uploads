@@ -86,7 +86,6 @@ class Infinite_Uploads_Api_Handler {
 	 * @return Infinite_Uploads_Api_Handler
 	 */
 	public static function get_instance() {
-
 		if ( ! self::$instance ) {
 			self::$instance = new Infinite_Uploads_Api_Handler();
 		}
@@ -115,7 +114,7 @@ class Infinite_Uploads_Api_Handler {
 	/**
 	 * Updates the API token in the database.
 	 *
-	 * @param string $token The new API token to store.
+	 * @param  string  $token  The new API token to store.
 	 */
 	public function set_token( $token ) {
 		$this->api_token = $token;
@@ -134,7 +133,7 @@ class Infinite_Uploads_Api_Handler {
 	/**
 	 * Updates the API site_id in the database.
 	 *
-	 * @param int $site_id The new site_id to store.
+	 * @param  int  $site_id  The new site_id to store.
 	 */
 	public function set_site_id( $site_id ) {
 		$this->api_site_id = $site_id;
@@ -178,7 +177,7 @@ class Infinite_Uploads_Api_Handler {
 	 * we have better control and overview of the requested pages:
 	 * It's easy to add a filter or add extra URL params to all URLs this way.
 	 *
-	 * @param string $endpoint The endpoint to call on the server.
+	 * @param  string  $endpoint  The endpoint to call on the server.
 	 *
 	 * @return string The full URL to the requested endpoint.
 	 */
@@ -195,15 +194,15 @@ class Infinite_Uploads_Api_Handler {
 	/**
 	 * Makes an API call and returns the results.
 	 *
-	 * @param string $remote_path The API function to call.
-	 * @param array  $data        Optional. GET or POST data to send.
-	 * @param string $method      Optional. GET or POST.
-	 * @param array  $options     Optional. Array of request options.
+	 * @param  string  $remote_path  The API function to call.
+	 * @param  array   $data         Optional. GET or POST data to send.
+	 * @param  string  $method       Optional. GET or POST.
+	 * @param  array   $options      Optional. Array of request options.
 	 *
 	 * @return object|boolean Results of the API call response body.
 	 */
 	public function call( $remote_path, $data = [], $method = 'GET', $options = [] ) {
-		$link = $this->rest_url( $remote_path );
+		$link    = $this->rest_url( $remote_path );
 		$options = wp_parse_args(
 			$options,
 			[
@@ -266,7 +265,11 @@ class Infinite_Uploads_Api_Handler {
 		//if there is an auth problem
 		if ( $this->has_token() && in_array( wp_remote_retrieve_response_code( $response ), [ 401, 403, 404 ] ) ) {
 			$body = json_decode( wp_remote_retrieve_body( $response ) );
-			if ( isset( $body->code ) && in_array( $body->code, [ 'missing_api_token', 'invalid_site', 'invalid_api_key' ] ) ) {
+			if ( isset( $body->code ) && in_array( $body->code, [
+					'missing_api_token',
+					'invalid_site',
+					'invalid_api_key',
+				] ) ) {
 				$this->set_token( '' );
 			}
 		}
@@ -293,7 +296,7 @@ class Infinite_Uploads_Api_Handler {
 	 * Parses an HTTP response object (or other value) to determine an error
 	 * reason. The error reason is added to the PHP error log.
 	 *
-	 * @param string|WP_Error|array $response String, WP_Error object, HTTP response array.
+	 * @param  string|WP_Error|array  $response  String, WP_Error object, HTTP response array.
 	 */
 	protected function parse_api_error( $response ) {
 		$error_code = wp_remote_retrieve_response_code( $response );
@@ -402,12 +405,11 @@ class Infinite_Uploads_Api_Handler {
 	/**
 	 * Get site data from API, normally cached for 12hrs.
 	 *
-	 * @param bool $force_refresh
+	 * @param  bool  $force_refresh
 	 *
 	 * @return mixed|void
 	 */
 	public function get_site_data( $force_refresh = false ) {
-
 		if ( ! $this->has_token() || ! $this->get_site_id() ) {
 			return false;
 		}
@@ -439,7 +441,7 @@ class Infinite_Uploads_Api_Handler {
 	/**
 	 * Purge a list of urls from the CDN. We don't need to wait for a response from this so make it async.
 	 *
-	 * @param array $urls
+	 * @param  array  $urls
 	 *
 	 * @return bool
 	 */
@@ -456,7 +458,6 @@ class Infinite_Uploads_Api_Handler {
 	 * The security of this doesn't have to be perfect, we just want to stop any possible DoS vector.
 	 */
 	public function remote_refresh( $urls ) {
-
 		if ( ! $this->has_token() ) {
 			wp_send_json_error( [ 'code' => 'disconnected', 'message' => 'Site is disconnected from API' ] );
 		}
