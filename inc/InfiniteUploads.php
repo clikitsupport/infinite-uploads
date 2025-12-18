@@ -1,10 +1,12 @@
 <?php
 
+namespace ClikIT\InfiniteUploads;
+
 use ClikIT\Infinite_Uploads\Aws\S3\S3Client;
 use ClikIT\Infinite_Uploads\Aws\Multipart\UploadState;
 use ClikIT\Infinite_Uploads\Aws\ResultInterface;
 
-class Infinite_Uploads {
+class InfiniteUploads {
 
     private static $instance;
     public $original_upload_dir;
@@ -44,7 +46,7 @@ class Infinite_Uploads {
      */
     public static function get_instance() {
         if ( ! self::$instance ) {
-            self::$instance = new Infinite_Uploads();
+            self::$instance = new InfiniteUploads();
         }
 
         return self::$instance;

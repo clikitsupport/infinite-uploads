@@ -62,7 +62,8 @@ function infinite_uploads_init() {
 
 	infinite_uploads_upgrade();
 
-	$instance = Infinite_Uploads::get_instance();
+	// $instance = ClikInfinite_Uploads::get_instance();
+    $instance = \ClikIT\InfiniteUploads\InfiniteUploads::get_instance();
 	$instance->setup();
 }
 
@@ -171,6 +172,9 @@ function infinite_uploads_enabled() {
 	return get_site_option( 'iup_enabled' );
 }
 
+if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
+    require_once __DIR__ . '/vendor/autoload.php';
+}
 /**
  * Autoload callback.
  *
