@@ -1,11 +1,12 @@
 <?php
 
+namespace ClikIT\InfiniteUploads;
 /**
  * Local streamwrapper that writes files to the upload dir
  *
  * This is for the most part taken from Drupal, with some modifications.
  */
-class Infinite_Uploads_Local_Stream_Wrapper {
+class InfiniteUploadsLocalStreamWrapper {
 	/**
 	 * Stream context resource.
 	 *

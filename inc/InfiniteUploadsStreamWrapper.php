@@ -1,5 +1,5 @@
 <?php
-
+namespace ClikIT\InfiniteUploads;
 
 use ClikIT\Infinite_Uploads\Aws\S3\S3ClientInterface;
 use ClikIT\Infinite_Uploads\Aws\CacheInterface;
@@ -61,7 +61,7 @@ use ClikIT\Infinite_Uploads\Aws;
  * - For "unlink" only: Any option that can be passed to the DeleteObject
  *   operation
  */
-class Infinite_Uploads_Stream_Wrapper {
+class InfiniteUploadsStreamWrapper {
 	/** @var resource|null Stream context (this is set by PHP) */
 	public $context;
 

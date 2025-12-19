@@ -1,5 +1,7 @@
 <?php
 
+namespace ClikIT\InfiniteUploads;
+
 use ClikIT\Infinite_Uploads\Aws\S3\Transfer;
 use ClikIT\Infinite_Uploads\Aws\Middleware;
 use ClikIT\Infinite_Uploads\Aws\ResultInterface;
@@ -9,7 +11,7 @@ use ClikIT\Infinite_Uploads\Aws\S3\Exception\S3Exception;
 use ClikIT\Infinite_Uploads\Aws\S3\MultipartUploader;
 use ClikIT\Infinite_Uploads\Aws\Exception\MultipartUploadException;
 
-class Infinite_Uploads_Admin {
+class InfiniteUploadsAdmin {
 
     private static $instance;
     public $ajax_timelimit = 20;

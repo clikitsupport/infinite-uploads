@@ -1,4 +1,6 @@
 <?php
+
+namespace ClikIT\InfiniteUploads;
 /**
  * Lists files using a Breadth-First search algorithm to allow for time limits and resume across multiple requests.
  */
@@ -7,7 +9,7 @@
 /**
  * Infinite_Uploads_Filelist
  */
-class Infinite_Uploads_Filelist {
+class InfiniteUploadsFilelist {
 
 	public $is_done = false;
 	public $paths_left = [];

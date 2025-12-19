@@ -1,12 +1,14 @@
 <?php
 
+namespace ClikIT\InfiniteUploads;
+
 use ClikIT\Infinite_Uploads\Aws\S3\Transfer;
 use ClikIT\Infinite_Uploads\Aws\Exception\AwsException;
 use ClikIT\Infinite_Uploads\Aws\S3\Exception\S3Exception;
 use ClikIT\Infinite_Uploads\Aws\Middleware;
 use ClikIT\Infinite_Uploads\Aws\ResultInterface;
 
-class Infinite_Uploads_WP_CLI_Command extends WP_CLI_Command {
+class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 
 	/**
 	 * Verifies the site is connected and uploads and downloads from the Infinite Uploads cloud are working.

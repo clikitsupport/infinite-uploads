@@ -3,11 +3,12 @@
  * API module.
  * Handles all functions that are executing remote calls.
  */
+namespace ClikIT\InfiniteUploads;
 
 /**
  * The main API class.
  */
-class Infinite_Uploads_Api_Handler {
+class InfiniteUploadsApiHandler {
 	private static $instance;
 
 	/**

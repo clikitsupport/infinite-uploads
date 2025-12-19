@@ -1,8 +1,10 @@
 <?php
 
+namespace ClikIT\InfiniteUploads;
+
 use ClikIT\Infinite_Uploads\GuzzleHttp;
 
-class Infinite_Uploads_Video {
+class InfiniteUploadsVideo {
 
     private static $instance;
     private $iup_instance;

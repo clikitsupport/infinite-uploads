@@ -1,5 +1,6 @@
 <?php
 
+
 if ( ! function_exists( 'wp_mail' ) ) :
 	/**
 	 * Sends an email, similar to PHP's mail function.
