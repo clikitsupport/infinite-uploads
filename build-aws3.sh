@@ -81,11 +81,12 @@ log_step "Install php-scoper for code prefixing"
 mkdir scoper
 (
     cd scoper
-    composer require humbug/php-scoper:^0.5 --update-no-dev --no-interaction
+    composer require humbug/php-scoper:^0.18.18 --update-no-dev --no-interaction
 )
 
 log_step "Run the prefixer, adding our namespace prefix" # Prefixed files are written into the ./sdk_prefixed directory.
-scoper/vendor/bin/php-scoper add-prefix --prefix="UglyRobot\\Infinite_Uploads\\" --output-dir=sdk_prefixed sdk/
+#php -d memory_limit=-1 scoper/vendor/bin/php-scoper add-prefix --prefix="UglyRobot\\Infinite_Uploads" --output-dir=sdk_prefixed sdk/
+php -d memory_limit=-1 scoper/vendor/bin/php-scoper add-prefix --prefix="ClikIT\\Infinite_Uploads" --output-dir=sdk_prefixed sdk/
 (
     cd sdk_prefixed
     rm -rf composer
@@ -95,15 +96,17 @@ scoper/vendor/bin/php-scoper add-prefix --prefix="UglyRobot\\Infinite_Uploads\\"
     # Perform regex search replace to clean up any missed replacements in string literals (1 literal backslash = 4 in the command)
 
     OS_NAME=`uname -s`
+
     if [ "Darwin" = "${OS_NAME}" ]
     then
-		find . -type f -name "*.php" -print0 | xargs -0 sed -i '' -E "s:'(Aws|GuzzleHttp|Psr|JmesPath)\\\\\\\\:'UglyRobot\\\\\\\\Infinite_Uploads\\\\\\\\\1\\\\\\\\:g"
-		find . -type f -name "*.php" -print0 | xargs -0 sed -i '' -E "s:'\\\\\\\\(Aws|GuzzleHttp|Psr|JmesPath)\\\\\\\\:'UglyRobot\\\\\\\\Infinite_Uploads\\\\\\\\\1\\\\\\\\:g"
-		find . -type f -name "*.php" -print0 | xargs -0 sed -i '' -E "s:\"(Aws|GuzzleHttp|Psr|JmesPath)\\\\\\\\:\"UglyRobot\\\\\\\\Infinite_Uploads\\\\\\\\\1\\\\\\\\:g"
+		# find . -type f -name "*.php" -print0 | xargs -0 sed -i '' -E "s:'(Aws|GuzzleHttp|Psr|JmesPath)\\\\\\\\:'UglyRobot\\\\\\\\Infinite_Uploads\\\\\\\1\\\\\\\\:g"
+		find . -type f -name "*.php" -print0 | xargs -0 sed -i '' -E "s:'(Aws|GuzzleHttp|Psr|JmesPath)\\\\\\\\:'ClikIT\\\\\\\\Infinite_Uploads\\\\\\\1\\\\\\\\:g"
+		find . -type f -name "*.php" -print0 | xargs -0 sed -i '' -E "s:'\\\\\\\\(Aws|GuzzleHttp|Psr|JmesPath)\\\\\\\\:'ClikIT\\\\\\\\Infinite_Uploads\\\\\\\1\\\\\\\\:g"
+		find . -type f -name "*.php" -print0 | xargs -0 sed -i '' -E "s:\"(Aws|GuzzleHttp|Psr|JmesPath)\\\\\\\\:\"ClikIT\\\\\\\\Infinite_Uploads\\\\\\\1\\\\\\\\:g"
     else
-		find . -type f -name "*.php" -print0 | xargs -0 sed -i'' -E "s:'(Aws|GuzzleHttp|Psr|JmesPath)\\\\\\\\:'UglyRobot\\\\\\\\Infinite_Uploads\\\\\\\\\1\\\\\\\\:g"
-		find . -type f -name "*.php" -print0 | xargs -0 sed -i'' -E "s:'\\\\\\\\(Aws|GuzzleHttp|Psr|JmesPath)\\\\\\\\:'UglyRobot\\\\\\\\Infinite_Uploads\\\\\\\\\1\\\\\\\\:g"
-		find . -type f -name "*.php" -print0 | xargs -0 sed -i'' -E "s:\"(Aws|GuzzleHttp|Psr|JmesPath)\\\\\\\\:\"UglyRobot\\\\\\\\Infinite_Uploads\\\\\\\\\1\\\\\\\\:g"
+		find . -type f -name "*.php" -print0 | xargs -0 sed -i'' -E "s:'(Aws|GuzzleHttp|Psr|JmesPath)\\\\\\\\:'ClikIT\\\\\\\\Infinite_Uploads\\\\\\\\\1\\\\\\\\:g"
+		find . -type f -name "*.php" -print0 | xargs -0 sed -i'' -E "s:'\\\\\\\\(Aws|GuzzleHttp|Psr|JmesPath)\\\\\\\\:'ClikIT\\\\\\\\Infinite_Uploads\\\\\\\\\1\\\\\\\\:g"
+		find . -type f -name "*.php" -print0 | xargs -0 sed -i'' -E "s:\"(Aws|GuzzleHttp|Psr|JmesPath)\\\\\\\\:\"ClikIT\\\\\\\\Infinite_Uploads\\\\\\\\\1\\\\\\\\:g"
     fi
 )
 
