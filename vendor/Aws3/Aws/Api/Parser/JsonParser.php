@@ -1,9 +1,9 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Api\Parser;
 
 use ClikIT\Infinite_Uploads\Aws\Api\DateTimeResult;
 use ClikIT\Infinite_Uploads\Aws\Api\Shape;
-
 /**
  * @internal Implements standard JSON parsing.
  */
@@ -14,7 +14,6 @@ class JsonParser
         if ($value === null) {
             return $value;
         }
-
         switch ($shape['type']) {
             case 'structure':
                 if (isset($shape['document']) && $shape['document']) {
@@ -27,17 +26,12 @@ class JsonParser
                         $target[$name] = $this->parse($member, $value[$locationName]);
                     }
                 }
-                if (isset($shape['union'])
-                    && $shape['union']
-                    && is_array($value)
-                    && empty($target)
-                ) {
+                if (isset($shape['union']) && $shape['union'] && is_array($value) && empty($target)) {
                     foreach ($value as $key => $val) {
                         $target['Unknown'][$key] = $val;
                     }
                 }
                 return $target;
-
             case 'list':
                 $member = $shape->getMember();
                 $target = [];
@@ -45,27 +39,22 @@ class JsonParser
                     $target[] = $this->parse($member, $v);
                 }
                 return $target;
-
             case 'map':
                 $values = $shape->getValue();
                 $target = [];
                 foreach ($value as $k => $v) {
-                    $target[$k] = $this->parse($values, $v);
+                    // null map values should not be deserialized
+                    if (!is_null($v)) {
+                        $target[$k] = $this->parse($values, $v);
+                    }
                 }
                 return $target;
-
             case 'timestamp':
-                return DateTimeResult::fromTimestamp(
-                    $value,
-                    !empty($shape['timestampFormat']) ? $shape['timestampFormat'] : null
-                );
-
+                return DateTimeResult::fromTimestamp($value, !empty($shape['timestampFormat']) ? $shape['timestampFormat'] : null);
             case 'blob':
                 return base64_decode($value);
-
             default:
                 return $value;
         }
     }
 }
-

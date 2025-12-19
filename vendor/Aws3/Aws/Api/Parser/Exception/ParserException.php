@@ -1,21 +1,17 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Api\Parser\Exception;
 
 use ClikIT\Infinite_Uploads\Aws\HasMonitoringEventsTrait;
 use ClikIT\Infinite_Uploads\Aws\MonitoringEventsInterface;
 use ClikIT\Infinite_Uploads\Aws\ResponseContainerInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
-
-class ParserException extends \RuntimeException implements
-    MonitoringEventsInterface,
-    ResponseContainerInterface
+class ParserException extends \RuntimeException implements MonitoringEventsInterface, ResponseContainerInterface
 {
     use HasMonitoringEventsTrait;
-
     private $errorCode;
     private $requestId;
     private $response;
-
     public function __construct($message = '', $code = 0, $previous = null, array $context = [])
     {
         $this->errorCode = isset($context['error_code']) ? $context['error_code'] : null;
@@ -23,7 +19,6 @@ class ParserException extends \RuntimeException implements
         $this->response = isset($context['response']) ? $context['response'] : null;
         parent::__construct($message, $code, $previous);
     }
-
     /**
      * Get the error code, if any.
      *
@@ -33,7 +28,6 @@ class ParserException extends \RuntimeException implements
     {
         return $this->errorCode;
     }
-
     /**
      * Get the request ID, if any.
      *
@@ -43,7 +37,6 @@ class ParserException extends \RuntimeException implements
     {
         return $this->requestId;
     }
-
     /**
      * Get the received HTTP response if any.
      *

@@ -1,5 +1,6 @@
 <?php
-namespace JmesPath;
+
+namespace ClikIT\Infinite_Uploads\JmesPath;
 
 /**
  * Returns data from the input array that matches a JMESPath expression.

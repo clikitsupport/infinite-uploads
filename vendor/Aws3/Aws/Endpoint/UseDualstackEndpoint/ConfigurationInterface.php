@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Endpoint\UseDualstackEndpoint;
 
 interface ConfigurationInterface
@@ -9,7 +10,6 @@ interface ConfigurationInterface
      * @return bool
      */
     public function isUseDualstackEndpoint();
-
     /**
      * Returns the configuration as an associative array
      *

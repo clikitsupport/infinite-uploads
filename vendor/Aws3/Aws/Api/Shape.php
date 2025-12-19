@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Api;
 
 /**
@@ -17,36 +18,16 @@ class Shape extends AbstractModel
      */
     public static function create(array $definition, ShapeMap $shapeMap)
     {
-        static $map = [
-            'structure' => StructureShape::class,
-            'map'       => MapShape::class,
-            'list'      => ListShape::class,
-            'timestamp' => TimestampShape::class,
-            'integer'   => Shape::class,
-            'double'    => Shape::class,
-            'float'     => Shape::class,
-            'long'      => Shape::class,
-            'string'    => Shape::class,
-            'byte'      => Shape::class,
-            'character' => Shape::class,
-            'blob'      => Shape::class,
-            'boolean'   => Shape::class
-        ];
-
+        static $map = ['structure' => StructureShape::class, 'map' => MapShape::class, 'list' => ListShape::class, 'timestamp' => TimestampShape::class, 'integer' => Shape::class, 'double' => Shape::class, 'float' => Shape::class, 'long' => Shape::class, 'string' => Shape::class, 'byte' => Shape::class, 'character' => Shape::class, 'blob' => Shape::class, 'boolean' => Shape::class];
         if (isset($definition['shape'])) {
             return $shapeMap->resolve($definition);
         }
-
         if (!isset($map[$definition['type']])) {
-            throw new \RuntimeException('Invalid type: '
-                . print_r($definition, true));
+            throw new \RuntimeException('Invalid type: ' . print_r($definition, \true));
         }
-
         $type = $map[$definition['type']];
-
         return new $type($definition, $shapeMap);
     }
-
     /**
      * Get the type of the shape
      *
@@ -56,7 +37,6 @@ class Shape extends AbstractModel
     {
         return $this->definition['type'];
     }
-
     /**
      * Get the name of the shape
      *
@@ -66,7 +46,6 @@ class Shape extends AbstractModel
     {
         return $this->definition['name'];
     }
-
     /**
      * Get a context param definition.
      */

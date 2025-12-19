@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Api\Serializer;
 
 use ClikIT\Infinite_Uploads\Aws\Api\Service;
@@ -7,7 +8,6 @@ use ClikIT\Infinite_Uploads\Aws\EndpointV2\EndpointV2SerializerTrait;
 use ClikIT\Infinite_Uploads\Aws\EndpointV2\Ruleset\RulesetEndpoint;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\Request;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
-
 /**
  * Prepares a JSON-RPC request for transfer.
  * @internal
@@ -15,35 +15,26 @@ use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
 class JsonRpcSerializer
 {
     use EndpointV2SerializerTrait;
-
     /** @var JsonBody */
     private $jsonFormatter;
-
     /** @var string */
     private $endpoint;
-
     /** @var Service */
     private $api;
-
     /** @var string */
     private $contentType;
-
     /**
      * @param Service  $api           Service description
      * @param string   $endpoint      Endpoint to connect to
      * @param JsonBody $jsonFormatter Optional JSON formatter to use
      */
-    public function __construct(
-        Service $api,
-        $endpoint,
-        ?JsonBody $jsonFormatter = null
-    ) {
+    public function __construct(Service $api, $endpoint, ?JsonBody $jsonFormatter = null)
+    {
         $this->endpoint = $endpoint;
         $this->api = $api;
         $this->jsonFormatter = $jsonFormatter ?: new JsonBody($this->api);
         $this->contentType = JsonBody::getContentType($api);
     }
-
     /**
      * When invoked with an AWS command, returns a serialization array
      * containing "method", "uri", "headers", and "body" key value pairs.
@@ -54,31 +45,18 @@ class JsonRpcSerializer
      *
      * @return RequestInterface
      */
-    public function __invoke(
-        CommandInterface $command,
-        $endpoint = null
-    )
+    public function __invoke(CommandInterface $command, $endpoint = null)
     {
         $operationName = $command->getName();
         $operation = $this->api->getOperation($operationName);
         $commandArgs = $command->toArray();
-        $headers = [
-                'X-Amz-Target' => $this->api->getMetadata('targetPrefix') . '.' . $operationName,
-                'Content-Type' => $this->contentType
-            ];
-
+        $body = $this->jsonFormatter->build($operation->getInput(), $commandArgs);
+        $headers = ['X-Amz-Target' => $this->api->getMetadata('targetPrefix') . '.' . $operationName, 'Content-Type' => $this->contentType, 'Content-Length' => strlen($body)];
         if ($endpoint instanceof RulesetEndpoint) {
             $this->setEndpointV2RequestOptions($endpoint, $headers);
         }
-
-        return new Request(
-            $operation['http']['method'],
-            $this->endpoint,
-            $headers,
-            $this->jsonFormatter->build(
-                $operation->getInput(),
-                $commandArgs
-            )
-        );
+        $requestUri = $operation['http']['requestUri'] ?? null;
+        $absoluteUri = str_ends_with($this->endpoint, '/') ? $this->endpoint : $this->endpoint . $requestUri;
+        return new Request($operation['http']['method'], $absoluteUri, $headers, $body);
     }
 }

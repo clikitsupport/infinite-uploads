@@ -1,23 +1,20 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws;
 
-use Doctrine\Common\Cache\Cache;
-
+use ClikIT\Infinite_Uploads\Doctrine\Common\Cache\Cache;
 class DoctrineCacheAdapter implements CacheInterface, Cache
 {
     /** @var Cache */
     private $cache;
-
     public function __construct(Cache $cache)
     {
         $this->cache = $cache;
     }
-
     public function get($key)
     {
         return $this->cache->fetch($key);
     }
-
     /**
      * @return mixed
      */
@@ -25,12 +22,10 @@ class DoctrineCacheAdapter implements CacheInterface, Cache
     {
         return $this->get($key);
     }
-
     public function set($key, $value, $ttl = 0)
     {
         return $this->cache->save($key, $value, $ttl);
     }
-
     /**
      * @return bool
      */
@@ -38,12 +33,10 @@ class DoctrineCacheAdapter implements CacheInterface, Cache
     {
         return $this->set($key, $value, $ttl);
     }
-
     public function remove($key)
     {
         return $this->cache->delete($key);
     }
-
     /**
      * @return bool
      */
@@ -51,7 +44,6 @@ class DoctrineCacheAdapter implements CacheInterface, Cache
     {
         return $this->remove($key);
     }
-
     /**
      * @return bool
      */
@@ -59,7 +51,6 @@ class DoctrineCacheAdapter implements CacheInterface, Cache
     {
         return $this->cache->contains($key);
     }
-
     /**
      * @return mixed[]|null
      */

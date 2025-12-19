@@ -1,8 +1,8 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Endpoint;
 
 use ClikIT\Infinite_Uploads\Aws\Exception\UnresolvedEndpointException;
-
 /**
  * Endpoint providers.
  *
@@ -15,9 +15,9 @@ use ClikIT\Infinite_Uploads\Aws\Exception\UnresolvedEndpointException;
  * You can wrap your calls to an endpoint provider with the
  * {@see EndpointProvider::resolve} function to ensure that an endpoint hash is
  * created. If an endpoint hash is not created, then the resolve() function
- * will throw an {@see ClikIT\Infinite_Uploads\Aws\Exception\UnresolvedEndpointException}.
+ * will throw an {@see Aws\Exception\UnresolvedEndpointException}.
  *
- *     use ClikIT\Infinite_Uploads\Aws\Endpoint\EndpointProvider;
+ *     use Aws\Endpoint\EndpointProvider;
  *     $provider = EndpointProvider::defaultProvider();
  *     // Returns an array or NULL.
  *     $endpoint = $provider(['service' => 'ec2', 'region' => 'us-west-2']);
@@ -61,18 +61,12 @@ class EndpointProvider
         if (is_array($result)) {
             return $result;
         }
-
-        throw new UnresolvedEndpointException(
-            'Unable to resolve an endpoint using the provider arguments: '
-            . json_encode($args) . '. Note: you can provide an "endpoint" '
-            . 'option to a client constructor to bypass invoking an endpoint '
-            . 'provider.');
+        throw new UnresolvedEndpointException('Unable to resolve an endpoint using the provider arguments: ' . json_encode($args) . '. Note: you can provide an "endpoint" ' . 'option to a client constructor to bypass invoking an endpoint ' . 'provider.');
     }
-
     /**
      * Creates and returns the default SDK endpoint provider.
      *
-     * @deprecated Use an instance of \ClikIT\Infinite_Uploads\Aws\Endpoint\Partition instead.
+     * @deprecated Use an instance of \Aws\Endpoint\Partition instead.
      *
      * @return callable
      */
@@ -80,7 +74,6 @@ class EndpointProvider
     {
         return PartitionEndpointProvider::defaultProvider();
     }
-
     /**
      * Creates and returns an endpoint provider that uses patterns from an
      * array.

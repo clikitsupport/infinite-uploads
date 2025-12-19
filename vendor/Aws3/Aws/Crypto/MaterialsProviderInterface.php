@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Crypto;
 
 interface MaterialsProviderInterface
@@ -11,7 +12,6 @@ interface MaterialsProviderInterface
      * @return bool
      */
     public static function isSupportedKeySize($keySize);
-
     /**
      * Performs further initialization of the MaterialsProvider based on the
      * data inside the MetadataEnvelope.
@@ -22,14 +22,12 @@ interface MaterialsProviderInterface
      * @internal
      */
     public function fromDecryptionEnvelope(MetadataEnvelope $envelope);
-
     /**
      * Returns the wrap algorithm name for this Provider.
      *
      * @return string
      */
     public function getWrapAlgorithmName();
-
     /**
      * Takes an encrypted content encryption key (CEK) and material description
      * for use decrypting the key according to the Provider's specifications.
@@ -42,7 +40,6 @@ interface MaterialsProviderInterface
      * @return string
      */
     public function decryptCek($encryptedCek, $materialDescription);
-
     /**
      * @param string $keySize Length of a cipher key in bits for generating a
      *                        random content encryption key (CEK).
@@ -50,7 +47,6 @@ interface MaterialsProviderInterface
      * @return string
      */
     public function generateCek($keySize);
-
     /**
      * @param string $openSslName Cipher OpenSSL name to use for generating
      *                            an initialization vector.

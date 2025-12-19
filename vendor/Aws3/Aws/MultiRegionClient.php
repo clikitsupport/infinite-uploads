@@ -1,15 +1,14 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws;
 
 use ClikIT\Infinite_Uploads\Aws\Endpoint\PartitionEndpointProvider;
 use ClikIT\Infinite_Uploads\Aws\Endpoint\PartitionInterface;
 use ClikIT\Infinite_Uploads\Aws\EndpointV2\EndpointProviderV2;
 use ClikIT\Infinite_Uploads\Aws\EndpointV2\EndpointDefinitionProvider;
-
 class MultiRegionClient implements AwsClientInterface
 {
     use AwsClientTrait;
-
     /** @var AwsClientInterface[] A pool of clients keyed by region. */
     private $clientPool = [];
     /** @var callable */
@@ -26,81 +25,43 @@ class MultiRegionClient implements AwsClientInterface
     private $aliases;
     /** @var callable */
     private $customHandler;
-
     public static function getArguments()
     {
-        $args = array_intersect_key(
-            ClientResolver::getDefaultArguments(),
-            ['service' => true, 'region' => true]
-        );
-        $args['region']['required'] = false;
+        $args = array_intersect_key(ClientResolver::getDefaultArguments(), ['service' => \true, 'region' => \true]);
+        $args['region']['required'] = \false;
         unset($args['region']['fn']);
         unset($args['region']['default']);
-
-        return $args + [
-                'client_factory' => [
-                    'type' => 'config',
-                    'valid' => ['callable'],
-                    'doc' => 'A callable that takes an array of client'
-                        . ' configuration arguments and returns a regionalized'
-                        . ' client.',
-                    'required' => true,
-                    'internal' => true,
-                    'default' => function (array $args) {
-                        $namespace = manifest($args['service'])['namespace'];
-                        $klass = "Aws\\{$namespace}\\{$namespace}Client";
-                        $region = isset($args['region']) ? $args['region'] : null;
-
-                        return function (array $args) use ($klass, $region) {
-                            if ($region && empty($args['region'])) {
-                                $args['region'] = $region;
-                            }
-
-                            return new $klass($args);
-                        };
-                    },
-                ],
-                'partition' => [
-                    'type'    => 'config',
-                    'valid'   => ['string', PartitionInterface::class],
-                    'doc'     => 'AWS partition to connect to. Valid partitions'
-                        . ' include "aws," "aws-cn," and "aws-us-gov." Used to'
-                        . ' restrict the scope of the mapRegions method.',
-                    'default' => function (array $args) {
-                        $region = isset($args['region']) ? $args['region'] : '';
-                        return PartitionEndpointProvider::defaultProvider()
-                            ->getPartition($region, $args['service']);
-                    },
-                    'fn'      => function ($value, array &$args) {
-                        if (is_string($value)) {
-                            $value = PartitionEndpointProvider::defaultProvider()
-                                ->getPartitionByName($value);
-                        }
-
-                        if (!$value instanceof PartitionInterface) {
-                            throw new \InvalidArgumentException('No valid partition'
-                                . ' was provided. Provide a concrete partition or'
-                                . ' the name of a partition (e.g., "aws," "aws-cn,"'
-                                . ' or "aws-us-gov").'
-                            );
-                        }
-                        $ruleset = EndpointDefinitionProvider::getEndpointRuleset(
-                            $args['service'],
-                            isset($args['version']) ? $args['version'] : 'latest'
-                        );
-                        $partitions = EndpointDefinitionProvider::getPartitions();
-                        $args['endpoint_provider'] = new EndpointProviderV2($ruleset, $partitions);
-                    }
-                ],
-            ];
+        return $args + ['client_factory' => ['type' => 'config', 'valid' => ['callable'], 'doc' => 'A callable that takes an array of client' . ' configuration arguments and returns a regionalized' . ' client.', 'required' => \true, 'internal' => \true, 'default' => function (array $args) {
+            $namespace = manifest($args['service'])['namespace'];
+            $klass = "ClikIT\\Infinite_Uploads\\1\\{$namespace}\\{$namespace}Client";
+            $region = isset($args['region']) ? $args['region'] : null;
+            return function (array $args) use ($klass, $region) {
+                if ($region && empty($args['region'])) {
+                    $args['region'] = $region;
+                }
+                return new $klass($args);
+            };
+        }], 'partition' => ['type' => 'config', 'valid' => ['string', PartitionInterface::class], 'doc' => 'AWS partition to connect to. Valid partitions' . ' include "aws," "aws-cn," and "aws-us-gov." Used to' . ' restrict the scope of the mapRegions method.', 'default' => function (array $args) {
+            $region = isset($args['region']) ? $args['region'] : '';
+            return PartitionEndpointProvider::defaultProvider()->getPartition($region, $args['service']);
+        }, 'fn' => function ($value, array &$args) {
+            if (is_string($value)) {
+                $value = PartitionEndpointProvider::defaultProvider()->getPartitionByName($value);
+            }
+            if (!$value instanceof PartitionInterface) {
+                throw new \InvalidArgumentException('No valid partition' . ' was provided. Provide a concrete partition or' . ' the name of a partition (e.g., "aws," "aws-cn,"' . ' or "aws-us-gov").');
+            }
+            $ruleset = EndpointDefinitionProvider::getEndpointRuleset($args['service'], isset($args['version']) ? $args['version'] : 'latest');
+            $partitions = EndpointDefinitionProvider::getPartitions();
+            $args['endpoint_provider'] = new EndpointProviderV2($ruleset, $partitions);
+        }]];
     }
-
     /**
      * The multi-region client constructor accepts the following options:
      *
      * - client_factory: (callable) An optional callable that takes an array of
      *   client configuration arguments and returns a regionalized client.
-     * - partition: (ClikIT\Infinite_Uploads\Aws\Endpoint\Partition|string) AWS partition to connect to.
+     * - partition: (Aws\Endpoint\Partition|string) AWS partition to connect to.
      *   Valid partitions include "aws," "aws-cn," and "aws-us-gov." Used to
      *   restrict the scope of the mapRegions method.
      * - region: (string) Region to connect to when no override is provided.
@@ -114,21 +75,14 @@ class MultiRegionClient implements AwsClientInterface
         if (!isset($args['service'])) {
             $args['service'] = $this->parseClass();
         }
-
-        $this->handlerList = new HandlerList(function (
-            CommandInterface $command
-        ) {
+        $this->handlerList = new HandlerList(function (CommandInterface $command) {
             list($region, $args) = $this->getRegionFromArgs($command->toArray());
-            $command = $this->getClientFromPool($region)
-                ->getCommand($command->getName(), $args);
-
+            $command = $this->getClientFromPool($region)->getCommand($command->getName(), $args);
             if ($this->isUseCustomHandler()) {
                 $command->getHandlerList()->setHandler($this->customHandler);
             }
-
             return $this->executeAsync($command);
         });
-
         $argDefinitions = static::getArguments();
         $resolver = new ClientResolver($argDefinitions);
         $args = $resolver->resolve($args, $this->handlerList);
@@ -137,7 +91,6 @@ class MultiRegionClient implements AwsClientInterface
         $this->partition = $args['partition'];
         $this->args = array_diff_key($args, $args['config']);
     }
-
     /**
      * Get the region to which the client is configured to send requests by
      * default.
@@ -148,7 +101,6 @@ class MultiRegionClient implements AwsClientInterface
     {
         return $this->getClientFromPool()->getRegion();
     }
-
     /**
      * Create a command for an operation name.
      *
@@ -171,50 +123,40 @@ class MultiRegionClient implements AwsClientInterface
     {
         return new Command($name, $args, clone $this->getHandlerList());
     }
-
     public function getConfig($option = null)
     {
         if (null === $option) {
             return $this->config;
         }
-
         if (isset($this->config[$option])) {
             return $this->config[$option];
         }
-
         return $this->getClientFromPool()->getConfig($option);
     }
-
     public function getCredentials()
     {
         return $this->getClientFromPool()->getCredentials();
     }
-
     public function getHandlerList()
     {
         return $this->handlerList;
     }
-
     public function getApi()
     {
         return $this->getClientFromPool()->getApi();
     }
-
     public function getEndpoint()
     {
         return $this->getClientFromPool()->getEndpoint();
     }
-
     public function useCustomHandler(callable $handler)
     {
         $this->customHandler = $handler;
     }
-
     private function isUseCustomHandler()
     {
         return isset($this->customHandler);
     }
-
     /**
      * @param string $region    Omit this argument or pass in an empty string to
      *                          allow the configured client factory to apply the
@@ -224,16 +166,13 @@ class MultiRegionClient implements AwsClientInterface
      */
     protected function getClientFromPool($region = '')
     {
+        $region = $region ?? '';
         if (empty($this->clientPool[$region])) {
             $factory = $this->factory;
-            $this->clientPool[$region] = $factory(
-                array_replace($this->args, array_filter(['region' => $region]))
-            );
+            $this->clientPool[$region] = $factory(array_replace($this->args, array_filter(['region' => $region])));
         }
-
         return $this->clientPool[$region];
     }
-
     /**
      * Parse the class name and return the "service" name of the client.
      *
@@ -242,21 +181,15 @@ class MultiRegionClient implements AwsClientInterface
     private function parseClass()
     {
         $klass = get_class($this);
-
         if ($klass === __CLASS__) {
             return '';
         }
-
         return strtolower(substr($klass, strrpos($klass, '\\') + 1, -17));
     }
-
     private function getRegionFromArgs(array $args)
     {
-        $region = isset($args['@region'])
-            ? $args['@region']
-            : $this->getRegion();
+        $region = isset($args['@region']) ? $args['@region'] : $this->getRegion();
         unset($args['@region']);
-
         return [$region, $args];
     }
 }

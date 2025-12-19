@@ -1,21 +1,18 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\S3\Exception;
 
 use ClikIT\Infinite_Uploads\Aws\HasMonitoringEventsTrait;
 use ClikIT\Infinite_Uploads\Aws\MonitoringEventsInterface;
-
 /**
  * Exception thrown when errors occur while deleting objects using a
  * {@see S3\BatchDelete} object.
  */
-class DeleteMultipleObjectsException extends \Exception implements
-    MonitoringEventsInterface
+class DeleteMultipleObjectsException extends \Exception implements MonitoringEventsInterface
 {
     use HasMonitoringEventsTrait;
-
     private $deleted = [];
     private $errors = [];
-
     /**
      * @param array       $deleted Array of successfully deleted keys
      * @param array       $errors  Array of errors that were encountered
@@ -24,11 +21,8 @@ class DeleteMultipleObjectsException extends \Exception implements
     {
         $this->deleted = array_values($deleted);
         $this->errors = array_values($errors);
-        parent::__construct('Unable to delete certain keys when executing a'
-            . ' DeleteMultipleObjects request: '
-            . self::createMessageFromErrors($errors));
+        parent::__construct('Unable to delete certain keys when executing a' . ' DeleteMultipleObjects request: ' . self::createMessageFromErrors($errors));
     }
-
     /**
      * Create a single error message from multiple errors.
      *
@@ -42,7 +36,6 @@ class DeleteMultipleObjectsException extends \Exception implements
             return json_encode($key);
         }, $errors));
     }
-
     /**
      * Get the errored objects
      *
@@ -53,7 +46,6 @@ class DeleteMultipleObjectsException extends \Exception implements
     {
         return $this->errors;
     }
-
     /**
      * Get the successfully deleted objects
      *

@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Credentials;
 
 use ClikIT\Infinite_Uploads\Aws\Exception\AwsException;
@@ -6,7 +7,6 @@ use ClikIT\Infinite_Uploads\Aws\Exception\CredentialsException;
 use ClikIT\Infinite_Uploads\Aws\Result;
 use ClikIT\Infinite_Uploads\Aws\Sts\StsClient;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
-
 /**
  * Credential provider that provides credentials via assuming a role with a web identity
  * More Information, see: https://docs.aws.amazon.com/aws-sdk-php/v3/api/api-sts-2011-06-15.html#assumerolewithwebidentity
@@ -15,30 +15,22 @@ class AssumeRoleWithWebIdentityCredentialProvider
 {
     const ERROR_MSG = "Missing required 'AssumeRoleWithWebIdentityCredentialProvider' configuration option: ";
     const ENV_RETRIES = 'AWS_METADATA_SERVICE_NUM_ATTEMPTS';
-
     /** @var string */
     private $tokenFile;
-
     /** @var string */
     private $arn;
-
     /** @var string */
     private $session;
-
     /** @var StsClient */
     private $client;
-
     /** @var integer */
     private $retries;
-
     /** @var integer */
     private $authenticationAttempts;
-
     /** @var integer */
     private $tokenFileReadAttempts;
     /** @var string */
     private $source;
-
     /**
      * The constructor attempts to load config from environment variables.
      * If not set, the following config options are used:
@@ -57,36 +49,25 @@ class AssumeRoleWithWebIdentityCredentialProvider
             throw new \InvalidArgumentException(self::ERROR_MSG . "'RoleArn'.");
         }
         $this->arn = $config['RoleArn'];
-
         if (!isset($config['WebIdentityTokenFile'])) {
             throw new \InvalidArgumentException(self::ERROR_MSG . "'WebIdentityTokenFile'.");
         }
         $this->tokenFile = $config['WebIdentityTokenFile'];
-
-        if (!preg_match("/^\w\:|^\/|^\\\/", $this->tokenFile)) {
+        if (!preg_match("/^\\w\\:|^\\/|^\\\\/", $this->tokenFile)) {
             throw new \InvalidArgumentException("'WebIdentityTokenFile' must be an absolute path.");
         }
-
         $this->retries = (int) getenv(self::ENV_RETRIES) ?: (isset($config['retries']) ? $config['retries'] : 3);
         $this->authenticationAttempts = 0;
         $this->tokenFileReadAttempts = 0;
-        $this->session = $config['SessionName']
-            ?? 'aws-sdk-php-' . round(microtime(true) * 1000);
-        $region = $config['region'] ?? 'us-east-1';
+        $this->session = $config['SessionName'] ?? 'aws-sdk-php-' . round(microtime(\true) * 1000);
         if (isset($config['client'])) {
             $this->client = $config['client'];
         } else {
-            $this->client = new StsClient([
-                'credentials' => false,
-                'region' => $region,
-                'version' => 'latest'
-            ]);
+            $region = $config['region'] ?? getEnv(CredentialProvider::ENV_REGION) ?: null;
+            $this->client = $this->createDefaultStsClient($region);
         }
-
-        $this->source = $config['source']
-            ?? CredentialSources::STS_WEB_ID_TOKEN;
+        $this->source = $config['source'] ?? CredentialSources::STS_WEB_ID_TOKEN;
     }
-
     /**
      * Loads assume role with web identity credentials.
      *
@@ -100,16 +81,13 @@ class AssumeRoleWithWebIdentityCredentialProvider
             while ($result == null) {
                 try {
                     $token = @file_get_contents($this->tokenFile);
-                    if (false === $token) {
-                        clearstatcache(true, dirname($this->tokenFile) . "/" . readlink($this->tokenFile));
-                        clearstatcache(true, dirname($this->tokenFile) . "/" . dirname(readlink($this->tokenFile)));
-                        clearstatcache(true, $this->tokenFile);
+                    if (\false === $token) {
+                        clearstatcache(\true, dirname($this->tokenFile) . "/" . readlink($this->tokenFile));
+                        clearstatcache(\true, dirname($this->tokenFile) . "/" . dirname(readlink($this->tokenFile)));
+                        clearstatcache(\true, $this->tokenFile);
                         if (!@is_readable($this->tokenFile)) {
-                            throw new CredentialsException(
-                                "Unreadable tokenfile at location {$this->tokenFile}"
-                            );
+                            throw new CredentialsException("Unreadable tokenfile at location {$this->tokenFile}");
                         }
-
                         $token = @file_get_contents($this->tokenFile);
                     }
                     if (empty($token)) {
@@ -121,19 +99,9 @@ class AssumeRoleWithWebIdentityCredentialProvider
                         throw new CredentialsException("InvalidIdentityToken from file: {$this->tokenFile}");
                     }
                 } catch (\Exception $exception) {
-                    throw new CredentialsException(
-                        "Error reading WebIdentityTokenFile from " . $this->tokenFile,
-                        0,
-                        $exception
-                    );
+                    throw new CredentialsException("Error reading WebIdentityTokenFile from " . $this->tokenFile, 0, $exception);
                 }
-
-                $assumeParams = [
-                    'RoleArn' => $this->arn,
-                    'RoleSessionName' => $this->session,
-                    'WebIdentityToken' => $token
-                ];
-
+                $assumeParams = ['RoleArn' => $this->arn, 'RoleSessionName' => $this->session, 'WebIdentityToken' => $token];
                 try {
                     $result = $client->assumeRoleWithWebIdentity($assumeParams);
                 } catch (AwsException $e) {
@@ -141,30 +109,30 @@ class AssumeRoleWithWebIdentityCredentialProvider
                         if ($this->authenticationAttempts < $this->retries) {
                             sleep((int) pow(1.2, $this->authenticationAttempts));
                         } else {
-                            throw new CredentialsException(
-                                "InvalidIdentityToken, retries exhausted"
-                            );
+                            throw new CredentialsException("InvalidIdentityToken, retries exhausted");
                         }
                     } else {
-                        throw new CredentialsException(
-                            "Error assuming role from web identity credentials",
-                            0,
-                            $e
-                        );
+                        throw new CredentialsException("Error assuming role from web identity credentials", 0, $e);
                     }
                 } catch (\Exception $e) {
-                    throw new CredentialsException(
-                        "Error retrieving web identity credentials: " . $e->getMessage()
-                        . " (" . $e->getCode() . ")"
-                    );
+                    throw new CredentialsException("Error retrieving web identity credentials: " . $e->getMessage() . " (" . $e->getCode() . ")");
                 }
                 $this->authenticationAttempts++;
             }
-
-            yield $this->client->createCredentials(
-                $result,
-                $this->source
-            );
+            yield $this->client->createCredentials($result, $this->source);
         });
+    }
+    /**
+     * @param string|null $region
+     *
+     * @return StsClient
+     */
+    private function createDefaultStsClient(?string $region): StsClient
+    {
+        if (empty($region)) {
+            $region = CredentialProvider::FALLBACK_REGION;
+            trigger_error('NOTICE: STS client created without explicit `region` configuration.' . \PHP_EOL . "Defaulting to {$region}. This fallback behavior may be removed." . \PHP_EOL . 'To avoid potential disruptions, configure a region using one of the following methods:' . \PHP_EOL . '(1) Pass `region` in the `$config` array when calling the provider,' . \PHP_EOL . '(2) Set the `AWS_REGION` environment variable.' . \PHP_EOL . 'OR provide an STS client in the `$config` array when creating the provider as `client`.' . \PHP_EOL . 'See: https://docs.aws.amazon.com/sdk-for-php/v3/developer-guide/assume-role-with-web-identity-provider.html' . \PHP_EOL, \E_USER_NOTICE);
+        }
+        return new StsClient(['credentials' => \false, 'region' => $region]);
     }
 }

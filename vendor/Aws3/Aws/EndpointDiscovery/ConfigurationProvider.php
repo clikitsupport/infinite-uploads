@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\EndpointDiscovery;
 
 use ClikIT\Infinite_Uploads\Aws\AbstractConfigurationProvider;
@@ -7,14 +8,13 @@ use ClikIT\Infinite_Uploads\Aws\ConfigurationProviderInterface;
 use ClikIT\Infinite_Uploads\Aws\EndpointDiscovery\Exception\ConfigurationException;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
-
 /**
  * A configuration provider is a function that returns a promise that is
- * fulfilled with a {@see \ClikIT\Infinite_Uploads\Aws\EndpointDiscovery\ConfigurationInterface}
- * or rejected with an {@see \ClikIT\Infinite_Uploads\Aws\EndpointDiscovery\Exception\ConfigurationException}.
+ * fulfilled with a {@see \Aws\EndpointDiscovery\ConfigurationInterface}
+ * or rejected with an {@see \Aws\EndpointDiscovery\Exception\ConfigurationException}.
  *
  * <code>
- * use ClikIT\Infinite_Uploads\Aws\EndpointDiscovery\ConfigurationProvider;
+ * use Aws\EndpointDiscovery\ConfigurationProvider;
  * $provider = ConfigurationProvider::defaultProvider();
  * // Returns a ConfigurationInterface or throws.
  * $config = $provider()->wait();
@@ -23,7 +23,7 @@ use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
  * Configuration providers can be composed to create configuration using
  * conditional logic that can create different configurations in different
  * environments. You can compose multiple providers into a single provider using
- * {@see ClikIT\Infinite_Uploads\Aws\EndpointDiscovery\ConfigurationProvider::chain}. This function
+ * {@see Aws\EndpointDiscovery\ConfigurationProvider::chain}. This function
  * accepts providers as variadic arguments and returns a new function that will
  * invoke each provider until a successful configuration is returned.
  *
@@ -42,20 +42,16 @@ use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
  * $config = $promise->wait();
  * </code>
  */
-class ConfigurationProvider extends AbstractConfigurationProvider
-    implements ConfigurationProviderInterface
+class ConfigurationProvider extends AbstractConfigurationProvider implements ConfigurationProviderInterface
 {
-    const DEFAULT_ENABLED = false;
+    const DEFAULT_ENABLED = \false;
     const DEFAULT_CACHE_LIMIT = 1000;
     const ENV_ENABLED = 'AWS_ENDPOINT_DISCOVERY_ENABLED';
     const ENV_ENABLED_ALT = 'AWS_ENABLE_ENDPOINT_DISCOVERY';
     const ENV_PROFILE = 'AWS_PROFILE';
-
     public static $cacheKey = 'aws_cached_endpoint_discovery_config';
-
     protected static $interfaceClass = ConfigurationInterface::class;
     protected static $exceptionClass = ConfigurationException::class;
-
     /**
      * Create a default config provider that first checks for environment
      * variables, then checks for a specified profile in the environment-defined
@@ -74,27 +70,16 @@ class ConfigurationProvider extends AbstractConfigurationProvider
     public static function defaultProvider(array $config = [])
     {
         $configProviders = [self::env()];
-        if (
-            !isset($config['use_aws_shared_config_files'])
-            || $config['use_aws_shared_config_files'] != false
-        ) {
+        if (!isset($config['use_aws_shared_config_files']) || $config['use_aws_shared_config_files'] != \false) {
             $configProviders[] = self::ini();
         }
         $configProviders[] = self::fallback($config);
-
-        $memo = self::memoize(
-            call_user_func_array([ConfigurationProvider::class, 'chain'], $configProviders)
-        );
-
-        if (isset($config['endpoint_discovery'])
-            && $config['endpoint_discovery'] instanceof CacheInterface
-        ) {
+        $memo = self::memoize(call_user_func_array([ConfigurationProvider::class, 'chain'], $configProviders));
+        if (isset($config['endpoint_discovery']) && $config['endpoint_discovery'] instanceof CacheInterface) {
             return self::cache($memo, $config['endpoint_discovery'], self::$cacheKey);
         }
-
         return $memo;
     }
-
     /**
      * Provider that creates config from environment variables.
      *
@@ -106,20 +91,15 @@ class ConfigurationProvider extends AbstractConfigurationProvider
         return function () use ($cacheLimit) {
             // Use config from environment variables, if available
             $enabled = getenv(self::ENV_ENABLED);
-            if ($enabled === false || $enabled === '') {
+            if ($enabled === \false || $enabled === '') {
                 $enabled = getenv(self::ENV_ENABLED_ALT);
             }
-            if ($enabled !== false && $enabled !== '') {
-                return Promise\Create::promiseFor(
-                    new Configuration($enabled, $cacheLimit)
-                );
+            if ($enabled !== \false && $enabled !== '') {
+                return Promise\Create::promiseFor(new Configuration($enabled, $cacheLimit));
             }
-
-            return self::reject('Could not find environment variable config'
-                . ' in ' . self::ENV_ENABLED);
+            return self::reject('Could not find environment variable config' . ' in ' . self::ENV_ENABLED);
         };
     }
-
     /**
      * Fallback config options when other sources are not set. Will check the
      * service model for any endpoint discovery required operations, and enable
@@ -132,31 +112,21 @@ class ConfigurationProvider extends AbstractConfigurationProvider
     public static function fallback($config = [])
     {
         $enabled = self::DEFAULT_ENABLED;
-        if (!empty($config['api_provider'])
-            && !empty($config['service'])
-            && !empty($config['version'])
-        ) {
+        if (!empty($config['api_provider']) && !empty($config['service']) && !empty($config['version'])) {
             $provider = $config['api_provider'];
             $apiData = $provider('api', $config['service'], $config['version']);
             if (!empty($apiData['operations'])) {
                 foreach ($apiData['operations'] as $operation) {
                     if (!empty($operation['endpointdiscovery']['required'])) {
-                        $enabled = true;
+                        $enabled = \true;
                     }
                 }
             }
         }
-
         return function () use ($enabled) {
-            return Promise\Create::promiseFor(
-                new Configuration(
-                    $enabled,
-                    self::DEFAULT_CACHE_LIMIT
-                )
-            );
+            return Promise\Create::promiseFor(new Configuration($enabled, self::DEFAULT_CACHE_LIMIT));
         };
     }
-
     /**
      * Config provider that creates config using a config file whose location
      * is specified by an environment variable 'AWS_CONFIG_FILE', defaulting to
@@ -170,39 +140,27 @@ class ConfigurationProvider extends AbstractConfigurationProvider
      *
      * @return callable
      */
-    public static function ini(
-        $profile = null,
-        $filename = null,
-        $cacheLimit = self::DEFAULT_CACHE_LIMIT
-    ) {
-        $filename = $filename ?: (self::getDefaultConfigFilename());
+    public static function ini($profile = null, $filename = null, $cacheLimit = self::DEFAULT_CACHE_LIMIT)
+    {
+        $filename = $filename ?: self::getDefaultConfigFilename();
         $profile = $profile ?: (getenv(self::ENV_PROFILE) ?: 'default');
-
         return function () use ($profile, $filename, $cacheLimit) {
             if (!@is_readable($filename)) {
-                return self::reject("Cannot read configuration from $filename");
+                return self::reject("Cannot read configuration from {$filename}");
             }
-            $data = \Aws\parse_ini_file($filename, true);
-            if ($data === false) {
-                return self::reject("Invalid config file: $filename");
+            $data = \ClikIT\Infinite_Uploads\Aws\parse_ini_file($filename, \true);
+            if ($data === \false) {
+                return self::reject("Invalid config file: {$filename}");
             }
             if (!isset($data[$profile])) {
-                return self::reject("'$profile' not found in config file");
+                return self::reject("'{$profile}' not found in config file");
             }
             if (!isset($data[$profile]['endpoint_discovery_enabled'])) {
-                return self::reject("Required endpoint discovery config values
-                    not present in INI profile '{$profile}' ({$filename})");
+                return self::reject("Required endpoint discovery config values\n                    not present in INI profile '{$profile}' ({$filename})");
             }
-
-            return Promise\Create::promiseFor(
-                new Configuration(
-                    $data[$profile]['endpoint_discovery_enabled'],
-                    $cacheLimit
-                )
-            );
+            return Promise\Create::promiseFor(new Configuration($data[$profile]['endpoint_discovery_enabled'], $cacheLimit));
         };
     }
-
     /**
      * Unwraps a configuration object in whatever valid form it is in,
      * always returning a ConfigurationInterface object.
@@ -223,18 +181,10 @@ class ConfigurationProvider extends AbstractConfigurationProvider
             return $config;
         } elseif (is_array($config) && isset($config['enabled'])) {
             if (isset($config['cache_limit'])) {
-                return new Configuration(
-                    $config['enabled'],
-                    $config['cache_limit']
-                );
+                return new Configuration($config['enabled'], $config['cache_limit']);
             }
-            return new Configuration(
-                $config['enabled'],
-                self::DEFAULT_CACHE_LIMIT
-            );
+            return new Configuration($config['enabled'], self::DEFAULT_CACHE_LIMIT);
         }
-
-        throw new \InvalidArgumentException('Not a valid endpoint_discovery '
-            . 'configuration argument.');
+        throw new \InvalidArgumentException('Not a valid endpoint_discovery ' . 'configuration argument.');
     }
 }

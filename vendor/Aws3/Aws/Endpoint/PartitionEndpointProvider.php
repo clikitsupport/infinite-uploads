@@ -1,8 +1,8 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Endpoint;
 
 use ClikIT\Infinite_Uploads\JmesPath\Env;
-
 class PartitionEndpointProvider
 {
     /** @var Partition[] */
@@ -11,7 +11,6 @@ class PartitionEndpointProvider
     private $defaultPartition;
     /** @var array  */
     private $options;
-
     /**
      * The 'options' parameter accepts the following arguments:
      *
@@ -26,29 +25,20 @@ class PartitionEndpointProvider
      * @param string $defaultPartition
      * @param array $options
      */
-    public function __construct(
-        array $partitions,
-        $defaultPartition = 'aws',
-        $options = []
-    ) {
+    public function __construct(array $partitions, $defaultPartition = 'aws', $options = [])
+    {
         $this->partitions = array_map(function (array $definition) {
             return new Partition($definition);
         }, array_values($partitions));
         $this->defaultPartition = $defaultPartition;
         $this->options = $options;
     }
-
     public function __invoke(array $args = [])
     {
-        $partition = $this->getPartition(
-            isset($args['region']) ? $args['region'] : '',
-            isset($args['service']) ? $args['service'] : ''
-        );
+        $partition = $this->getPartition(isset($args['region']) ? $args['region'] : '', isset($args['service']) ? $args['service'] : '');
         $args['options'] = $this->options;
-
         return $partition($args);
     }
-
     /**
      * Returns the partition containing the provided region or the default
      * partition if no match is found.
@@ -65,10 +55,8 @@ class PartitionEndpointProvider
                 return $partition;
             }
         }
-
         return $this->getPartitionByName($this->defaultPartition);
     }
-
     /**
      * Returns the partition with the provided name or null if no partition with
      * the provided name can be found.
@@ -85,7 +73,6 @@ class PartitionEndpointProvider
             }
         }
     }
-
     /**
      * Creates and returns the default SDK partition provider.
      *
@@ -97,10 +84,8 @@ class PartitionEndpointProvider
         $data = \ClikIT\Infinite_Uploads\Aws\load_compiled_json(__DIR__ . '/../data/endpoints.json');
         $prefixData = \ClikIT\Infinite_Uploads\Aws\load_compiled_json(__DIR__ . '/../data/endpoints_prefix_history.json');
         $mergedData = self::mergePrefixData($data, $prefixData);
-
         return new self($mergedData['partitions'], 'aws', $options);
     }
-
     /**
      * Copy endpoint data for other prefixes used by a given service
      *
@@ -111,20 +96,18 @@ class PartitionEndpointProvider
     public static function mergePrefixData($data, $prefixData)
     {
         $prefixGroups = $prefixData['prefix-groups'];
-
         foreach ($data["partitions"] as $index => $partition) {
             foreach ($prefixGroups as $current => $old) {
-                $serviceData = \ClikIT\Infinite_Uploads\JmesPath\Env::search("services.\"{$current}\"", $partition);
+                $serviceData = Env::search("services.\"{$current}\"", $partition);
                 if (!empty($serviceData)) {
                     foreach ($old as $prefix) {
-                        if (empty(\ClikIT\Infinite_Uploads\JmesPath\Env::search("services.\"{$prefix}\"", $partition))) {
+                        if (empty(Env::search("services.\"{$prefix}\"", $partition))) {
                             $data["partitions"][$index]["services"][$prefix] = $serviceData;
                         }
                     }
                 }
             }
         }
-
         return $data;
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws;
 
 /**
@@ -6,7 +7,6 @@ namespace ClikIT\Infinite_Uploads\Aws;
  */
 interface MonitoringEventsInterface
 {
-
     /**
      * Get client-side monitoring events attached to this object. Each event is
      * represented as an associative array within the returned array.
@@ -14,19 +14,16 @@ interface MonitoringEventsInterface
      * @return array
      */
     public function getMonitoringEvents();
-
     /**
      * Prepend a client-side monitoring event to this object's event list
      *
      * @param array $event
      */
     public function prependMonitoringEvent(array $event);
-
     /**
      * Append a client-side monitoring event to this object's event list
      *
      * @param array $event
      */
     public function appendMonitoringEvent(array $event);
-
 }

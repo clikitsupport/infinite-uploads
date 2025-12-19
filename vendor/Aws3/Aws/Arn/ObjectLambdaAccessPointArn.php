@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Arn;
 
 /**
@@ -21,7 +22,6 @@ class ObjectLambdaAccessPointArn extends AccessPointArn
         $data = parent::parse($string);
         return parent::parseResourceTypeAndId($data);
     }
-
     /**
      *
      * @param array $data

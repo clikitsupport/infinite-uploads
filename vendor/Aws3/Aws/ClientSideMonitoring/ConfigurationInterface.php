@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\ClientSideMonitoring;
 
 /**
@@ -13,28 +14,24 @@ interface ConfigurationInterface
      * @return bool
      */
     public function isEnabled();
-
     /**
      * Returns the Client ID, if available.
      *
      * @return string|null
      */
     public function getClientId();
-
     /**
      * Returns the configured host.
      *
      * @return string|null
      */
     public function getHost();
-
     /**
      * Returns the configured port.
      *
      * @return int|null
      */
     public function getPort();
-
     /**
      * Returns the configuration as an associative array.
      *

@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Exception;
 
 use ClikIT\Infinite_Uploads\Aws\Api\Shape;
@@ -11,18 +12,14 @@ use ClikIT\Infinite_Uploads\Aws\ResultInterface;
 use ClikIT\Infinite_Uploads\JmesPath\Env as JmesPath;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
-
+use Throwable;
 /**
  * Represents an AWS exception that is thrown when a command fails.
  */
-class AwsException extends \RuntimeException implements
-    MonitoringEventsInterface,
-    ResponseContainerInterface,
-    \ArrayAccess
+class AwsException extends \RuntimeException implements MonitoringEventsInterface, ResponseContainerInterface, \ArrayAccess
 {
     use HasDataTrait;
     use HasMonitoringEventsTrait;
-
     /** @var ResponseInterface */
     private $response;
     private $request;
@@ -36,63 +33,43 @@ class AwsException extends \RuntimeException implements
     private $transferInfo;
     private $errorMessage;
     private $maxRetriesExceeded;
-
-
     /**
-     * @param string           $message Exception message
+     * @param string $message Exception message
      * @param CommandInterface $command
-     * @param array            $context Exception context
-     * @param \Exception       $previous  Previous exception (if any)
+     * @param array $context Exception context
+     * @param Throwable|null $previous Previous exception (if any)
      */
-    public function __construct(
-        $message,
-        CommandInterface $command,
-        array $context = [],
-        ?\Exception $previous = null
-    ) {
-        $this->data = isset($context['body']) ? $context['body'] : [];
+    public function __construct($message, CommandInterface $command, array $context = [], ?Throwable $previous = null)
+    {
+        $this->data = $context['body'] ?? [];
         $this->command = $command;
-        $this->response = isset($context['response']) ? $context['response'] : null;
-        $this->request = isset($context['request']) ? $context['request'] : null;
-        $this->requestId = isset($context['request_id'])
-            ? $context['request_id']
-            : null;
-        $this->errorType = isset($context['type']) ? $context['type'] : null;
-        $this->errorCode = isset($context['code']) ? $context['code'] : null;
-        $this->errorShape = isset($context['error_shape']) ? $context['error_shape'] : null;
+        $this->response = $context['response'] ?? null;
+        $this->request = $context['request'] ?? null;
+        $this->requestId = $context['request_id'] ?? null;
+        $this->errorType = $context['type'] ?? null;
+        $this->errorCode = $context['code'] ?? null;
+        $this->errorShape = $context['error_shape'] ?? null;
         $this->connectionError = !empty($context['connection_error']);
-        $this->result = isset($context['result']) ? $context['result'] : null;
-        $this->transferInfo = isset($context['transfer_stats'])
-            ? $context['transfer_stats']
-            : [];
-        $this->errorMessage = isset($context['message'])
-            ? $context['message']
-            : null;
+        $this->result = $context['result'] ?? null;
+        $this->transferInfo = $context['transfer_stats'] ?? [];
+        $this->errorMessage = $context['message'] ?? null;
         $this->monitoringEvents = [];
-        $this->maxRetriesExceeded = false;
+        $this->maxRetriesExceeded = \false;
         parent::__construct($message, 0, $previous);
     }
-
     public function __toString()
     {
         if (!$this->getPrevious()) {
             return parent::__toString();
         }
-
         // PHP strangely shows the innermost exception first before the outer
         // exception message. It also has a default character limit for
         // exception message strings such that the "next" exception (this one)
         // might not even get shown, causing developers to attempt to catch
         // the inner exception instead of the actual exception because they
         // can't see the outer exception's __toString output.
-        return sprintf(
-            "exception '%s' with message '%s'\n\n%s",
-            get_class($this),
-            $this->getMessage(),
-            parent::__toString()
-        );
+        return sprintf("exception '%s' with message '%s'\n\n%s", get_class($this), $this->getMessage(), parent::__toString());
     }
-
     /**
      * Get the command that was executed.
      *
@@ -102,7 +79,6 @@ class AwsException extends \RuntimeException implements
     {
         return $this->command;
     }
-
     /**
      * Get the concise error message if any.
      *
@@ -112,7 +88,6 @@ class AwsException extends \RuntimeException implements
     {
         return $this->errorMessage;
     }
-
     /**
      * Get the sent HTTP request if any.
      *
@@ -122,7 +97,6 @@ class AwsException extends \RuntimeException implements
     {
         return $this->request;
     }
-
     /**
      * Get the received HTTP response if any.
      *
@@ -132,7 +106,6 @@ class AwsException extends \RuntimeException implements
     {
         return $this->response;
     }
-
     /**
      * Get the result of the exception if available
      *
@@ -142,7 +115,6 @@ class AwsException extends \RuntimeException implements
     {
         return $this->result;
     }
-
     /**
      * Returns true if this is a connection error.
      *
@@ -152,7 +124,6 @@ class AwsException extends \RuntimeException implements
     {
         return $this->connectionError;
     }
-
     /**
      * If available, gets the HTTP status code of the corresponding response
      *
@@ -162,7 +133,6 @@ class AwsException extends \RuntimeException implements
     {
         return $this->response ? $this->response->getStatusCode() : null;
     }
-
     /**
      * Get the request ID of the error. This value is only present if a
      * response was received and is not present in the event of a networking
@@ -174,7 +144,6 @@ class AwsException extends \RuntimeException implements
     {
         return $this->requestId;
     }
-
     /**
      * Get the AWS error type.
      *
@@ -184,7 +153,6 @@ class AwsException extends \RuntimeException implements
     {
         return $this->errorType;
     }
-
     /**
      * Get the AWS error code.
      *
@@ -194,7 +162,6 @@ class AwsException extends \RuntimeException implements
     {
         return $this->errorCode;
     }
-
     /**
      * Get the AWS error shape.
      *
@@ -204,7 +171,6 @@ class AwsException extends \RuntimeException implements
     {
         return $this->errorShape;
     }
-
     /**
      * Get all transfer information as an associative array if no $name
      * argument is supplied, or gets a specific transfer statistic if
@@ -219,12 +185,8 @@ class AwsException extends \RuntimeException implements
         if (!$name) {
             return $this->transferInfo;
         }
-
-        return isset($this->transferInfo[$name])
-            ? $this->transferInfo[$name]
-            : null;
+        return $this->transferInfo[$name] ?? null;
     }
-
     /**
      * Replace the transfer information associated with an exception.
      *
@@ -234,7 +196,6 @@ class AwsException extends \RuntimeException implements
     {
         $this->transferInfo = $info;
     }
-
     /**
      * Returns whether the max number of retries is exceeded.
      *
@@ -244,25 +205,21 @@ class AwsException extends \RuntimeException implements
     {
         return $this->maxRetriesExceeded;
     }
-
     /**
      * Sets the flag for max number of retries exceeded.
      */
     public function setMaxRetriesExceeded()
     {
-        $this->maxRetriesExceeded = true;
+        $this->maxRetriesExceeded = \true;
     }
-
     public function hasKey($name)
     {
         return isset($this->data[$name]);
     }
-
     public function get($key)
     {
         return $this[$key];
     }
-
     public function search($expression)
     {
         return JmesPath::search($expression, $this->toArray());

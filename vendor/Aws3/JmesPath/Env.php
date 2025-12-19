@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\JmesPath;
 
 /**
@@ -13,7 +14,6 @@ namespace ClikIT\Infinite_Uploads\JmesPath;
 final class Env
 {
     const COMPILE_DIR = 'JP_PHP_COMPILE';
-
     /**
      * Returns data from the input array that matches a JMESPath expression.
      *
@@ -25,14 +25,11 @@ final class Env
     public static function search($expression, $data)
     {
         static $runtime;
-
         if (!$runtime) {
             $runtime = Env::createRuntime();
         }
-
         return $runtime($expression, $data);
     }
-
     /**
      * Creates a JMESPath runtime based on environment variables and extensions
      * available on a system.
@@ -42,12 +39,14 @@ final class Env
     public static function createRuntime()
     {
         switch ($compileDir = self::getEnvVariable(self::COMPILE_DIR)) {
-            case false: return new \ClikIT\Infinite_Uploads\JmesPath\AstRuntime();
-            case 'on': return new \ClikIT\Infinite_Uploads\JmesPath\CompilerRuntime();
-            default: return new \ClikIT\Infinite_Uploads\JmesPath\CompilerRuntime($compileDir);
+            case \false:
+                return new AstRuntime();
+            case 'on':
+                return new CompilerRuntime();
+            default:
+                return new CompilerRuntime($compileDir);
         }
     }
-
     /**
      * Delete all previously compiled JMESPath files from the JP_COMPILE_DIR
      * directory or sys_get_temp_dir().
@@ -58,15 +57,12 @@ final class Env
     {
         $total = 0;
         $compileDir = self::getEnvVariable(self::COMPILE_DIR) ?: sys_get_temp_dir();
-
         foreach (glob("{$compileDir}/jmespath_*.php") as $file) {
             $total++;
             unlink($file);
         }
-
         return $total;
     }
-
     /**
      * Reads an environment variable from $_SERVER, $_ENV or via getenv().
      *
@@ -79,13 +75,10 @@ final class Env
         if (array_key_exists($name, $_SERVER)) {
             return $_SERVER[$name];
         }
-
         if (array_key_exists($name, $_ENV)) {
             return $_ENV[$name];
         }
-
         $value = getenv($name);
-
-        return $value === false ? null : $value;
+        return $value === \false ? null : $value;
     }
 }

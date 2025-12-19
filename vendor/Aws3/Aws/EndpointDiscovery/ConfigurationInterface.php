@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\EndpointDiscovery;
 
 /**
@@ -13,14 +14,12 @@ interface ConfigurationInterface
      * @return bool
      */
     public function isEnabled();
-
     /**
      * Returns the cache limit, if available.
      *
      * @return string|null
      */
     public function getCacheLimit();
-
     /**
      * Returns the configuration as an associative array
      *

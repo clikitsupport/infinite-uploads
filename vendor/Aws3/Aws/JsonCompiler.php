@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws;
 
 /**
@@ -10,7 +11,6 @@ namespace ClikIT\Infinite_Uploads\Aws;
 class JsonCompiler
 {
     const CACHE_ENV = 'AWS_PHP_CACHE_DIR';
-
     /**
      * Loads a JSON file from cache or from the JSON file directly.
      *

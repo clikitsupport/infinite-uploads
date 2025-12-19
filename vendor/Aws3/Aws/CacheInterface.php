@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws;
 
 /**
@@ -14,7 +15,6 @@ interface CacheInterface
      * @return mixed|null Returns the value or null if not found.
      */
     public function get($key);
-
     /**
      * Set a cache key value.
      *
@@ -24,7 +24,6 @@ interface CacheInterface
      *                      to 0 to allow an unlimited lifetime.
      */
     public function set($key, $value, $ttl = 0);
-
     /**
      * Remove a cache key.
      *

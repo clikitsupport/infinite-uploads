@@ -1,9 +1,9 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Api\Parser;
 
 use ClikIT\Infinite_Uploads\Aws\Api\Parser\Exception\ParserException;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
-
 trait PayloadParserTrait
 {
     /**
@@ -15,20 +15,12 @@ trait PayloadParserTrait
      */
     private function parseJson($json, $response)
     {
-        $jsonPayload = json_decode($json, true);
-
-        if (JSON_ERROR_NONE !== json_last_error()) {
-            throw new ParserException(
-                'Error parsing JSON: ' . json_last_error_msg(),
-                0,
-                null,
-                ['response' => $response]
-            );
+        $jsonPayload = json_decode($json, \true);
+        if (\JSON_ERROR_NONE !== json_last_error()) {
+            throw new ParserException('Error parsing JSON: ' . json_last_error_msg(), 0, null, ['response' => $response]);
         }
-
         return $jsonPayload;
     }
-
     /**
      * @param string $xml
      *
@@ -38,7 +30,7 @@ trait PayloadParserTrait
      */
     protected function parseXml($xml, $response)
     {
-        $priorSetting = libxml_use_internal_errors(true);
+        $priorSetting = libxml_use_internal_errors(\true);
         try {
             libxml_clear_errors();
             $xmlPayload = new \SimpleXMLElement($xml);
@@ -46,16 +38,10 @@ trait PayloadParserTrait
                 throw new \RuntimeException($error->message);
             }
         } catch (\Exception $e) {
-            throw new ParserException(
-                "Error parsing XML: {$e->getMessage()}",
-                0,
-                $e,
-                ['response' => $response]
-            );
+            throw new ParserException("Error parsing XML: {$e->getMessage()}", 0, $e, ['response' => $response]);
         } finally {
             libxml_use_internal_errors($priorSetting);
         }
-
         return $xmlPayload;
     }
 }

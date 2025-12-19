@@ -1,10 +1,10 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws;
 
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromisorInterface;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\EachPromise;
-
 /**
  * Sends and iterator of commands concurrently using a capped pool size.
  *
@@ -15,7 +15,6 @@ class CommandPool implements PromisorInterface
 {
     /** @var EachPromise */
     private $each;
-
     /**
      * The CommandPool constructor accepts a hash of configuration options:
      *
@@ -42,21 +41,16 @@ class CommandPool implements PromisorInterface
      * @param array|\Iterator    $commands Iterable that yields commands.
      * @param array              $config   Associative array of options.
      */
-    public function __construct(
-        AwsClientInterface $client,
-        $commands,
-        array $config = []
-    ) {
+    public function __construct(AwsClientInterface $client, $commands, array $config = [])
+    {
         if (!isset($config['concurrency'])) {
             $config['concurrency'] = 25;
         }
-
         $before = $this->getBefore($config);
         $mapFn = function ($commands) use ($client, $before, $config) {
             foreach ($commands as $key => $command) {
-                if (!($command instanceof CommandInterface)) {
-                    throw new \InvalidArgumentException('Each value yielded by '
-                        . 'the iterator must be an ClikIT\Infinite_Uploads\Aws\CommandInterface.');
+                if (!$command instanceof CommandInterface) {
+                    throw new \InvalidArgumentException('Each value yielded by ' . 'the iterator must be an Aws\CommandInterface.');
                 }
                 if ($before) {
                     $before($command, $key);
@@ -68,10 +62,8 @@ class CommandPool implements PromisorInterface
                 }
             }
         };
-
         $this->each = new EachPromise($mapFn($commands), $config);
     }
-
     /**
      * @return PromiseInterface
      */
@@ -79,7 +71,6 @@ class CommandPool implements PromisorInterface
     {
         return $this->each->promise();
     }
-
     /**
      * Executes a pool synchronously and aggregates the results of the pool
      * into an indexed array in the same order as the passed in array.
@@ -89,26 +80,18 @@ class CommandPool implements PromisorInterface
      * @param array              $config   Configuration options.
      *
      * @return array
-     * @see \ClikIT\Infinite_Uploads\Aws\CommandPool::__construct for available configuration options.
+     * @see \Aws\CommandPool::__construct for available configuration options.
      */
-    public static function batch(
-        AwsClientInterface $client,
-        $commands,
-        array $config = []
-    ) {
+    public static function batch(AwsClientInterface $client, $commands, array $config = [])
+    {
         $results = [];
         self::cmpCallback($config, 'fulfilled', $results);
         self::cmpCallback($config, 'rejected', $results);
-
-        return (new self($client, $commands, $config))
-            ->promise()
-            ->then(static function () use (&$results) {
-                ksort($results);
-                return $results;
-            })
-            ->wait();
+        return (new self($client, $commands, $config))->promise()->then(static function () use (&$results) {
+            ksort($results);
+            return $results;
+        })->wait();
     }
-
     /**
      * @return callable
      */
@@ -117,14 +100,11 @@ class CommandPool implements PromisorInterface
         if (!isset($config['before'])) {
             return null;
         }
-
         if (is_callable($config['before'])) {
             return $config['before'];
         }
-
         throw new \InvalidArgumentException('before must be callable');
     }
-
     /**
      * Adds an onFulfilled or onRejected callback that aggregates results into
      * an array. If a callback is already present, it is replaced with the

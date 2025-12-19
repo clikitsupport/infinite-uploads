@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Api;
 
 /**
@@ -11,7 +12,6 @@ class TimestampShape extends Shape
         $definition['type'] = 'timestamp';
         parent::__construct($definition, $shapeMap);
     }
-
     /**
      * Formats a timestamp value for a service.
      *
@@ -29,10 +29,8 @@ class TimestampShape extends Shape
         } elseif (is_string($value)) {
             $value = strtotime($value);
         } elseif (!is_int($value)) {
-            throw new \InvalidArgumentException('Unable to handle the provided'
-                . ' timestamp type: ' . gettype($value));
+            throw new \InvalidArgumentException('Unable to handle the provided' . ' timestamp type: ' . gettype($value));
         }
-
         switch ($format) {
             case 'iso8601':
                 return gmdate('Y-m-d\TH:i:s\Z', $value);
@@ -41,8 +39,7 @@ class TimestampShape extends Shape
             case 'unixTimestamp':
                 return $value;
             default:
-                throw new \UnexpectedValueException('Unknown timestamp format: '
-                    . $format);
+                throw new \UnexpectedValueException('Unknown timestamp format: ' . $format);
         }
     }
 }

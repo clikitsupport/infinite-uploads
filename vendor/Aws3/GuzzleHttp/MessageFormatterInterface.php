@@ -4,7 +4,6 @@ namespace ClikIT\Infinite_Uploads\GuzzleHttp;
 
 use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
-
 interface MessageFormatterInterface
 {
     /**

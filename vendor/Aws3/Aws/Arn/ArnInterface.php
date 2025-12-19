@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Arn;
 
 /**
@@ -18,20 +19,12 @@ namespace ClikIT\Infinite_Uploads\Aws\Arn;
 interface ArnInterface
 {
     public static function parse($string);
-
     public function __toString();
-
     public function getPrefix();
-
     public function getPartition();
-
     public function getService();
-
     public function getRegion();
-
     public function getAccountId();
-
     public function getResource();
-
     public function toArray();
 }

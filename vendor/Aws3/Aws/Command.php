@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws;
 
 /**
@@ -7,19 +8,14 @@ namespace ClikIT\Infinite_Uploads\Aws;
 class Command implements CommandInterface
 {
     use HasDataTrait;
-
     /** @var string */
     private $name;
-
     /** @var HandlerList */
     private $handlerList;
-
     /** @var array */
     private $authSchemes;
-
     /** @var MetricsBuilder */
     private $metricsBuilder;
-
     /**
      * Accepts an associative array of command options, including:
      *
@@ -29,17 +25,11 @@ class Command implements CommandInterface
      * @param array       $args           Arguments to pass to the command
      * @param HandlerList $list           Handler list
      */
-    public function __construct(
-        $name,
-        array $args = [],
-        ?HandlerList $list = null,
-        ?MetricsBuilder $metricsBuilder = null
-    )
+    public function __construct($name, array $args = [], ?HandlerList $list = null, ?MetricsBuilder $metricsBuilder = null)
     {
         $this->name = $name;
         $this->data = $args;
         $this->handlerList = $list ?: new HandlerList();
-
         if (!isset($this->data['@http'])) {
             $this->data['@http'] = [];
         }
@@ -48,27 +38,22 @@ class Command implements CommandInterface
         }
         $this->metricsBuilder = $metricsBuilder ?: new MetricsBuilder();
     }
-
     public function __clone()
     {
         $this->handlerList = clone $this->handlerList;
     }
-
     public function getName()
     {
         return $this->name;
     }
-
     public function hasParam($name)
     {
         return array_key_exists($name, $this->data);
     }
-
     public function getHandlerList()
     {
         return $this->handlerList;
     }
-
     /**
      * For overriding auth schemes on a per endpoint basis when using
      * EndpointV2 provider. Intended for internal use only.
@@ -84,15 +69,9 @@ class Command implements CommandInterface
      */
     public function setAuthSchemes(array $authSchemes)
     {
-        trigger_error(__METHOD__ . ' is deprecated.  Auth schemes '
-            . 'resolved using the service `auth` trait or via endpoint resolution '
-            . 'are now set in the command `@context` property.`'
-            , E_USER_WARNING
-        );
-
+        trigger_error(__METHOD__ . ' is deprecated.  Auth schemes ' . 'resolved using the service `auth` trait or via endpoint resolution ' . 'are now set in the command `@context` property.`', \E_USER_WARNING);
         $this->authSchemes = $authSchemes;
     }
-
     /**
      * Get auth schemes added to command as required
      * for endpoint resolution
@@ -105,21 +84,14 @@ class Command implements CommandInterface
      */
     public function getAuthSchemes()
     {
-        trigger_error(__METHOD__ . ' is deprecated.  Auth schemes '
-        . 'resolved using the service `auth` trait or via endpoint resolution '
-        . 'can now be found in the command `@context` property.`'
-        , E_USER_WARNING
-        );
-
+        trigger_error(__METHOD__ . ' is deprecated.  Auth schemes ' . 'resolved using the service `auth` trait or via endpoint resolution ' . 'can now be found in the command `@context` property.`', \E_USER_WARNING);
         return $this->authSchemes ?: [];
     }
-
     /** @deprecated */
     public function get($name)
     {
         return $this[$name];
     }
-
     /**
      * Returns the metrics builder instance tied up to this command.
      *

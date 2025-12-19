@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Exception;
 
 /**
@@ -7,5 +8,4 @@ namespace ClikIT\Infinite_Uploads\Aws\Exception;
  */
 class CryptoException extends \RuntimeException
 {
-
 }

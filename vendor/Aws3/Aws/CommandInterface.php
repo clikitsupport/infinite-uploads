@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws;
 
 /**
@@ -16,14 +17,12 @@ interface CommandInterface extends \ArrayAccess, \Countable, \IteratorAggregate
      * @return array
      */
     public function toArray();
-
     /**
      * Get the name of the command
      *
      * @return string
      */
     public function getName();
-
     /**
      * Check if the command has a parameter by name.
      *
@@ -32,7 +31,6 @@ interface CommandInterface extends \ArrayAccess, \Countable, \IteratorAggregate
      * @return bool
      */
     public function hasParam($name);
-
     /**
      * Get the handler list used to transfer the command.
      *

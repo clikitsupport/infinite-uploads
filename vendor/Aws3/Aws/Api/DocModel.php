@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Api;
 
 /**
@@ -10,7 +11,6 @@ class DocModel
 {
     /** @var array */
     private $docs;
-
     /**
      * @param array $docs
      *
@@ -21,10 +21,8 @@ class DocModel
         if (!extension_loaded('tidy')) {
             throw new \RuntimeException('The "tidy" PHP extension is required.');
         }
-
         $this->docs = $docs;
     }
-
     /**
      * Convert the doc model to an array.
      *
@@ -34,7 +32,6 @@ class DocModel
     {
         return $this->docs;
     }
-
     /**
      * Retrieves documentation about the service.
      *
@@ -44,7 +41,6 @@ class DocModel
     {
         return isset($this->docs['service']) ? $this->docs['service'] : null;
     }
-
     /**
      * Retrieves documentation about an operation.
      *
@@ -54,11 +50,8 @@ class DocModel
      */
     public function getOperationDocs($operation)
     {
-        return isset($this->docs['operations'][$operation])
-            ? $this->docs['operations'][$operation]
-            : null;
+        return isset($this->docs['operations'][$operation]) ? $this->docs['operations'][$operation] : null;
     }
-
     /**
      * Retrieves documentation about an error.
      *
@@ -68,11 +61,8 @@ class DocModel
      */
     public function getErrorDocs($error)
     {
-        return isset($this->docs['shapes'][$error]['base'])
-            ? $this->docs['shapes'][$error]['base']
-            : null;
+        return isset($this->docs['shapes'][$error]['base']) ? $this->docs['shapes'][$error]['base'] : null;
     }
-
     /**
      * Retrieves documentation about a shape, specific to the context.
      *
@@ -87,7 +77,6 @@ class DocModel
         if (!isset($this->docs['shapes'][$shapeName])) {
             return '';
         }
-
         $result = '';
         $d = $this->docs['shapes'][$shapeName];
         if (isset($d['refs']["{$parentName}\${$ref}"])) {
@@ -95,45 +84,24 @@ class DocModel
         } elseif (isset($d['base'])) {
             $result = $d['base'];
         }
-
         if (isset($d['append'])) {
-            if (!isset($d['excludeAppend'])
-                || !in_array($parentName, $d['excludeAppend'])
-            ) {
+            if (!isset($d['excludeAppend']) || !in_array($parentName, $d['excludeAppend'])) {
                 $result .= $d['append'];
             }
         }
-
-        if (isset($d['appendOnly'])
-           && in_array($parentName, $d['appendOnly']['shapes'])
-        ) {
+        if (isset($d['appendOnly']) && in_array($parentName, $d['appendOnly']['shapes'])) {
             $result .= $d['appendOnly']['message'];
         }
-
         return $this->clean($result);
     }
-
-
     private function clean($content)
     {
         if (!$content) {
             return '';
         }
-
         $tidy = new \tidy();
-        $tidy->parseString($content, [
-            'indent' => true,
-            'doctype' => 'omit',
-            'output-html' => true,
-            'show-body-only' => true,
-            'drop-empty-paras' => true,
-            'clean' => true,
-            'drop-proprietary-attributes' => true,
-            'hide-comments' => true,
-            'logical-emphasis' => true
-        ]);
+        $tidy->parseString($content, ['indent' => \true, 'doctype' => 'omit', 'output-html' => \true, 'show-body-only' => \true, 'drop-empty-paras' => \true, 'clean' => \true, 'drop-proprietary-attributes' => \true, 'hide-comments' => \true, 'logical-emphasis' => \true]);
         $tidy->cleanRepair();
-
         return (string) $content;
     }
 }

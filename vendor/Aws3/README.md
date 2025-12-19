@@ -56,7 +56,7 @@ Jump To:
 // Require the Composer autoloader.
 require 'vendor/autoload.php';
 
-use ClikIT\Infinite_Uploads\Aws\S3\S3Client;
+use Aws\S3\S3Client;
 
 // Instantiate an Amazon S3 client.
 $s3 = new S3Client([
@@ -77,7 +77,7 @@ try {
         'Body'   => fopen('/path/to/file', 'r'),
         'ACL'    => 'public-read',
     ]);
-} catch (ClikIT\Infinite_Uploads\Aws\S3\Exception\S3Exception $e) {
+} catch (Aws\S3\Exception\S3Exception $e) {
     echo "There was an error uploading the file.\n";
 }
 ```

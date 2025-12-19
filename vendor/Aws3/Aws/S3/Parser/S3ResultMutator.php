@@ -5,7 +5,6 @@ namespace ClikIT\Infinite_Uploads\Aws\S3\Parser;
 use ClikIT\Infinite_Uploads\Aws\CommandInterface;
 use ClikIT\Infinite_Uploads\Aws\ResultInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
-
 /**
  * Interface for S3 result mutator implementations.
  * A S3 result mutator is meant for modifying a request
@@ -28,9 +27,5 @@ interface S3ResultMutator
      *
      * @return ResultInterface
      */
-    public function __invoke(
-        ResultInterface $result,
-        CommandInterface $command,
-        ResponseInterface $response
-    ): ResultInterface;
+    public function __invoke(ResultInterface $result, CommandInterface $command, ResponseInterface $response): ResultInterface;
 }

@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Api;
 
 /**
@@ -12,31 +13,24 @@ class Operation extends AbstractModel
     private $staticContextParams = [];
     private $contextParams;
     private $operationContextParams = [];
-
     public function __construct(array $definition, ShapeMap $shapeMap)
     {
         $definition['type'] = 'structure';
-
         if (!isset($definition['http']['method'])) {
             $definition['http']['method'] = 'POST';
         }
-
         if (!isset($definition['http']['requestUri'])) {
             $definition['http']['requestUri'] = '/';
         }
-
         if (isset($definition['staticContextParams'])) {
             $this->staticContextParams = $definition['staticContextParams'];
         }
-
         if (isset($definition['operationContextParams'])) {
             $this->operationContextParams = $definition['operationContextParams'];
         }
-
         parent::__construct($definition, $shapeMap);
         $this->contextParams = $this->setContextParams();
     }
-
     /**
      * Returns an associative array of the HTTP attribute of the operation:
      *
@@ -49,7 +43,6 @@ class Operation extends AbstractModel
     {
         return $this->definition['http'];
     }
-
     /**
      * Get the input shape of the operation.
      *
@@ -64,10 +57,8 @@ class Operation extends AbstractModel
                 $this->input = new StructureShape([], $this->shapeMap);
             }
         }
-
         return $this->input;
     }
-
     /**
      * Get the output shape of the operation.
      *
@@ -82,10 +73,8 @@ class Operation extends AbstractModel
                 $this->output = new StructureShape([], $this->shapeMap);
             }
         }
-
         return $this->output;
     }
-
     /**
      * Get an array of operation error shapes.
      *
@@ -103,10 +92,8 @@ class Operation extends AbstractModel
                 $this->errors = [];
             }
         }
-
         return $this->errors;
     }
-
     /**
      * Gets static modeled static values used for
      * endpoint resolution.
@@ -117,7 +104,6 @@ class Operation extends AbstractModel
     {
         return $this->staticContextParams;
     }
-
     /**
      * Gets definition of modeled dynamic values used
      * for endpoint resolution
@@ -128,7 +114,6 @@ class Operation extends AbstractModel
     {
         return $this->contextParams;
     }
-
     /**
      * Gets definition of modeled dynamic values used
      * for endpoint resolution
@@ -139,18 +124,13 @@ class Operation extends AbstractModel
     {
         return $this->operationContextParams;
     }
-
     private function setContextParams()
     {
         $members = $this->getInput()->getMembers();
         $contextParams = [];
-
-        foreach($members as $name => $shape) {
+        foreach ($members as $name => $shape) {
             if (!empty($contextParam = $shape->getContextParam())) {
-                $contextParams[$contextParam['name']] = [
-                    'shape' => $name,
-                    'type' => $shape->getType()
-                ];
+                $contextParams[$contextParam['name']] = ['shape' => $name, 'type' => $shape->getType()];
             }
         }
         return $contextParams;

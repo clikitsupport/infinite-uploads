@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Retry;
 
 /**
@@ -13,14 +14,12 @@ interface ConfigurationInterface
      * @return string
      */
     public function getMode();
-
     /**
      * Returns the maximum number of attempts that will be used for a request
      *
      * @return string
      */
     public function getMaxAttempts();
-
     /**
      * Returns the configuration as an associative array
      *

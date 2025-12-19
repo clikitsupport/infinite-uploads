@@ -7,7 +7,6 @@ use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\EachPromise;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromisorInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
-
 /**
  * Sends an iterator of requests concurrently using a capped pool size.
  *
@@ -27,7 +26,6 @@ class Pool implements PromisorInterface
      * @var EachPromise
      */
     private $each;
-
     /**
      * @param ClientInterface $client   Client used to send the requests.
      * @param array|\Iterator $requests Requests or functions that return
@@ -43,14 +41,12 @@ class Pool implements PromisorInterface
         if (!isset($config['concurrency'])) {
             $config['concurrency'] = 25;
         }
-
         if (isset($config['options'])) {
             $opts = $config['options'];
             unset($config['options']);
         } else {
             $opts = [];
         }
-
         $iterable = P\Create::iterFor($requests);
         $requests = static function () use ($iterable, $client, $opts) {
             foreach ($iterable as $key => $rfn) {
@@ -63,10 +59,8 @@ class Pool implements PromisorInterface
                 }
             }
         };
-
         $this->each = new EachPromise($requests(), $config);
     }
-
     /**
      * Get promise
      */
@@ -74,7 +68,6 @@ class Pool implements PromisorInterface
     {
         return $this->each->promise();
     }
-
     /**
      * Sends multiple requests concurrently and returns an array of responses
      * and exceptions that uses the same ordering as the provided requests.
@@ -101,10 +94,8 @@ class Pool implements PromisorInterface
         $pool = new static($client, $requests, $options);
         $pool->promise()->wait();
         \ksort($res);
-
         return $res;
     }
-
     /**
      * Execute callback(s)
      */

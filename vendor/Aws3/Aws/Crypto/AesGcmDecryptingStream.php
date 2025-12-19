@@ -1,37 +1,28 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\Crypto;
 
 use ClikIT\Infinite_Uploads\Aws\Exception\CryptoException;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\StreamDecoratorTrait;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
-
 /**
  * @internal Represents a stream of data to be gcm decrypted.
  */
 class AesGcmDecryptingStream implements AesStreamInterface
 {
     use StreamDecoratorTrait;
-
     private $aad;
-
     private $initializationVector;
-
     private $key;
-
     private $keySize;
-
     private $cipherText;
-
     private $tag;
-
     private $tagLength;
-
     /**
      * @var StreamInterface
      */
     private $stream;
-
     /**
      * @param StreamInterface $cipherText
      * @param string $key
@@ -41,15 +32,8 @@ class AesGcmDecryptingStream implements AesStreamInterface
      * @param int $tagLength
      * @param int $keySize
      */
-    public function __construct(
-        StreamInterface $cipherText,
-        $key,
-        $initializationVector,
-        $tag,
-        $aad = '',
-        $tagLength = 128,
-        $keySize = 256
-    ) {
+    public function __construct(StreamInterface $cipherText, $key, $initializationVector, $tag, $aad = '', $tagLength = 128, $keySize = 256)
+    {
         $this->cipherText = $cipherText;
         $this->key = $key;
         $this->initializationVector = $initializationVector;
@@ -61,44 +45,28 @@ class AesGcmDecryptingStream implements AesStreamInterface
         // __get().
         unset($this->stream);
     }
-
     public function getOpenSslName()
     {
         return "aes-{$this->keySize}-gcm";
     }
-
     public function getAesName()
     {
         return 'AES/GCM/NoPadding';
     }
-
     public function getCurrentIv()
     {
         return $this->initializationVector;
     }
-
     public function createStream()
     {
-
-        $result = \openssl_decrypt(
-            (string)$this->cipherText,
-            $this->getOpenSslName(),
-            $this->key,
-            OPENSSL_RAW_DATA,
-            $this->initializationVector,
-            $this->tag,
-            $this->aad
-        );
-        if ($result === false) {
-            throw new CryptoException('The requested object could not be '
-            . 'decrypted due to an invalid authentication tag.');
+        $result = \openssl_decrypt((string) $this->cipherText, $this->getOpenSslName(), $this->key, \OPENSSL_RAW_DATA, $this->initializationVector, $this->tag, $this->aad);
+        if ($result === \false) {
+            throw new CryptoException('The requested object could not be ' . 'decrypted due to an invalid authentication tag.');
         }
         return Psr7\Utils::streamFor($result);
-
     }
-
     public function isWritable(): bool
     {
-        return false;
+        return \false;
     }
 }

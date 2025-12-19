@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\S3\RegionalEndpoint;
 
 /**
@@ -12,7 +13,6 @@ interface ConfigurationInterface
      * @return string
      */
     public function getEndpointsType();
-
     /**
      * Returns the configuration as an associative array
      *

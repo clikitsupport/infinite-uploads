@@ -1,22 +1,19 @@
 <?php
+
 namespace ClikIT\Infinite_Uploads\Aws\S3\RegionalEndpoint;
 
 class Configuration implements ConfigurationInterface
 {
     private $endpointsType;
     private $isFallback;
-
-    public function __construct($endpointsType, $isFallback = false)
+    public function __construct($endpointsType, $isFallback = \false)
     {
         $this->endpointsType = strtolower($endpointsType);
         $this->isFallback = $isFallback;
         if (!in_array($this->endpointsType, ['legacy', 'regional'])) {
-            throw new \InvalidArgumentException(
-                "Configuration parameter must either be 'legacy' or 'regional'."
-            );
+            throw new \InvalidArgumentException("Configuration parameter must either be 'legacy' or 'regional'.");
         }
     }
-
     /**
      * {@inheritdoc}
      */
@@ -24,17 +21,13 @@ class Configuration implements ConfigurationInterface
     {
         return $this->endpointsType;
     }
-
     /**
      * {@inheritdoc}
      */
     public function toArray()
     {
-        return [
-            'endpoints_type' => $this->getEndpointsType()
-        ];
+        return ['endpoints_type' => $this->getEndpointsType()];
     }
-
     public function isFallback()
     {
         return $this->isFallback;
