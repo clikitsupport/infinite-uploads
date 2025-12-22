@@ -38,6 +38,9 @@ class InfiniteUploads {
         $this->capability = apply_filters( 'infinite_uploads_settings_capability', ( is_multisite() ? 'manage_network_options' : 'manage_options' ) );
 
         $this->stream_api_call_count = [ 'total' => 0, 'commands' => [] ];
+
+        add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
+        add_action( 'wp_ajax_infinite-uploads-sync-status', [ $this, 'check_sync_status' ] );
     }
 
     /**
@@ -46,7 +49,7 @@ class InfiniteUploads {
      */
     public static function get_instance() {
         if ( ! self::$instance ) {
-            self::$instance = new InfiniteUploads();
+            self::$instance = new Infinite_Uploads();
         }
 
         return self::$instance;
@@ -118,7 +121,6 @@ class InfiniteUploads {
                 //];
                 return $params;
             } );
-
         } else { //if we don't have cloud data we have to disable everything to avoid errors
             //turn off enabled flag
             if ( infinite_uploads_enabled() ) {
@@ -182,7 +184,6 @@ class InfiniteUploads {
 
         $this->plugin_compatibility();
 
-
         if ( ( ! defined( 'INFINITE_UPLOADS_DISABLE_REPLACE_UPLOAD_URL' ) || ! INFINITE_UPLOADS_DISABLE_REPLACE_UPLOAD_URL ) && $api_data->site->cdn_enabled ) {
             //makes this work with pre 3.5 MU ms_files rewriting (ie domain.com/files/filename.jpg)
             $original_root_dirs = $this->get_original_upload_dir_root();
@@ -201,6 +202,32 @@ class InfiniteUploads {
             }
             new Infinite_Uploads_Rewriter( $original_root_dirs['baseurl'], $replacements, $cdn_url );
         }
+
+    }
+
+    public function check_sync_status() {
+        $do_sync_complete     = get_site_option( 'iup_do_sync_complete', 'no' );
+        $do_download_complete = get_site_option( 'iup_do_download_complete', 'no' );
+
+        $data = [];
+        if ( $do_sync_complete === 'yes' && $do_download_complete === 'yes' ) {
+            $data['is_done'] = true;
+
+            update_site_option( 'iup_do_sync_complete', 'no' );
+            update_site_option( 'iup_do_download_complete', 'no' );
+        }
+
+        wp_send_json_success( $data );
+    }
+
+    public function enqueue_assets() {
+        wp_register_script( 'iup-sync-status', plugins_url( 'assets/js/infinite-uploads-sync-status.js', __FILE__ ), [ 'jquery' ], INFINITE_UPLOADS_VERSION, true );
+        wp_enqueue_script( 'iup-sync-status' );
+
+        wp_localize_script( 'iup-sync-status', 'iup_sync_status_params', [
+                'ajax_url' => admin_url( 'admin-ajax.php' ),
+                'nonce'    => wp_create_nonce( 'iup_sync_status' ),
+        ] );
     }
 
     /**
@@ -672,7 +699,9 @@ class InfiniteUploads {
     }
 
     public function filter_upload_dir( $dirs ) {
-        $root_dirs       = $this->get_original_upload_dir_root();
+        // bail if path is excluded.
+        $root_dirs = $this->get_original_upload_dir_root();
+
         $dirs['path']    = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $this->bucket ), $dirs['path'] );
         $dirs['basedir'] = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $this->bucket ), $dirs['basedir'] );
 
@@ -915,6 +944,27 @@ class InfiniteUploads {
             $data['filesize'] = '';
         }
 
+        // Do thumbnail, medium and full sizes for excluded files so they show in media library.
+        if ( Infinite_Uploads_Helper::is_file_exclusion_enabled() ) {
+            $file = $data['file'];
+            if ( ! Infinite_Uploads_Helper::is_path_excluded( $file ) ) {
+                $file      = Infinite_Uploads_Helper::get_file_name_from_path( $data['file'] );
+                $width     = $height = 150;
+                $mime_type = isset( $data['mime_type'] ) ? $data['mime_type'] : 'image/png';
+
+                $file_data = [
+                        'file'      => $file,
+                        'width'     => $width,
+                        'height'    => $height,
+                        'mime-type' => $mime_type,
+                ];
+
+                $data['sizes']['thumbnail'] = $file_data;
+                $data['sizes']['medium']    = $file_data;
+                $data['sizes']['full']      = $file_data;
+            }
+        }
+
         return $data;
     }
 
@@ -1083,7 +1133,6 @@ class InfiniteUploads {
             $exclusions[] = '/buddypress/';
         }
         $exclusions[] = '/bb-plugin/';
-        $exclusions[] = '/ShortpixelBackups/';
 
         return $exclusions;
     }
@@ -1108,16 +1157,29 @@ add_filter( 'woocommerce_log_directory', 'infinite_uploads_wc_uploads' );
 add_action( 'admin_init', 'wc_iu_export_fix' );
 function wc_iu_export_fix() {
     if ( defined( 'DOING_AJAX' ) && DOING_AJAX && current_user_can( 'manage_options' ) ) {
-        switch ( $_POST['action'] ) {
-            case 'woocommerce_do_ajax_product_export':
-                if ( class_exists( 'Infinite_Uploads' ) ) {
-                    remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );
-                }
+        if ( isset( $_POST['action'] ) && $_POST['action'] == 'woocommerce_do_ajax_product_export' && class_exists( 'Infinite_Uploads' ) ) {
+            remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );
         }
     }
+
     if ( isset( $_GET['page'] ) && $_GET['page'] == 'product_exporter' ) {
         if ( class_exists( 'Infinite_Uploads' ) ) {
             remove_filter( 'upload_dir', array( Infinite_Uploads::get_instance(), 'filter_upload_dir' ) );
+        }
+    }
+}
+
+
+// Disable Smush filter on Media Library.
+add_action( 'admin_init', 'disable_smush_on_media_library' );
+
+function disable_smush_on_media_library() {
+    if ( class_exists( '\Smush\App\Media_Library' ) ) {
+        $wp_smush               = WP_Smush::get_instance();
+        $media_library_instance = $wp_smush->library();
+
+        if ( $media_library_instance instanceof \Smush\App\Media_Library ) {
+            remove_filter( 'wp_prepare_attachment_for_js', array( $media_library_instance, 'smush_send_status' ), 99 );
         }
     }
 }
@@ -1173,31 +1235,6 @@ function infinite_uploads_complainz_fix() {
 }
 
 add_action( 'init', 'infinite_uploads_complainz_fix' );
-
-/**
- * Check if a file is already offloaded to S3.
- *
- * @param  string  $url  The URL of the file to check.
- *
- * @return bool True if the file is offloaded, false otherwise.
- */
-function infinite_uploads_check_offloaded( $url ) {
-    global $wpdb;
-    $parsed = wp_parse_url( $url );
-
-    if ( isset( $parsed['path'] ) ) {
-        // Check if the file is already offloaded to S3.
-        $total = $wpdb->get_row( "SELECT * FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file LIKE '%{$parsed['path']}%'" );
-        if ( $total && isset( $total->synced ) && $total->synced == 1 ) {
-            return true;
-        } else {
-            return false;
-
-        }
-    } else {
-        return false;
-    }
-}
 
 /**
  * Exclude beaver builder cache directories from being synced.
