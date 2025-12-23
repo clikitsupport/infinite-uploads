@@ -1,5 +1,4 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\Aws;
 
 use ClikIT\Infinite_Uploads\Aws\Api\ListShape;
@@ -8,6 +7,7 @@ use ClikIT\Infinite_Uploads\Aws\Api\Service;
 use ClikIT\Infinite_Uploads\Aws\Api\Shape;
 use ClikIT\Infinite_Uploads\Aws\Api\StructureShape;
 use Closure;
+
 /**
  * Inspects command input values and casts them to their modeled type.
  * This covers query compatible services which have migrated from query
@@ -17,29 +17,35 @@ use Closure;
  */
 class QueryCompatibleInputMiddleware
 {
+
     /** @var callable */
     private $nextHandler;
+
     /** @var Service */
     private $service;
+
     /** @var CommandInterface */
     private $command;
+
     /**
      * Create a middleware wrapper function.
      *
      * @param Service $service
      * @return Closure
      */
-    public static function wrap(Service $service): Closure
+    public static function wrap(Service $service) : Closure
     {
         return static function (callable $handler) use ($service) {
             return new self($handler, $service);
         };
     }
+
     public function __construct(callable $nextHandler, Service $service)
     {
         $this->service = $service;
         $this->nextHandler = $nextHandler;
     }
+
     public function __invoke(CommandInterface $cmd)
     {
         $this->command = $cmd;
@@ -47,14 +53,17 @@ class QueryCompatibleInputMiddleware
         $op = $this->service->getOperation($cmd->getName());
         $inputMembers = $op->getInput()->getMembers();
         $input = $cmd->toArray();
+
         foreach ($input as $param => $value) {
             if (isset($inputMembers[$param])) {
                 $shape = $inputMembers[$param];
                 $this->processInput($value, $shape, [$param]);
             }
         }
+
         return $nextHandler($this->command);
     }
+
     /**
      * Recurses a given input shape. if a given scalar input does not match its
      * modeled type, it is cast to its modeled type.
@@ -65,7 +74,7 @@ class QueryCompatibleInputMiddleware
      *
      * @return void
      */
-    private function processInput($input, $shape, array $path): void
+    private function processInput($input, $shape, array $path) : void
     {
         switch ($shape->getType()) {
             case 'structure':
@@ -81,6 +90,7 @@ class QueryCompatibleInputMiddleware
                 $this->processScalar($input, $shape, $path);
         }
     }
+
     /**
      * @param array $input
      * @param StructureShape $shape
@@ -88,7 +98,11 @@ class QueryCompatibleInputMiddleware
      *
      * @return void
      */
-    private function processStructure(array $input, StructureShape $shape, array $path): void
+    private function processStructure(
+        array $input,
+        StructureShape $shape,
+        array $path
+    ) : void
     {
         foreach ($input as $param => $value) {
             if ($shape->hasMember($param)) {
@@ -97,6 +111,7 @@ class QueryCompatibleInputMiddleware
             }
         }
     }
+
     /**
      * @param array $input
      * @param ListShape $shape
@@ -104,13 +119,18 @@ class QueryCompatibleInputMiddleware
      *
      * @return void
      */
-    private function processList(array $input, ListShape $shape, array $path): void
+    private function processList(
+        array $input,
+        ListShape $shape,
+        array $path
+    ) : void
     {
         foreach ($input as $param => $value) {
             $memberPath = array_merge($path, [$param]);
             $this->processInput($value, $shape->getMember(), $memberPath);
         }
     }
+
     /**
      * @param array $input
      * @param MapShape $shape
@@ -118,13 +138,14 @@ class QueryCompatibleInputMiddleware
      *
      * @return void
      */
-    private function processMap(array $input, MapShape $shape, array $path): void
+    private function processMap(array $input, MapShape $shape, array $path) : void
     {
         foreach ($input as $param => $value) {
             $memberPath = array_merge($path, [$param]);
             $this->processInput($value, $shape->getValue(), $memberPath);
         }
     }
+
     /**
      * @param $input
      * @param Shape $shape
@@ -132,15 +153,22 @@ class QueryCompatibleInputMiddleware
      *
      * @return void
      */
-    private function processScalar($input, Shape $shape, array $path): void
+    private function processScalar($input, Shape $shape, array $path) : void
     {
         $expectedType = $shape->getType();
+
         if (!$this->isModeledType($input, $expectedType)) {
-            trigger_error("The provided type for `" . implode(' -> ', $path) . "` value was `" . (gettype($input) === 'double' ? 'float' : gettype($input)) . "`." . " The modeled type is `{$expectedType}`.", \E_USER_WARNING);
+            trigger_error(
+                "The provided type for `". implode(' -> ', $path) ."` value was `"
+                . (gettype($input) ===  'double' ? 'float' : gettype($input)) . "`."
+                . " The modeled type is `{$expectedType}`.",
+                E_USER_WARNING
+            );
             $value = $this->castValue($input, $expectedType);
             $this->changeValueAtPath($path, $value);
         }
     }
+
     /**
      * Modifies command in place
      *
@@ -149,24 +177,26 @@ class QueryCompatibleInputMiddleware
      *
      * @return void
      */
-    private function changeValueAtPath(array $path, $newValue): void
+    private function changeValueAtPath(array $path, $newValue) : void
     {
-        $commandRef =& $this->command;
+        $commandRef = &$this->command;
+
         foreach ($path as $segment) {
             if (!isset($commandRef[$segment])) {
                 return;
             }
-            $commandRef =& $commandRef[$segment];
+            $commandRef = &$commandRef[$segment];
         }
         $commandRef = $newValue;
     }
+
     /**
      * @param $value
      * @param $type
      *
      * @return bool
      */
-    private function isModeledType($value, $type): bool
+    private function isModeledType($value, $type) : bool
     {
         switch ($type) {
             case 'string':
@@ -177,9 +207,10 @@ class QueryCompatibleInputMiddleware
             case 'float':
                 return is_float($value);
             default:
-                return \true;
+                return true;
         }
     }
+
     /**
      * @param $value
      * @param $type
@@ -191,7 +222,7 @@ class QueryCompatibleInputMiddleware
         switch ($type) {
             case 'integer':
                 return (int) $value;
-            case 'long':
+            case 'long' :
                 return $value + 0;
             case 'float':
                 return (float) $value;

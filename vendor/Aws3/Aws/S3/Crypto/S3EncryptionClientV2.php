@@ -1,5 +1,4 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\Aws\S3\Crypto;
 
 use ClikIT\Infinite_Uploads\Aws\Crypto\DecryptionTraitV2;
@@ -16,15 +15,16 @@ use ClikIT\Infinite_Uploads\Aws\S3\S3Client;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
+
 /**
  * Provides a wrapper for an S3Client that supplies functionality to encrypt
  * data on putObject[Async] calls and decrypt data on getObject[Async] calls.
  *
- * AWS strongly recommends the upgrade to the S3EncryptionClientV3 (over the
- * S3EncryptionClientV2), as it offers updated data security best practices to our
- * customers who upgrade. S3EncryptionClientV3 contains breaking changes, so this
+ * AWS strongly recommends the upgrade to the S3EncryptionClientV2 (over the
+ * S3EncryptionClient), as it offers updated data security best practices to our
+ * customers who upgrade. S3EncryptionClientV2 contains breaking changes, so this
  * will require planning by engineering teams to migrate. New workflows should
- * just start with S3EncryptionClientV3.
+ * just start with S3EncryptionClientV2.
  *
  * Note that for PHP versions of < 7.1, this class uses an AES-GCM polyfill
  * for encryption since there is no native PHP support. The performance for large
@@ -34,9 +34,9 @@ use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
  * Example write path:
  *
  * <code>
- * use Aws\Crypto\KmsMaterialsProviderV2;
- * use Aws\S3\Crypto\S3EncryptionClientV2;
- * use Aws\S3\S3Client;
+ * use ClikIT\Infinite_Uploads\Aws\Crypto\KmsMaterialsProviderV2;
+ * use ClikIT\Infinite_Uploads\Aws\S3\Crypto\S3EncryptionClientV2;
+ * use ClikIT\Infinite_Uploads\Aws\S3\S3Client;
  *
  * $encryptionClient = new S3EncryptionClientV2(
  *     new S3Client([
@@ -75,7 +75,6 @@ use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
  *         'Cipher' => 'gcm',
  *         'KeySize' => 256,
  *     ],
- *     '@CommitmentPolicy' => 'FORBID_ENCRYPT_ALLOW_DECRYPT',
  *     'Bucket' => 'your-bucket',
  *     'Key' => 'your-key',
  * ]);
@@ -88,10 +87,13 @@ class S3EncryptionClientV2 extends AbstractCryptoClientV2
     use DecryptionTraitV2;
     use EncryptionTraitV2;
     use UserAgentTrait;
+
     const CRYPTO_VERSION = '2.1';
+
     private $client;
     private $instructionFileSuffix;
     private $legacyWarningCount;
+
     /**
      * @param S3Client $client The S3Client to be used for true uploading and
      *                         retrieving objects from S3 when using the
@@ -100,17 +102,24 @@ class S3EncryptionClientV2 extends AbstractCryptoClientV2
      *                                           default when using instruction
      *                                           files for metadata storage.
      */
-    public function __construct(S3Client $client, $instructionFileSuffix = null)
-    {
+    public function __construct(
+        S3Client $client,
+        $instructionFileSuffix = null
+    ) {
         $this->client = $client;
         $this->instructionFileSuffix = $instructionFileSuffix;
         $this->legacyWarningCount = 0;
-        MetricsBuilder::appendMetricsCaptureMiddleware($this->client->getHandlerList(), MetricsBuilder::S3_CRYPTO_V2);
+        MetricsBuilder::appendMetricsCaptureMiddleware(
+            $this->client->getHandlerList(),
+            MetricsBuilder::S3_CRYPTO_V2
+        );
     }
+
     private static function getDefaultStrategy()
     {
         return new HeadersMetadataStrategy();
     }
+
     /**
      * Encrypts the data in the 'Body' field of $args and promises to upload it
      * to the specified location on S3.
@@ -162,34 +171,56 @@ class S3EncryptionClientV2 extends AbstractCryptoClientV2
     {
         $provider = $this->getMaterialsProvider($args);
         unset($args['@MaterialsProvider']);
+
         $instructionFileSuffix = $this->getInstructionFileSuffix($args);
         unset($args['@InstructionFileSuffix']);
+
         $strategy = $this->getMetadataStrategy($args, $instructionFileSuffix);
         unset($args['@MetadataStrategy']);
+
         $envelope = new MetadataEnvelope();
-        return Promise\Create::promiseFor($this->encrypt(Psr7\Utils::streamFor($args['Body']), $args, $provider, $envelope))->then(function ($encryptedBodyStream) use ($args) {
-            $hash = new PhpHash('sha256');
-            $hashingEncryptedBodyStream = new HashingStream($encryptedBodyStream, $hash, self::getContentShaDecorator($args));
-            return [$hashingEncryptedBodyStream, $args];
-        })->then(function ($putObjectContents) use ($strategy, $envelope) {
-            list($bodyStream, $args) = $putObjectContents;
-            if ($strategy === null) {
-                $strategy = self::getDefaultStrategy();
+
+        return Promise\Create::promiseFor($this->encrypt(
+            Psr7\Utils::streamFor($args['Body']),
+            $args,
+            $provider,
+            $envelope
+        ))->then(
+            function ($encryptedBodyStream) use ($args) {
+                $hash = new PhpHash('sha256');
+                $hashingEncryptedBodyStream = new HashingStream(
+                    $encryptedBodyStream,
+                    $hash,
+                    self::getContentShaDecorator($args)
+                );
+                return [$hashingEncryptedBodyStream, $args];
             }
-            $updatedArgs = $strategy->save($envelope, $args);
-            $updatedArgs['Body'] = $bodyStream;
-            return $updatedArgs;
-        })->then(function ($args) {
-            unset($args['@CipherOptions']);
-            return $this->client->putObjectAsync($args);
-        });
+        )->then(
+            function ($putObjectContents) use ($strategy, $envelope) {
+                list($bodyStream, $args) = $putObjectContents;
+                if ($strategy === null) {
+                    $strategy = self::getDefaultStrategy();
+                }
+
+                $updatedArgs = $strategy->save($envelope, $args);
+                $updatedArgs['Body'] = $bodyStream;
+                return $updatedArgs;
+            }
+        )->then(
+            function ($args) {
+                unset($args['@CipherOptions']);
+                return $this->client->putObjectAsync($args);
+            }
+        );
     }
+
     private static function getContentShaDecorator(&$args)
     {
         return function ($hash) use (&$args) {
             $args['ContentSHA256'] = bin2hex($hash);
         };
     }
+
     /**
      * Encrypts the data in the 'Body' field of $args and uploads it to the
      * specified location on S3.
@@ -233,7 +264,7 @@ class S3EncryptionClientV2 extends AbstractCryptoClientV2
      *   instruction file if an using an InstructionFileMetadataHandler was
      *   determined.
      *
-     * @return \Aws\Result PutObject call result with the details of uploading
+     * @return \ClikIT\Infinite_Uploads\Aws\Result PutObject call result with the details of uploading
      *                     the encrypted file.
      *
      * @throws \InvalidArgumentException Thrown when arguments above are not
@@ -243,6 +274,7 @@ class S3EncryptionClientV2 extends AbstractCryptoClientV2
     {
         return $this->putObjectAsync($args)->wait();
     }
+
     /**
      * Promises to retrieve an object from S3 and decrypt the data in the
      * 'Body' field.
@@ -261,10 +293,7 @@ class S3EncryptionClientV2 extends AbstractCryptoClientV2
      *      - 'V2_AND_LEGACY' indicates that objects encrypted with both
      *        S3EncryptionClientV2 and older legacy encryption clients are able
      *        to be decrypted.
-     * - @CommitmentPolicy: (string) Must be set to 'FORBID_ENCRYPT_ALLOW_DECRYPT'.
-     *      - 'FORBID_ENCRYPT_ALLOW_DECRYPT' indicates that the client is configured
-     *         to read messages encrypted with key commitment or without key commitment.
-     * 
+     *
      * The optional configuration arguments are as follows:
      *
      * - SaveAs: (string) The path to a file on disk to save the decrypted
@@ -296,38 +325,82 @@ class S3EncryptionClientV2 extends AbstractCryptoClientV2
     {
         $provider = $this->getMaterialsProvider($args);
         unset($args['@MaterialsProvider']);
-        $keyCommitmentPolicy = $this->getKeyCommitmentPolicy($args);
+
         $instructionFileSuffix = $this->getInstructionFileSuffix($args);
         unset($args['@InstructionFileSuffix']);
+
         $strategy = $this->getMetadataStrategy($args, $instructionFileSuffix);
         unset($args['@MetadataStrategy']);
-        if (!isset($args['@SecurityProfile']) || !in_array($args['@SecurityProfile'], self::$supportedSecurityProfiles)) {
-            throw new CryptoException("@SecurityProfile is required and must be" . " set to 'V2' or 'V2_AND_LEGACY'");
+
+        if (!isset($args['@SecurityProfile'])
+            || !in_array($args['@SecurityProfile'], self::$supportedSecurityProfiles)
+        ) {
+            throw new CryptoException("@SecurityProfile is required and must be"
+                . " set to 'V2' or 'V2_AND_LEGACY'");
         }
+
         // Only throw this legacy warning once per client
-        if (in_array($args['@SecurityProfile'], self::$legacySecurityProfiles) && $this->legacyWarningCount < 1) {
+        if (in_array($args['@SecurityProfile'], self::$legacySecurityProfiles)
+            && $this->legacyWarningCount < 1
+        ) {
             $this->legacyWarningCount++;
-            trigger_error("This S3 Encryption Client operation is configured to" . " read encrypted data with legacy encryption modes. If you" . " don't have objects encrypted with these legacy modes," . " you should disable support for them to enhance security. ", \E_USER_WARNING);
+            trigger_error(
+                "This S3 Encryption Client operation is configured to"
+                    . " read encrypted data with legacy encryption modes. If you"
+                    . " don't have objects encrypted with these legacy modes,"
+                    . " you should disable support for them to enhance security. ",
+                E_USER_WARNING
+            );
         }
+
         $saveAs = null;
         if (!empty($args['SaveAs'])) {
             $saveAs = $args['SaveAs'];
         }
-        $promise = $this->client->getObjectAsync($args)->then(function ($result) use ($provider, $instructionFileSuffix, $strategy, $args) {
-            if ($strategy === null) {
-                $strategy = $this->determineGetObjectStrategy($result, $instructionFileSuffix);
-            }
-            $envelope = $strategy->load($args + ['Metadata' => $result['Metadata']]);
-            $result['Body'] = $this->decrypt($result['Body'], $provider, $envelope, $args);
-            return $result;
-        })->then(function ($result) use ($saveAs) {
-            if (!empty($saveAs)) {
-                file_put_contents($saveAs, (string) $result['Body'], \LOCK_EX);
-            }
-            return $result;
-        });
+
+        $promise = $this->client->getObjectAsync($args)
+            ->then(
+                function ($result) use (
+                    $provider,
+                    $instructionFileSuffix,
+                    $strategy,
+                    $args
+                ) {
+                    if ($strategy === null) {
+                        $strategy = $this->determineGetObjectStrategy(
+                            $result,
+                            $instructionFileSuffix
+                        );
+                    }
+
+                    $envelope = $strategy->load($args + [
+                        'Metadata' => $result['Metadata']
+                    ]);
+
+                    $result['Body'] = $this->decrypt(
+                        $result['Body'],
+                        $provider,
+                        $envelope,
+                        $args
+                    );
+                    return $result;
+                }
+            )->then(
+                function ($result) use ($saveAs) {
+                    if (!empty($saveAs)) {
+                        file_put_contents(
+                            $saveAs,
+                            (string)$result['Body'],
+                            LOCK_EX
+                        );
+                    }
+                    return $result;
+                }
+            );
+
         return $promise;
     }
+
     /**
      * Retrieves an object from S3 and decrypts the data in the 'Body' field.
      *
@@ -345,10 +418,6 @@ class S3EncryptionClientV2 extends AbstractCryptoClientV2
      *      - 'V2_AND_LEGACY' indicates that objects encrypted with both
      *        S3EncryptionClientV2 and older legacy encryption clients are able
      *        to be decrypted.
-     * - @CommitmentPolicy: (string) Must be set to 'FORBID_ENCRYPT_ALLOW_DECRYPT'.
-     *      - 'FORBID_ENCRYPT_ALLOW_DECRYPT' indicates that the client is 
-     *         configured to read messages encrypted with key commitment 
-     *         or without key commitment.
      *
      * The optional configuration arguments are as follows:
      *
@@ -367,7 +436,7 @@ class S3EncryptionClientV2 extends AbstractCryptoClientV2
      *   be specified and provided to the decrypt operation. Ignored for non-KMS
      *   materials providers. Defaults to false.
      *
-     * @return \Aws\Result GetObject call result with the 'Body' field
+     * @return \ClikIT\Infinite_Uploads\Aws\Result GetObject call result with the 'Body' field
      *                     wrapped in a decryption stream with its metadata
      *                     information.
      *

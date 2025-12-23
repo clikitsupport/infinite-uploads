@@ -1,28 +1,31 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\Aws\Exception;
 
 use ClikIT\Infinite_Uploads\Aws\HasMonitoringEventsTrait;
 use ClikIT\Infinite_Uploads\Aws\MonitoringEventsInterface;
 use ClikIT\Infinite_Uploads\Aws\Multipart\UploadState;
-class MultipartUploadException extends \RuntimeException implements MonitoringEventsInterface
+
+class MultipartUploadException extends \RuntimeException implements
+    MonitoringEventsInterface
 {
     use HasMonitoringEventsTrait;
+
     /** @var UploadState State of the erroneous transfer */
     private $state;
+
     /**
      * @param UploadState      $state Upload state at time of the exception.
      * @param \Exception|array $prev  Exception being thrown.
      */
-    public function __construct(UploadState $state, $prev = null)
-    {
+    public function __construct(UploadState $state, $prev = null) {
         $msg = 'An exception occurred while performing a multipart upload';
+
         if (is_array($prev)) {
             $msg = strtr($msg, ['performing' => 'uploading parts to']);
             $msg .= ". The following parts had errors:\n";
             /** @var $error AwsException */
             foreach ($prev as $part => $error) {
-                $msg .= "- Part {$part}: " . $error->getMessage() . "\n";
+                $msg .= "- Part {$part}: " . $error->getMessage(). "\n";
             }
         } elseif ($prev instanceof AwsException) {
             switch ($prev->getCommand()->getName()) {
@@ -39,12 +42,15 @@ class MultipartUploadException extends \RuntimeException implements MonitoringEv
             }
             $msg .= ": {$prev->getMessage()}";
         }
+
         if (!$prev instanceof \Exception) {
             $prev = null;
         }
+
         parent::__construct($msg, 0, $prev);
         $this->state = $state;
     }
+
     /**
      * Get the state of the transfer
      *

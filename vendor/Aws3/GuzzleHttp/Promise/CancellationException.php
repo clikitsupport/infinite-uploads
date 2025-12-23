@@ -1,6 +1,7 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 
 /**

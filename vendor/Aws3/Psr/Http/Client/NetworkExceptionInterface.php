@@ -3,6 +3,7 @@
 namespace ClikIT\Infinite_Uploads\Psr\Http\Client;
 
 use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
+
 /**
  * Thrown when the request cannot be completed because of network issues.
  *

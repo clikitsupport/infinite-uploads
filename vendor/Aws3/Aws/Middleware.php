@@ -1,5 +1,4 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\Aws;
 
 use ClikIT\Infinite_Uploads\Aws\Api\Service;
@@ -7,7 +6,6 @@ use ClikIT\Infinite_Uploads\Aws\Api\Validator;
 use ClikIT\Infinite_Uploads\Aws\Credentials\CredentialsInterface;
 use ClikIT\Infinite_Uploads\Aws\EndpointV2\EndpointProviderV2;
 use ClikIT\Infinite_Uploads\Aws\Exception\AwsException;
-use ClikIT\Infinite_Uploads\Aws\Signature\DpopSignature;
 use ClikIT\Infinite_Uploads\Aws\Signature\S3ExpressSignature;
 use ClikIT\Infinite_Uploads\Aws\Token\TokenAuthorization;
 use ClikIT\Infinite_Uploads\Aws\Token\TokenInterface;
@@ -15,6 +13,7 @@ use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7\LazyOpenStream;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
+
 final class Middleware
 {
     /**
@@ -27,34 +26,60 @@ final class Middleware
      *
      * @return callable
      */
-    public static function sourceFile(Service $api, $bodyParameter = 'Body', $sourceParameter = 'SourceFile')
-    {
-        return function (callable $handler) use ($api, $bodyParameter, $sourceParameter) {
-            return function (CommandInterface $command, ?RequestInterface $request = null) use ($handler, $api, $bodyParameter, $sourceParameter) {
+    public static function sourceFile(
+        Service $api,
+        $bodyParameter = 'Body',
+        $sourceParameter = 'SourceFile'
+    ) {
+        return function (callable $handler) use (
+            $api,
+            $bodyParameter,
+            $sourceParameter
+        ) {
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null)
+            use (
+                $handler,
+                $api,
+                $bodyParameter,
+                $sourceParameter
+            ) {
                 $operation = $api->getOperation($command->getName());
                 $source = $command[$sourceParameter];
-                if ($source !== null && $operation->getInput()->hasMember($bodyParameter)) {
+
+                if ($source !== null
+                    && $operation->getInput()->hasMember($bodyParameter)
+                ) {
                     $lazyOpenStream = new LazyOpenStream($source, 'r');
                     $command[$bodyParameter] = $lazyOpenStream;
                     unset($command[$sourceParameter]);
+
                     $next = $handler($command, $request);
                     // To avoid failures in some tests cases
                     if ($next !== null && method_exists($next, 'then')) {
-                        return $next->then(function ($result) use ($lazyOpenStream) {
-                            // To make sure the resource is closed.
+                        return $next->then(
+                            function ($result) use ($lazyOpenStream) {
+                                // To make sure the resource is closed.
+                                $lazyOpenStream->close();
+
+                                return $result;
+                            }
+                        )->otherwise(function (\Throwable $e) use ($lazyOpenStream) {
                             $lazyOpenStream->close();
-                            return $result;
-                        })->otherwise(function (\Throwable $e) use ($lazyOpenStream) {
-                            $lazyOpenStream->close();
+
                             throw $e;
                         });
                     }
+
                     return $next;
                 }
+
                 return $handler($command, $request);
             };
         };
     }
+
     /**
      * Adds a middleware that uses client-side validation.
      *
@@ -66,16 +91,27 @@ final class Middleware
     {
         $validator = $validator ?: new Validator();
         return function (callable $handler) use ($api, $validator) {
-            return function (CommandInterface $command, ?RequestInterface $request = null) use ($api, $validator, $handler) {
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null
+            ) use ($api, $validator, $handler) {
                 if ($api->isModifiedModel()) {
-                    $api = new Service($api->getDefinition(), $api->getProvider());
+                    $api = new Service(
+                        $api->getDefinition(),
+                        $api->getProvider()
+                    );
                 }
                 $operation = $api->getOperation($command->getName());
-                $validator->validate($command->getName(), $operation->getInput(), $command->toArray());
+                $validator->validate(
+                    $command->getName(),
+                    $operation->getInput(),
+                    $command->toArray()
+                );
                 return $handler($command, $request);
             };
         };
     }
+
     /**
      * Builds an HTTP request for a command.
      *
@@ -93,6 +129,7 @@ final class Middleware
             };
         };
     }
+
     /**
      * Creates a middleware that signs requests for a command.
      *
@@ -108,31 +145,48 @@ final class Middleware
     public static function signer(callable $credProvider, callable $signatureFunction, $tokenProvider = null, $config = [])
     {
         return function (callable $handler) use ($signatureFunction, $credProvider, $tokenProvider, $config) {
-            return function (CommandInterface $command, RequestInterface $request) use ($handler, $signatureFunction, $credProvider, $tokenProvider, $config) {
+            return function (
+                CommandInterface $command,
+                RequestInterface $request
+            ) use ($handler, $signatureFunction, $credProvider, $tokenProvider, $config) {
                 $signer = $signatureFunction($command);
-                // Token authorization path
                 if ($signer instanceof TokenAuthorization) {
-                    return $tokenProvider()->then(function (TokenInterface $token) use ($handler, $command, $signer, $request) {
-                        $command->getMetricsBuilder()->identifyMetricByValueAndAppend('token', $token);
-                        return $handler($command, $signer->authorizeRequest($request, $token));
-                    });
+                    return $tokenProvider()->then(
+                        function (TokenInterface $token)
+                        use ($handler, $command, $signer, $request) {
+                            return $handler(
+                                $command,
+                                $signer->authorizeRequest($request, $token)
+                            );
+                        }
+                    );
                 }
-                // DPoP path
-                if ($signer instanceof DpopSignature) {
-                    if (empty($key = $command['dpopKey']) || !$key instanceof \OpenSSLAsymmetricKey) {
-                        throw new \RuntimeException('A valid DPoP key must be present for DPoP signatures');
+
+                if ($signer instanceof S3ExpressSignature) {
+                    $credentialPromise = $config['s3_express_identity_provider']($command);
+                } else {
+                    $credentialPromise = $credProvider();
+                }
+
+                return $credentialPromise->then(
+                    function (CredentialsInterface $creds)
+                    use ($handler, $command, $signer, $request) {
+                        // Capture credentials metric
+                        $command->getMetricsBuilder()->identifyMetricByValueAndAppend(
+                            'credentials',
+                            $creds
+                        );
+
+                        return $handler(
+                            $command,
+                            $signer->signRequest($request, $creds)
+                        );
                     }
-                    return $handler($command, $signer->signRequest($request, $key));
-                }
-                // Credential signing path
-                $credentialPromise = $signer instanceof S3ExpressSignature ? $config['s3_express_identity_provider']($command) : $credProvider();
-                return $credentialPromise->then(function (CredentialsInterface $creds) use ($handler, $command, $signer, $request) {
-                    $command->getMetricsBuilder()->identifyMetricByValueAndAppend('credentials', $creds);
-                    return $handler($command, $signer->signRequest($request, $creds));
-                });
+                );
             };
         };
     }
+
     /**
      * Creates a middleware that invokes a callback at a given step.
      *
@@ -148,12 +202,16 @@ final class Middleware
     public static function tap(callable $fn)
     {
         return function (callable $handler) use ($fn) {
-            return function (CommandInterface $command, ?RequestInterface $request = null) use ($handler, $fn) {
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null
+            ) use ($handler, $fn) {
                 $fn($command, $request);
                 return $handler($command, $request);
             };
         };
     }
+
     /**
      * Middleware wrapper function that retries requests based on the boolean
      * result of invoking the provided "decider" function.
@@ -171,10 +229,14 @@ final class Middleware
      *
      * @return callable
      */
-    public static function retry(?callable $decider = null, ?callable $delay = null, $stats = \false)
-    {
+    public static function retry(
+        ?callable $decider = null,
+        ?callable $delay = null,
+        $stats = false
+    ) {
         $decider = $decider ?: RetryMiddleware::createDefaultDecider();
         $delay = $delay ?: [RetryMiddleware::class, 'exponentialDelay'];
+
         return function (callable $handler) use ($decider, $delay, $stats) {
             return new RetryMiddleware($decider, $delay, $handler, $stats);
         };
@@ -191,8 +253,14 @@ final class Middleware
     public static function invocationId()
     {
         return function (callable $handler) {
-            return function (CommandInterface $command, RequestInterface $request) use ($handler) {
-                return $handler($command, $request->withHeader('aws-sdk-invocation-id', md5(uniqid(gethostname(), \true))));
+            return function (
+                CommandInterface $command,
+                RequestInterface $request
+            ) use ($handler){
+                return $handler($command, $request->withHeader(
+                    'aws-sdk-invocation-id',
+                    md5(uniqid(gethostname(), true))
+                ));
             };
         };
     }
@@ -209,10 +277,20 @@ final class Middleware
     public static function contentType(array $operations)
     {
         return function (callable $handler) use ($operations) {
-            return function (CommandInterface $command, ?RequestInterface $request = null) use ($handler, $operations) {
-                if (!$request->hasHeader('Content-Type') && in_array($command->getName(), $operations, \true) && $uri = $request->getBody()->getMetadata('uri')) {
-                    $request = $request->withHeader('Content-Type', Psr7\MimeType::fromFilename($uri) ?: 'application/octet-stream');
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null
+            ) use ($handler, $operations) {
+                if (!$request->hasHeader('Content-Type')
+                    && in_array($command->getName(), $operations, true)
+                    && ($uri = $request->getBody()->getMetadata('uri'))
+                ) {
+                    $request = $request->withHeader(
+                        'Content-Type',
+                        Psr7\MimeType::fromFilename($uri) ?: 'application/octet-stream'
+                    );
                 }
+
                 return $handler($command, $request);
             };
         };
@@ -229,18 +307,27 @@ final class Middleware
     public static function recursionDetection()
     {
         return function (callable $handler) {
-            return function (CommandInterface $command, RequestInterface $request) use ($handler) {
+            return function (
+                CommandInterface $command,
+                RequestInterface $request
+            ) use ($handler){
                 $isLambda = getenv('AWS_LAMBDA_FUNCTION_NAME');
                 $traceId = str_replace('\e', '\x1b', getenv('_X_AMZN_TRACE_ID'));
+
                 if ($isLambda && $traceId) {
                     if (!$request->hasHeader('X-Amzn-Trace-Id')) {
                         $ignoreChars = ['=', ';', ':', '+', '&', '[', ']', '{', '}', '"', '\'', ','];
                         $traceIdEncoded = rawurlencode(stripcslashes($traceId));
-                        foreach ($ignoreChars as $char) {
+
+                        foreach($ignoreChars as $char) {
                             $encodedChar = rawurlencode($char);
-                            $traceIdEncoded = str_replace($encodedChar, $char, $traceIdEncoded);
+                            $traceIdEncoded = str_replace($encodedChar, $char,  $traceIdEncoded);
                         }
-                        return $handler($command, $request->withHeader('X-Amzn-Trace-Id', $traceIdEncoded));
+
+                        return $handler($command, $request->withHeader(
+                            'X-Amzn-Trace-Id',
+                            $traceIdEncoded
+                        ));
                     }
                 }
                 return $handler($command, $request);
@@ -259,18 +346,26 @@ final class Middleware
     public static function history(History $history)
     {
         return function (callable $handler) use ($history) {
-            return function (CommandInterface $command, ?RequestInterface $request = null) use ($handler, $history) {
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null
+            ) use ($handler, $history) {
                 $ticket = $history->start($command, $request);
-                return $handler($command, $request)->then(function ($result) use ($history, $ticket) {
-                    $history->finish($ticket, $result);
-                    return $result;
-                }, function ($reason) use ($history, $ticket) {
-                    $history->finish($ticket, $reason);
-                    return Promise\Create::rejectionFor($reason);
-                });
+                return $handler($command, $request)
+                    ->then(
+                        function ($result) use ($history, $ticket) {
+                            $history->finish($ticket, $result);
+                            return $result;
+                        },
+                        function ($reason) use ($history, $ticket) {
+                            $history->finish($ticket, $reason);
+                            return Promise\Create::rejectionFor($reason);
+                        }
+                    );
             };
         };
     }
+
     /**
      * Creates a middleware that applies a map function to requests as they
      * pass through the middleware.
@@ -283,11 +378,15 @@ final class Middleware
     public static function mapRequest(callable $f)
     {
         return function (callable $handler) use ($f) {
-            return function (CommandInterface $command, ?RequestInterface $request = null) use ($handler, $f) {
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null
+            ) use ($handler, $f) {
                 return $handler($command, $f($request));
             };
         };
     }
+
     /**
      * Creates a middleware that applies a map function to commands as they
      * pass through the middleware.
@@ -300,47 +399,67 @@ final class Middleware
     public static function mapCommand(callable $f)
     {
         return function (callable $handler) use ($f) {
-            return function (CommandInterface $command, ?RequestInterface $request = null) use ($handler, $f) {
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null
+            ) use ($handler, $f) {
                 return $handler($f($command), $request);
             };
         };
     }
+
     /**
      * Creates a middleware that applies a map function to results.
      *
-     * @param callable $f Map function that accepts an Aws\ResultInterface and
-     *                    returns an Aws\ResultInterface.
+     * @param callable $f Map function that accepts an ClikIT\Infinite_Uploads\Aws\ResultInterface and
+     *                    returns an ClikIT\Infinite_Uploads\Aws\ResultInterface.
      *
      * @return callable
      */
     public static function mapResult(callable $f)
     {
         return function (callable $handler) use ($f) {
-            return function (CommandInterface $command, ?RequestInterface $request = null) use ($handler, $f) {
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null
+            ) use ($handler, $f) {
                 return $handler($command, $request)->then($f);
             };
         };
     }
+
     public static function timer()
     {
         return function (callable $handler) {
-            return function (CommandInterface $command, ?RequestInterface $request = null) use ($handler) {
-                $start = microtime(\true);
-                return $handler($command, $request)->then(function (ResultInterface $res) use ($start) {
-                    if (!isset($res['@metadata'])) {
-                        $res['@metadata'] = [];
-                    }
-                    if (!isset($res['@metadata']['transferStats'])) {
-                        $res['@metadata']['transferStats'] = [];
-                    }
-                    $res['@metadata']['transferStats']['total_time'] = microtime(\true) - $start;
-                    return $res;
-                }, function ($err) use ($start) {
-                    if ($err instanceof AwsException) {
-                        $err->setTransferInfo(['total_time' => microtime(\true) - $start] + $err->getTransferInfo());
-                    }
-                    return Promise\Create::rejectionFor($err);
-                });
+            return function (
+                CommandInterface $command,
+                ?RequestInterface $request = null
+            ) use ($handler) {
+                $start = microtime(true);
+                return $handler($command, $request)
+                    ->then(
+                        function (ResultInterface $res) use ($start) {
+                            if (!isset($res['@metadata'])) {
+                                $res['@metadata'] = [];
+                            }
+                            if (!isset($res['@metadata']['transferStats'])) {
+                                $res['@metadata']['transferStats'] = [];
+                            }
+
+                            $res['@metadata']['transferStats']['total_time']
+                                = microtime(true) - $start;
+
+                            return $res;
+                        },
+                        function ($err) use ($start) {
+                            if ($err instanceof AwsException) {
+                                $err->setTransferInfo([
+                                    'total_time' => microtime(true) - $start,
+                                ] + $err->getTransferInfo());
+                            }
+                            return Promise\Create::rejectionFor($err);
+                        }
+                    );
             };
         };
     }

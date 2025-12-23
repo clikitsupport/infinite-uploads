@@ -3,6 +3,7 @@
 namespace ClikIT\Infinite_Uploads\Aws;
 
 use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
+
 interface ResponseContainerInterface
 {
     /**

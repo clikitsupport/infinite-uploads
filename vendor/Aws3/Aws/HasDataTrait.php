@@ -1,5 +1,4 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\Aws;
 
 /**
@@ -10,6 +9,7 @@ trait HasDataTrait
 {
     /** @var array */
     private $data = [];
+
     /**
      * @return \Traversable
      */
@@ -18,6 +18,7 @@ trait HasDataTrait
     {
         return new \ArrayIterator($this->data);
     }
+
     /**
      * This method returns a reference to the variable to allow for indirect
      * array modification (e.g., $foo['bar']['baz'] = 'qux').
@@ -27,14 +28,16 @@ trait HasDataTrait
      * @return mixed|null
      */
     #[\ReturnTypeWillChange]
-    public function &offsetGet($offset)
+    public function & offsetGet($offset)
     {
         if (isset($this->data[$offset])) {
             return $this->data[$offset];
         }
+
         $value = null;
         return $value;
     }
+
     /**
      * @return void
      */
@@ -43,6 +46,7 @@ trait HasDataTrait
     {
         $this->data[$offset] = $value;
     }
+
     /**
      * @return bool
      */
@@ -51,6 +55,7 @@ trait HasDataTrait
     {
         return isset($this->data[$offset]);
     }
+
     /**
      * @return void
      */
@@ -59,10 +64,12 @@ trait HasDataTrait
     {
         unset($this->data[$offset]);
     }
+
     public function toArray()
     {
         return $this->data;
     }
+
     /**
      * @return int
      */

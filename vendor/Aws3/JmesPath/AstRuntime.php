@@ -1,5 +1,4 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\JmesPath;
 
 /**
@@ -11,12 +10,16 @@ class AstRuntime
     private $interpreter;
     private $cache = [];
     private $cachedCount = 0;
-    public function __construct(?Parser $parser = null, ?callable $fnDispatcher = null)
-    {
-        $fnDispatcher = $fnDispatcher ?: FnDispatcher::getInstance();
-        $this->interpreter = new TreeInterpreter($fnDispatcher);
-        $this->parser = $parser ?: new Parser();
+
+    public function __construct(
+        ?Parser $parser = null,
+        ?callable $fnDispatcher = null
+    ) {
+        $fnDispatcher = $fnDispatcher ?: \ClikIT\Infinite_Uploads\JmesPath\FnDispatcher::getInstance();
+        $this->interpreter = new \ClikIT\Infinite_Uploads\JmesPath\TreeInterpreter($fnDispatcher);
+        $this->parser = $parser ?: new \ClikIT\Infinite_Uploads\JmesPath\Parser();
     }
+
     /**
      * Returns data from the provided input that matches a given JMESPath
      * expression.
@@ -38,6 +41,7 @@ class AstRuntime
             }
             $this->cache[$expression] = $this->parser->parse($expression);
         }
+
         return $this->interpreter->visit($this->cache[$expression], $data);
     }
 }

@@ -24,6 +24,7 @@ interface MessageInterface
      * @return string HTTP protocol version.
      */
     public function getProtocolVersion(): string;
+
     /**
      * Return an instance with the specified HTTP protocol version.
      *
@@ -38,6 +39,7 @@ interface MessageInterface
      * @return static
      */
     public function withProtocolVersion(string $version): MessageInterface;
+
     /**
      * Retrieves all message header values.
      *
@@ -64,6 +66,7 @@ interface MessageInterface
      *     for that header.
      */
     public function getHeaders(): array;
+
     /**
      * Checks if a header exists by the given case-insensitive name.
      *
@@ -73,6 +76,7 @@ interface MessageInterface
      *     no matching header name is found in the message.
      */
     public function hasHeader(string $name): bool;
+
     /**
      * Retrieves a message header value by the given case-insensitive name.
      *
@@ -88,6 +92,7 @@ interface MessageInterface
      *    return an empty array.
      */
     public function getHeader(string $name): array;
+
     /**
      * Retrieves a comma-separated string of the values for a single header.
      *
@@ -108,6 +113,7 @@ interface MessageInterface
      *    the message, this method MUST return an empty string.
      */
     public function getHeaderLine(string $name): string;
+
     /**
      * Return an instance with the provided value replacing the specified header.
      *
@@ -124,6 +130,7 @@ interface MessageInterface
      * @throws \InvalidArgumentException for invalid header names or values.
      */
     public function withHeader(string $name, $value): MessageInterface;
+
     /**
      * Return an instance with the specified header appended with the given value.
      *
@@ -141,6 +148,7 @@ interface MessageInterface
      * @throws \InvalidArgumentException for invalid header names or values.
      */
     public function withAddedHeader(string $name, $value): MessageInterface;
+
     /**
      * Return an instance without the specified header.
      *
@@ -154,12 +162,14 @@ interface MessageInterface
      * @return static
      */
     public function withoutHeader(string $name): MessageInterface;
+
     /**
      * Gets the body of the message.
      *
      * @return StreamInterface Returns the body as a stream.
      */
     public function getBody(): StreamInterface;
+
     /**
      * Return an instance with the specified message body.
      *

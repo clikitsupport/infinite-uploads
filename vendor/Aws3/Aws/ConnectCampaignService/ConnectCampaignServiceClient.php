@@ -1,0 +1,53 @@
+<?php
+namespace ClikIT\Infinite_Uploads\Aws\ConnectCampaignService;
+
+use ClikIT\Infinite_Uploads\Aws\AwsClient;
+
+/**
+ * This client is used to interact with the **AmazonConnectCampaignService** service.
+ * @method \ClikIT\Infinite_Uploads\Aws\Result createCampaign(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise createCampaignAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result deleteCampaign(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise deleteCampaignAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result deleteConnectInstanceConfig(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise deleteConnectInstanceConfigAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result deleteInstanceOnboardingJob(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise deleteInstanceOnboardingJobAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result describeCampaign(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise describeCampaignAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result getCampaignState(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise getCampaignStateAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result getCampaignStateBatch(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise getCampaignStateBatchAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result getConnectInstanceConfig(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise getConnectInstanceConfigAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result getInstanceOnboardingJobStatus(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise getInstanceOnboardingJobStatusAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listCampaigns(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listCampaignsAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result listTagsForResource(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise listTagsForResourceAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result pauseCampaign(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise pauseCampaignAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result putDialRequestBatch(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise putDialRequestBatchAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result resumeCampaign(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise resumeCampaignAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result startCampaign(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise startCampaignAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result startInstanceOnboardingJob(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise startInstanceOnboardingJobAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result stopCampaign(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise stopCampaignAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result tagResource(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise tagResourceAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result untagResource(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise untagResourceAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result updateCampaignDialerConfig(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise updateCampaignDialerConfigAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result updateCampaignName(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise updateCampaignNameAsync(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\Aws\Result updateCampaignOutboundCallConfig(array $args = [])
+ * @method \ClikIT\Infinite_Uploads\GuzzleHttp\Promise\Promise updateCampaignOutboundCallConfigAsync(array $args = [])
+ */
+class ConnectCampaignServiceClient extends AwsClient {}

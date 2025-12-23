@@ -1,5 +1,4 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\Aws\Endpoint\UseFipsEndpoint;
 
 interface ConfigurationInterface
@@ -10,6 +9,7 @@ interface ConfigurationInterface
      * @return bool
      */
     public function isUseFipsEndpoint();
+
     /**
      * Returns the configuration as an associative array
      *

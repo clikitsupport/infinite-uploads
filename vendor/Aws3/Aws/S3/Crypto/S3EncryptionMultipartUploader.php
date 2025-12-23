@@ -1,5 +1,4 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\Aws\S3\Crypto;
 
 use ClikIT\Infinite_Uploads\Aws\Crypto\AbstractCryptoClient;
@@ -9,6 +8,7 @@ use ClikIT\Infinite_Uploads\Aws\Crypto\Cipher\CipherBuilderTrait;
 use ClikIT\Infinite_Uploads\Aws\S3\MultipartUploader;
 use ClikIT\Infinite_Uploads\Aws\S3\S3ClientInterface;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
+
 /**
  * Encapsulates the execution of a multipart upload of an encrypted object to S3.
  *
@@ -23,7 +23,9 @@ class S3EncryptionMultipartUploader extends MultipartUploader
     use CryptoParamsTrait;
     use EncryptionTrait;
     use UserAgentTrait;
+
     const CRYPTO_VERSION = '1n';
+
     /**
      * Returns if the passed cipher name is supported for encryption by the SDK.
      *
@@ -35,9 +37,11 @@ class S3EncryptionMultipartUploader extends MultipartUploader
     {
         return in_array($cipherName, AbstractCryptoClient::$supportedCiphers);
     }
+
     private $provider;
     private $instructionFileSuffix;
     private $strategy;
+
     /**
      * Creates a multipart upload for an S3 object after encrypting it.
      *
@@ -73,13 +77,13 @@ class S3EncryptionMultipartUploader extends MultipartUploader
      *   private by default.
      * - before_complete: (callable) Callback to invoke before the
      *   `CompleteMultipartUpload` operation. The callback should have a
-     *   function signature like `function (Aws\Command $command) {...}`.
+     *   function signature like `function (ClikIT\Infinite_Uploads\Aws\Command $command) {...}`.
      * - before_initiate: (callable) Callback to invoke before the
      *   `CreateMultipartUpload` operation. The callback should have a function
-     *   signature like `function (Aws\Command $command) {...}`.
+     *   signature like `function (ClikIT\Infinite_Uploads\Aws\Command $command) {...}`.
      * - before_upload: (callable) Callback to invoke before any `UploadPart`
      *   operations. The callback should have a function signature like
-     *   `function (Aws\Command $command) {...}`.
+     *   `function (ClikIT\Infinite_Uploads\Aws\Command $command) {...}`.
      * - concurrency: (int, default=int(5)) Maximum number of concurrent
      *   `UploadPart` operations allowed during the multipart upload.
      * - params: (array) An array of key/value parameters that will be applied
@@ -89,7 +93,7 @@ class S3EncryptionMultipartUploader extends MultipartUploader
      *   options detailed above to update the commands directly.
      * - part_size: (int, default=int(5242880)) Part size, in bytes, to use when
      *   doing a multipart upload. This must between 5 MB and 5 GB, inclusive.
-     * - state: (Aws\Multipart\UploadState) An object that represents the state
+     * - state: (ClikIT\Infinite_Uploads\Aws\Multipart\UploadState) An object that represents the state
      *   of the multipart upload and that is used to resume a previous upload.
      *   When this option is provided, the `bucket`, `key`, and `part_size`
      *   options are ignored.
@@ -98,8 +102,11 @@ class S3EncryptionMultipartUploader extends MultipartUploader
      * @param mixed             $source Source of the data to upload.
      * @param array             $config Configuration used to perform the upload.
      */
-    public function __construct(S3ClientInterface $client, $source, array $config = [])
-    {
+    public function __construct(
+        S3ClientInterface $client,
+        $source,
+        array $config = []
+    ) {
         $this->appendUserAgent($client, 'feat/s3-encrypt/' . self::CRYPTO_VERSION);
         $this->client = $client;
         $config['params'] = [];
@@ -109,31 +116,52 @@ class S3EncryptionMultipartUploader extends MultipartUploader
         if (!empty($config['key'])) {
             $config['params']['Key'] = $config['key'];
         }
+
         $this->provider = $this->getMaterialsProvider($config);
         unset($config['@MaterialsProvider']);
+
         $this->instructionFileSuffix = $this->getInstructionFileSuffix($config);
         unset($config['@InstructionFileSuffix']);
-        $this->strategy = $this->getMetadataStrategy($config, $this->instructionFileSuffix);
+        $this->strategy = $this->getMetadataStrategy(
+            $config,
+            $this->instructionFileSuffix
+        );
         if ($this->strategy === null) {
             $this->strategy = self::getDefaultStrategy();
         }
         unset($config['@MetadataStrategy']);
+
         $config['prepare_data_source'] = $this->getEncryptingDataPreparer();
+
         parent::__construct($client, $source, $config);
     }
+
     private static function getDefaultStrategy()
     {
         return new HeadersMetadataStrategy();
     }
+
     private function getEncryptingDataPreparer()
     {
-        return function () {
+        return function() {
             // Defer encryption work until promise is executed
             $envelope = new MetadataEnvelope();
-            list($this->source, $params) = Promise\Create::promiseFor($this->encrypt($this->source, $this->config['@cipheroptions'] ?: [], $this->provider, $envelope))->then(function ($bodyStream) use ($envelope) {
-                $params = $this->strategy->save($envelope, $this->config['params']);
-                return [$bodyStream, $params];
-            })->wait();
+
+            list($this->source, $params) = Promise\Create::promiseFor($this->encrypt(
+                $this->source,
+                $this->config['@cipheroptions'] ?: [],
+                $this->provider,
+                $envelope
+            ))->then(
+                function ($bodyStream) use ($envelope) {
+                    $params = $this->strategy->save(
+                        $envelope,
+                        $this->config['params']
+                    );
+                    return [$bodyStream, $params];
+                }
+            )->wait();
+
             $this->source->rewind();
             $this->config['params'] = $params;
         };

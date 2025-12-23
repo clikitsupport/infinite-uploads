@@ -1,13 +1,14 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\Aws\S3;
 
 use ClikIT\Infinite_Uploads\Aws\CommandInterface;
 use ClikIT\Infinite_Uploads\Aws\Multipart\UploadState;
 use ClikIT\Infinite_Uploads\Aws\ResultInterface;
+
 trait MultipartUploadingTrait
 {
     private $uploadedBytes = 0;
+
     /**
      * Creates an UploadState object for a multipart upload by querying the
      * service for the specified upload's information.
@@ -19,9 +20,18 @@ trait MultipartUploadingTrait
      *
      * @return UploadState
      */
-    public static function getStateFromService(S3ClientInterface $client, $bucket, $key, $uploadId)
-    {
-        $state = new UploadState(['Bucket' => $bucket, 'Key' => $key, 'UploadId' => $uploadId]);
+    public static function getStateFromService(
+        S3ClientInterface $client,
+        $bucket,
+        $key,
+        $uploadId
+    ) {
+        $state = new UploadState([
+            'Bucket'   => $bucket,
+            'Key'      => $key,
+            'UploadId' => $uploadId,
+        ]);
+
         foreach ($client->getPaginator('ListParts', $state->getId()) as $result) {
             // Get the part size from the first part in the first result.
             if (!$state->getPartSize()) {
@@ -29,24 +39,35 @@ trait MultipartUploadingTrait
             }
             // Mark all the parts returned by ListParts as uploaded.
             foreach ($result['Parts'] as $part) {
-                $state->markPartAsUploaded($part['PartNumber'], ['PartNumber' => $part['PartNumber'], 'ETag' => $part['ETag']]);
+                $state->markPartAsUploaded($part['PartNumber'], [
+                    'PartNumber' => $part['PartNumber'],
+                    'ETag'       => $part['ETag']
+                ]);
             }
         }
+
         $state->setStatus(UploadState::INITIATED);
+
         return $state;
     }
+
     protected function handleResult(CommandInterface $command, ResultInterface $result)
     {
         $partData = [];
         $partData['PartNumber'] = $command['PartNumber'];
         $partData['ETag'] = $this->extractETag($result);
         $commandName = $command->getName();
-        $checksumResult = $commandName === 'UploadPart' ? $result : $result[$commandName . 'Result'];
+        $checksumResult = $commandName === 'UploadPart'
+            ? $result
+            : $result[$commandName . 'Result'];
+
         if (isset($command['ChecksumAlgorithm'])) {
             $checksumMemberName = 'Checksum' . strtoupper($command['ChecksumAlgorithm']);
             $partData[$checksumMemberName] = $checksumResult[$checksumMemberName] ?? null;
         }
+
         $this->getState()->markPartAsUploaded($command['PartNumber'], $partData);
+
         // Updates counter for uploaded bytes.
         $this->uploadedBytes += $command["ContentLength"];
         // Sends uploaded bytes to progress tracker if getDisplayProgress set
@@ -54,53 +75,75 @@ trait MultipartUploadingTrait
             $this->getState()->getDisplayProgress($this->uploadedBytes);
         }
     }
+
     abstract protected function extractETag(ResultInterface $result);
+
     protected function getCompleteParams()
     {
         $config = $this->getConfig();
         $params = isset($config['params']) ? $config['params'] : [];
-        $params['MultipartUpload'] = ['Parts' => $this->getState()->getUploadedParts()];
+
+        $params['MultipartUpload'] = [
+            'Parts' => $this->getState()->getUploadedParts()
+        ];
+
         return $params;
     }
+
     protected function determinePartSize()
     {
         // Make sure the part size is set.
         $partSize = $this->getConfig()['part_size'] ?: MultipartUploader::PART_MIN_SIZE;
+
         // Adjust the part size to be larger for known, x-large uploads.
         if ($sourceSize = $this->getSourceSize()) {
-            $partSize = (int) max($partSize, ceil($sourceSize / MultipartUploader::PART_MAX_NUM));
+            $partSize = (int) max(
+                $partSize,
+                ceil($sourceSize / MultipartUploader::PART_MAX_NUM)
+            );
         }
+
         // Ensure that the part size follows the rules: 5 MB <= size <= 5 GB.
         if ($partSize < MultipartUploader::PART_MIN_SIZE || $partSize > MultipartUploader::PART_MAX_SIZE) {
-            throw new \InvalidArgumentException('The part size must be no less ' . 'than 5 MB and no greater than 5 GB.');
+            throw new \InvalidArgumentException('The part size must be no less '
+                . 'than 5 MB and no greater than 5 GB.');
         }
+
         return $partSize;
     }
+
     protected function getInitiateParams()
     {
         $config = $this->getConfig();
         $params = isset($config['params']) ? $config['params'] : [];
+
         if (isset($config['acl'])) {
             $params['ACL'] = $config['acl'];
         }
+
         // Set the ContentType if not already present
         if (empty($params['ContentType']) && $type = $this->getSourceMimeType()) {
             $params['ContentType'] = $type;
         }
+
         return $params;
     }
+
     /**
      * @return UploadState
      */
     abstract protected function getState();
+
     /**
      * @return array
      */
     abstract protected function getConfig();
+
     /**
      * @return int
      */
     abstract protected function getSourceSize();
+
     /**
      * @return string|null
      */

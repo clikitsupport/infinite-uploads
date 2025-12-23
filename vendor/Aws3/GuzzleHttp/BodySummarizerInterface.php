@@ -3,6 +3,7 @@
 namespace ClikIT\Infinite_Uploads\GuzzleHttp;
 
 use ClikIT\Infinite_Uploads\Psr\Http\Message\MessageInterface;
+
 interface BodySummarizerInterface
 {
     /**

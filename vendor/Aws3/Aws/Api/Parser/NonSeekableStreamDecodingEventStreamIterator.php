@@ -5,6 +5,7 @@ namespace ClikIT\Infinite_Uploads\Aws\Api\Parser;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
 use ClikIT\Infinite_Uploads\Aws\Api\Parser\Exception\ParserException;
+
 /**
  * @inheritDoc
  */
@@ -12,6 +13,7 @@ class NonSeekableStreamDecodingEventStreamIterator extends DecodingEventStreamIt
 {
     /** @var array $tempBuffer */
     private $tempBuffer;
+
     /**
      * NonSeekableStreamDecodingEventStreamIterator constructor.
      *
@@ -23,8 +25,10 @@ class NonSeekableStreamDecodingEventStreamIterator extends DecodingEventStreamIt
         if ($this->stream->isSeekable()) {
             throw new \InvalidArgumentException('The stream provided must be not seekable.');
         }
+
         $this->tempBuffer = [];
     }
+
     /**
      * @inheritDoc
      *
@@ -35,43 +39,48 @@ class NonSeekableStreamDecodingEventStreamIterator extends DecodingEventStreamIt
         $event = [];
         $this->hashContext = hash_init('crc32b');
         $prelude = $this->parsePrelude()[0];
-        list($event[self::HEADERS], $numBytes) = $this->parseHeaders($prelude[self::LENGTH_HEADERS]);
-        $event[self::PAYLOAD] = Psr7\Utils::streamFor($this->readAndHashBytes($prelude[self::LENGTH_TOTAL] - self::BYTES_PRELUDE - $numBytes - self::BYTES_TRAILING));
-        $calculatedCrc = hash_final($this->hashContext, \true);
+        list(
+            $event[self::HEADERS],
+            $numBytes
+        ) = $this->parseHeaders($prelude[self::LENGTH_HEADERS]);
+        $event[self::PAYLOAD] = Psr7\Utils::streamFor(
+            $this->readAndHashBytes(
+                $prelude[self::LENGTH_TOTAL] - self::BYTES_PRELUDE
+                - $numBytes - self::BYTES_TRAILING
+            )
+        );
+        $calculatedCrc = hash_final($this->hashContext, true);
         $messageCrc = $this->stream->read(4);
         if ($calculatedCrc !== $messageCrc) {
             throw new ParserException('Message checksum mismatch.');
         }
+
         return $event;
     }
+
     protected function readAndHashBytes($num): string
     {
         $bytes = '';
         while (!empty($this->tempBuffer) && $num > 0) {
             $byte = array_shift($this->tempBuffer);
             $bytes .= $byte;
-            $num -= 1;
+            $num = $num - 1;
         }
-        // Loop until we've read the expected number of bytes
-        while ($num > 0 && !$this->stream->eof()) {
-            $chunk = $this->stream->read($num);
-            $chunkLen = strlen($chunk);
-            $bytes .= $chunk;
-            $num -= $chunkLen;
-            if ($chunkLen === 0) {
-                break;
-                // Prevent infinite loop on unexpected EOF
-            }
-        }
+
+        $bytes = $bytes . $this->stream->read($num);
         hash_update($this->hashContext, $bytes);
+
         return $bytes;
     }
+
     // Iterator Functionality
+
     #[\ReturnTypeWillChange]
     public function rewind()
     {
         $this->currentEvent = $this->parseEvent();
     }
+
     public function next()
     {
         $this->tempBuffer[] = $this->stream->read(1);
@@ -80,6 +89,7 @@ class NonSeekableStreamDecodingEventStreamIterator extends DecodingEventStreamIt
             $this->currentEvent = $this->parseEvent();
         }
     }
+
     /**
      * @return bool
      */

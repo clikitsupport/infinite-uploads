@@ -1,10 +1,12 @@
 <?php
 
-declare (strict_types=1);
+declare(strict_types=1);
+
 namespace ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
 
 use Generator;
 use Throwable;
+
 /**
  * Creates a promise that is resolved using a generator that yields values or
  * promises (somewhat similar to C#'s async keyword).
@@ -47,14 +49,17 @@ final class Coroutine implements PromiseInterface
      * @var PromiseInterface|null
      */
     private $currentPromise;
+
     /**
      * @var Generator
      */
     private $generator;
+
     /**
      * @var Promise
      */
     private $result;
+
     public function __construct(callable $generatorFn)
     {
         $this->generator = $generatorFn();
@@ -69,6 +74,7 @@ final class Coroutine implements PromiseInterface
             $this->result->reject($throwable);
         }
     }
+
     /**
      * Create a new coroutine.
      */
@@ -76,39 +82,51 @@ final class Coroutine implements PromiseInterface
     {
         return new self($generatorFn);
     }
-    public function then(?callable $onFulfilled = null, ?callable $onRejected = null): PromiseInterface
-    {
+
+    public function then(
+        ?callable $onFulfilled = null,
+        ?callable $onRejected = null
+    ): PromiseInterface {
         return $this->result->then($onFulfilled, $onRejected);
     }
+
     public function otherwise(callable $onRejected): PromiseInterface
     {
         return $this->result->otherwise($onRejected);
     }
-    public function wait(bool $unwrap = \true)
+
+    public function wait(bool $unwrap = true)
     {
         return $this->result->wait($unwrap);
     }
+
     public function getState(): string
     {
         return $this->result->getState();
     }
+
     public function resolve($value): void
     {
         $this->result->resolve($value);
     }
+
     public function reject($reason): void
     {
         $this->result->reject($reason);
     }
+
     public function cancel(): void
     {
         $this->currentPromise->cancel();
         $this->result->cancel();
     }
+
     private function nextCoroutine($yielded): void
     {
-        $this->currentPromise = Create::promiseFor($yielded)->then([$this, '_handleSuccess'], [$this, '_handleFailure']);
+        $this->currentPromise = Create::promiseFor($yielded)
+            ->then([$this, '_handleSuccess'], [$this, '_handleFailure']);
     }
+
     /**
      * @internal
      */
@@ -126,6 +144,7 @@ final class Coroutine implements PromiseInterface
             $this->result->reject($throwable);
         }
     }
+
     /**
      * @internal
      */

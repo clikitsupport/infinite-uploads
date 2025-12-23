@@ -1,8 +1,8 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\Aws\Crypto;
 
 use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
+
 interface AesStreamInterfaceV2 extends StreamInterface
 {
     /**
@@ -12,6 +12,7 @@ interface AesStreamInterfaceV2 extends StreamInterface
      * @return string
      */
     public static function getStaticAesName();
+
     /**
      * Returns an identifier recognizable by `openssl_*` functions, such as
      * `aes-256-cbc` or `aes-128-ctr`.
@@ -19,6 +20,7 @@ interface AesStreamInterfaceV2 extends StreamInterface
      * @return string
      */
     public function getOpenSslName();
+
     /**
      * Returns the IV that should be used to initialize the next block in
      * encrypt or decrypt.

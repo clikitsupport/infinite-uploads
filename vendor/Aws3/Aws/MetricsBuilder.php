@@ -4,8 +4,7 @@ namespace ClikIT\Infinite_Uploads\Aws;
 
 use ClikIT\Infinite_Uploads\Aws\Credentials\CredentialsInterface;
 use ClikIT\Infinite_Uploads\Aws\Credentials\CredentialSources;
-use ClikIT\Infinite_Uploads\Aws\Token;
-use ClikIT\Infinite_Uploads\Aws\Token\TokenInterface;
+
 /**
  * A placeholder for gathering metrics in a request.
  *
@@ -21,7 +20,6 @@ final class MetricsBuilder
     const S3_TRANSFER = "G";
     const S3_CRYPTO_V1N = "H";
     const S3_CRYPTO_V2 = "I";
-    const S3_CRYPTO_V3 = "AE";
     const S3_EXPRESS_BUCKET = "J";
     const GZIP_REQUEST_COMPRESSION = "L";
     const ENDPOINT_OVERRIDE = "N";
@@ -29,7 +27,6 @@ final class MetricsBuilder
     const ACCOUNT_ID_MODE_PREFERRED = "P";
     const ACCOUNT_ID_MODE_DISABLED = "Q";
     const ACCOUNT_ID_MODE_REQUIRED = "R";
-    const BEARER_SERVICE_ENV_VARS = "3";
     const SIGV4A_SIGNING = "S";
     const RESOLVED_ACCOUNT_ID = "T";
     const FLEXIBLE_CHECKSUMS_REQ_CRC32 = "U";
@@ -53,25 +50,27 @@ final class MetricsBuilder
     const CREDENTIALS_PROFILE_PROCESS = "v";
     const CREDENTIALS_PROFILE_SSO = "r";
     const CREDENTIALS_PROFILE_SSO_LEGACY = "t";
-    const S3_TRANSFER_UPLOAD_DIRECTORY = "9";
-    const S3_TRANSFER_DOWNLOAD_DIRECTORY = "+";
-    const CREDENTIALS_PROFILE_LOGIN = "AC";
+
     /** @var int */
-    private static $MAX_METRICS_SIZE = 1024;
-    // 1KB or 1024 B
+    private static $MAX_METRICS_SIZE = 1024; // 1KB or 1024 B
+
     /** @var string */
     private static $METRIC_SEPARATOR = ",";
+
     /** @var array $metrics */
     private $metrics;
+
     /** @var int $metricsSize */
     private $metricsSize;
+
     public function __construct()
     {
         $this->metrics = [];
         // The first metrics does not include the separator
         // therefore it is reduced by default.
-        $this->metricsSize = -strlen(self::$METRIC_SEPARATOR);
+        $this->metricsSize = -(strlen(self::$METRIC_SEPARATOR));
     }
+
     /**
      * Build the metrics string value.
      *
@@ -82,8 +81,10 @@ final class MetricsBuilder
         if (empty($this->metrics)) {
             return "";
         }
+
         return $this->encode();
     }
+
     /**
      * Encodes the metrics by separating each metric
      * with a comma. Example: for the metrics[A,B,C] then
@@ -95,6 +96,7 @@ final class MetricsBuilder
     {
         return implode(self::$METRIC_SEPARATOR, array_keys($this->metrics));
     }
+
     /**
      * Appends a metric to the internal metrics holder after validating it.
      * Increases the current metrics size by the length of the new metric
@@ -110,9 +112,11 @@ final class MetricsBuilder
         if (!$this->canMetricBeAppended($metric)) {
             return;
         }
-        $this->metrics[$metric] = \true;
+
+        $this->metrics[$metric] = true;
         $this->metricsSize += strlen($metric) + strlen(self::$METRIC_SEPARATOR);
     }
+
     /**
      * Receives a feature group and a value to identify which one is the metric.
      * For example, a group could be `signature` and a value could be `v4a`,
@@ -123,15 +127,29 @@ final class MetricsBuilder
      *
      * @return void
      */
-    public function identifyMetricByValueAndAppend(string $featureGroup, mixed $value): void
+    public function identifyMetricByValueAndAppend(
+        string $featureGroup,
+        $value
+    ): void
     {
         if (empty($value)) {
             return;
         }
-        static $appendMetricFns = ['signature' => 'appendSignatureMetric', 'request_compression' => 'appendRequestCompressionMetric', 'request_checksum' => 'appendRequestChecksumMetric', 'credentials' => 'appendCredentialsMetric', 'account_id_endpoint_mode' => 'appendAccountIdEndpointMode', 'account_id_endpoint' => 'appendAccountIdEndpoint', 'request_checksum_calculation' => 'appendRequestChecksumCalculationMetric', 'token' => 'appendTokenMetric'];
+
+        static $appendMetricFns = [
+            'signature' => 'appendSignatureMetric',
+            'request_compression' => 'appendRequestCompressionMetric',
+            'request_checksum' => 'appendRequestChecksumMetric',
+            'credentials' => 'appendCredentialsMetric',
+            'account_id_endpoint_mode' => 'appendAccountIdEndpointMode',
+            'account_id_endpoint' => 'appendAccountIdEndpoint',
+            'request_checksum_calculation' => 'appendRequestChecksumCalculationMetric',
+        ];
+
         $fn = $appendMetricFns[$featureGroup];
         $this->{$fn}($value);
     }
+
     /**
      * Appends the signature metric based on the signature value.
      *
@@ -147,6 +165,7 @@ final class MetricsBuilder
             $this->append(self::SIGV4A_SIGNING);
         }
     }
+
     /**
      * Appends the request compression metric based on the format resolved.
      *
@@ -160,6 +179,7 @@ final class MetricsBuilder
             $this->append(self::GZIP_REQUEST_COMPRESSION);
         }
     }
+
     /**
      * Appends the request checksum metric based on the algorithm.
      *
@@ -181,6 +201,8 @@ final class MetricsBuilder
             $this->append(self::FLEXIBLE_CHECKSUMS_REQ_SHA256);
         }
     }
+
+
     /**
      * Appends the credentials metric based on the type of credentials
      * resolved.
@@ -189,35 +211,60 @@ final class MetricsBuilder
      *
      * @return void
      */
-    private function appendCredentialsMetric(CredentialsInterface $credentials): void
+    private function appendCredentialsMetric(
+        CredentialsInterface $credentials
+    ): void
     {
         $source = $credentials->toArray()['source'] ?? null;
         if (empty($source)) {
             return;
         }
-        static $credentialsMetricMapping = [CredentialSources::STATIC => self::CREDENTIALS_CODE, CredentialSources::ENVIRONMENT => self::CREDENTIALS_ENV_VARS, CredentialSources::ENVIRONMENT_STS_WEB_ID_TOKEN => self::CREDENTIALS_ENV_VARS_STS_WEB_ID_TOKEN, CredentialSources::STS_ASSUME_ROLE => self::CREDENTIALS_STS_ASSUME_ROLE, CredentialSources::STS_WEB_ID_TOKEN => self::CREDENTIALS_STS_ASSUME_ROLE_WEB_ID, CredentialSources::PROFILE => self::CREDENTIALS_PROFILE, CredentialSources::IMDS => self::CREDENTIALS_IMDS, CredentialSources::ECS => self::CREDENTIALS_HTTP, CredentialSources::PROFILE_STS_WEB_ID_TOKEN => self::CREDENTIALS_PROFILE_STS_WEB_ID_TOKEN, CredentialSources::PROFILE_PROCESS => self::CREDENTIALS_PROFILE_PROCESS, CredentialSources::PROFILE_SSO => self::CREDENTIALS_PROFILE_SSO, CredentialSources::PROFILE_SSO_LEGACY => self::CREDENTIALS_PROFILE_SSO_LEGACY, CredentialSources::PROFILE_LOGIN => self::CREDENTIALS_PROFILE_LOGIN];
+
+        static $credentialsMetricMapping = [
+            CredentialSources::STATIC =>
+                self::CREDENTIALS_CODE,
+            CredentialSources::ENVIRONMENT =>
+                self::CREDENTIALS_ENV_VARS,
+            CredentialSources::ENVIRONMENT_STS_WEB_ID_TOKEN =>
+                self::CREDENTIALS_ENV_VARS_STS_WEB_ID_TOKEN,
+            CredentialSources::STS_ASSUME_ROLE =>
+                self::CREDENTIALS_STS_ASSUME_ROLE,
+            CredentialSources::STS_WEB_ID_TOKEN =>
+                self::CREDENTIALS_STS_ASSUME_ROLE_WEB_ID,
+            CredentialSources::PROFILE =>
+                self::CREDENTIALS_PROFILE,
+            CredentialSources::IMDS =>
+                self::CREDENTIALS_IMDS,
+            CredentialSources::ECS =>
+                self::CREDENTIALS_HTTP,
+            CredentialSources::PROFILE_STS_WEB_ID_TOKEN =>
+                self::CREDENTIALS_PROFILE_STS_WEB_ID_TOKEN,
+            CredentialSources::PROFILE_PROCESS =>
+                self::CREDENTIALS_PROFILE_PROCESS,
+            CredentialSources::PROFILE_SSO =>
+                self::CREDENTIALS_PROFILE_SSO,
+            CredentialSources::PROFILE_SSO_LEGACY =>
+                self::CREDENTIALS_PROFILE_SSO_LEGACY,
+        ];
         if (isset($credentialsMetricMapping[$source])) {
             $this->append($credentialsMetricMapping[$source]);
         }
     }
-    private function appendTokenMetric(TokenInterface $token): void
+
+    private function appendRequestChecksumCalculationMetric(
+        string $checkSumCalculation
+    ): void
     {
-        $source = $token->getSource();
-        if (empty($source)) {
-            return;
-        }
-        static $tokenMetricMapping = ['bearer_service_env_vars' => self::BEARER_SERVICE_ENV_VARS];
-        if (isset($tokenMetricMapping[$source])) {
-            $this->append($tokenMetricMapping[$source]);
-        }
-    }
-    private function appendRequestChecksumCalculationMetric(string $checkSumCalculation): void
-    {
-        static $checksumCalculationMetricMapping = ['when_supported' => self::FLEXIBLE_CHECKSUMS_REQ_WHEN_SUPPORTED, 'when_required' => self::FLEXIBLE_CHECKSUMS_REQ_WHEN_REQUIRED];
+        static $checksumCalculationMetricMapping = [
+            'when_supported' => self::FLEXIBLE_CHECKSUMS_REQ_WHEN_SUPPORTED,
+            'when_required' => self::FLEXIBLE_CHECKSUMS_REQ_WHEN_REQUIRED,
+        ];
+
         if (isset($checksumCalculationMetricMapping[$checkSumCalculation])) {
             $this->append($checksumCalculationMetricMapping[$checkSumCalculation]);
         }
     }
+
     /**
      * Appends the account_id_endpoint_mode metrics based on
      * the value resolved.
@@ -226,11 +273,14 @@ final class MetricsBuilder
      *
      * @return void
      */
-    private function appendAccountIdEndpointMode(string $accountIdEndpointMode): void
+    private function appendAccountIdEndpointMode(
+        string $accountIdEndpointMode
+    ): void
     {
         if (empty($accountIdEndpointMode)) {
             return;
         }
+
         if ($accountIdEndpointMode === 'preferred') {
             $this->append(self::ACCOUNT_ID_MODE_PREFERRED);
         } elseif ($accountIdEndpointMode === 'disabled') {
@@ -239,6 +289,7 @@ final class MetricsBuilder
             $this->append(self::ACCOUNT_ID_MODE_REQUIRED);
         }
     }
+
     /**
      * Appends the account_id_endpoint metric whenever a resolved endpoint
      * matches an account_id endpoint pattern which also defined here.
@@ -254,6 +305,7 @@ final class MetricsBuilder
             $this->append(self::ACCOUNT_ID_ENDPOINT);
         }
     }
+
     /**
      * Resolves metrics from client arguments.
      *
@@ -263,11 +315,16 @@ final class MetricsBuilder
      */
     public function resolveAndAppendFromArgs(array $args = []): void
     {
-        static $metricsFnList = ['appendEndpointMetric', 'appendRetryConfigMetric', 'appendResponseChecksumValidationMetric'];
+        static $metricsFnList = [
+            'appendEndpointMetric',
+            'appendRetryConfigMetric',
+            'appendResponseChecksumValidationMetric',
+        ];
         foreach ($metricsFnList as $metricFn) {
             $this->{$metricFn}($args);
         }
     }
+
     /**
      * Appends the endpoint metric into the metrics builder,
      * just if a custom endpoint was provided at client construction.
@@ -282,6 +339,7 @@ final class MetricsBuilder
             $this->append(MetricsBuilder::ENDPOINT_OVERRIDE);
         }
     }
+
     /**
      * Appends the retry mode metric into the metrics builder,
      * based on the resolved retry config mode.
@@ -296,20 +354,31 @@ final class MetricsBuilder
         if ($retries === null) {
             return;
         }
+
         $retryMode = '';
         if ($retries instanceof \ClikIT\Infinite_Uploads\Aws\Retry\Configuration) {
             $retryMode = $retries->getMode();
-        } elseif (is_array($retries) && isset($retries["mode"])) {
+        } elseif (is_array($retries)
+            && isset($retries["mode"])
+        ) {
             $retryMode = $retries["mode"];
         }
+
         if ($retryMode === 'legacy') {
-            $this->append(MetricsBuilder::RETRY_MODE_LEGACY);
+            $this->append(
+                MetricsBuilder::RETRY_MODE_LEGACY
+            );
         } elseif ($retryMode === 'standard') {
-            $this->append(MetricsBuilder::RETRY_MODE_STANDARD);
+            $this->append(
+                MetricsBuilder::RETRY_MODE_STANDARD
+            );
         } elseif ($retryMode === 'adaptive') {
-            $this->append(MetricsBuilder::RETRY_MODE_ADAPTIVE);
+            $this->append(
+                MetricsBuilder::RETRY_MODE_ADAPTIVE
+            );
         }
     }
+
     /**
      * Appends the provided/resolved response checksum validation mode.
      *
@@ -322,12 +391,18 @@ final class MetricsBuilder
         if (empty($args['response_checksum_validation'])) {
             return;
         }
+
         $checksumValidation = $args['response_checksum_validation'];
-        static $checksumValidationMetricMapping = ['when_supported' => MetricsBuilder::FLEXIBLE_CHECKSUMS_RES_WHEN_SUPPORTED, 'when_required' => MetricsBuilder::FLEXIBLE_CHECKSUMS_RES_WHEN_REQUIRED];
+        static $checksumValidationMetricMapping = [
+            'when_supported' => MetricsBuilder::FLEXIBLE_CHECKSUMS_RES_WHEN_SUPPORTED,
+            'when_required' => MetricsBuilder::FLEXIBLE_CHECKSUMS_RES_WHEN_REQUIRED,
+        ];
+
         if (isset($checksumValidationMetricMapping[$checksumValidation])) {
             $this->append($checksumValidationMetricMapping[$checksumValidation]);
         }
     }
+
     /**
      * Validates if a metric can be appended by ensuring the total size,
      * including the new metric and separator, does not exceed the limit.
@@ -344,16 +419,23 @@ final class MetricsBuilder
     private function canMetricBeAppended(string $newMetric): bool
     {
         if ($newMetric === "") {
-            return \false;
+            return false;
         }
-        if ($this->metricsSize + (strlen($newMetric) + strlen(self::$METRIC_SEPARATOR)) > self::$MAX_METRICS_SIZE) {
-            return \false;
+
+        if ($this->metricsSize
+            + (strlen($newMetric) + strlen(self::$METRIC_SEPARATOR))
+            > self::$MAX_METRICS_SIZE
+        ) {
+            return false;
         }
+
         if (isset($this->metrics[$newMetric])) {
-            return \false;
+            return false;
         }
-        return \true;
+
+        return true;
     }
+
     /**
      * Returns the metrics builder from the property @context of a command.
      *
@@ -365,6 +447,7 @@ final class MetricsBuilder
     {
         return $command->getMetricsBuilder();
     }
+
     /**
      * Helper method for appending a metrics capture middleware into a
      * handler stack given. The middleware appended here is on top of the
@@ -375,13 +458,23 @@ final class MetricsBuilder
      *
      * @return void
      */
-    public static function appendMetricsCaptureMiddleware(HandlerList $handlerList, $metric): void
+    public static function appendMetricsCaptureMiddleware(
+        HandlerList $handlerList,
+        $metric
+    ): void
     {
-        $middlewareName = 'metrics-capture-' . $metric;
+        $middlewareName = 'metrics-capture-'.$metric;
         if (!$handlerList->hasMiddleware($middlewareName)) {
-            $handlerList->appendBuild(Middleware::tap(function (CommandInterface $command) use ($metric) {
-                self::fromCommand($command)->append($metric);
-            }), $middlewareName);
+            $handlerList->appendBuild(
+                Middleware::tap(
+                    function (CommandInterface $command) use ($metric) {
+                        self::fromCommand($command)->append(
+                            $metric
+                        );
+                    }
+                ),
+                $middlewareName
+            );
         }
     }
 }

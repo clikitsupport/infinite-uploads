@@ -7,6 +7,7 @@ use ClikIT\Infinite_Uploads\Aws\Exception\EventStreamDataException;
 use ClikIT\Infinite_Uploads\Aws\Api\Parser\Exception\ParserException;
 use ClikIT\Infinite_Uploads\Aws\Api\StructureShape;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
+
 /**
  * @internal Implements a decoder for a binary encoded event stream that will
  * decode, validate, and provide individual events from the stream.
@@ -15,16 +16,23 @@ class EventParsingIterator implements Iterator
 {
     /** @var StreamInterface */
     private $decodingIterator;
+
     /** @var StructureShape */
     private $shape;
+
     /** @var AbstractParser */
     private $parser;
-    public function __construct(StreamInterface $stream, StructureShape $shape, AbstractParser $parser)
-    {
+
+    public function __construct(
+        StreamInterface $stream,
+        StructureShape $shape,
+        AbstractParser $parser
+    ) {
         $this->decodingIterator = $this->chooseDecodingIterator($stream);
         $this->shape = $shape;
         $this->parser = $parser;
     }
+
     /**
      * This method choose a decoding iterator implementation based on if the stream
      * is seekable or not.
@@ -41,6 +49,7 @@ class EventParsingIterator implements Iterator
             return new NonSeekableStreamDecodingEventStreamIterator($stream);
         }
     }
+
     /**
      * @return mixed
      */
@@ -49,6 +58,7 @@ class EventParsingIterator implements Iterator
     {
         return $this->parseEvent($this->decodingIterator->current());
     }
+
     /**
      * @return mixed
      */
@@ -57,6 +67,7 @@ class EventParsingIterator implements Iterator
     {
         return $this->decodingIterator->key();
     }
+
     /**
      * @return void
      */
@@ -65,6 +76,7 @@ class EventParsingIterator implements Iterator
     {
         $this->decodingIterator->next();
     }
+
     /**
      * @return void
      */
@@ -73,6 +85,7 @@ class EventParsingIterator implements Iterator
     {
         $this->decodingIterator->rewind();
     }
+
     /**
      * @return bool
      */
@@ -81,30 +94,39 @@ class EventParsingIterator implements Iterator
     {
         return $this->decodingIterator->valid();
     }
+
     private function parseEvent(array $event)
     {
         if (!empty($event['headers'][':message-type'])) {
             if ($event['headers'][':message-type'] === 'error') {
                 return $this->parseError($event);
             }
-            if ($event['headers'][':message-type'] === 'exception') {
-                return $this->parseException($event);
-            }
+
             if ($event['headers'][':message-type'] !== 'event') {
                 throw new ParserException('Failed to parse unknown message type.');
             }
         }
+
         $eventType = $event['headers'][':event-type'] ?? null;
         if (empty($eventType)) {
             throw new ParserException('Failed to parse without event type.');
         }
+
         $eventPayload = $event['payload'];
         if ($eventType === 'initial-response') {
             return $this->parseInitialResponseEvent($eventPayload);
         }
+
         $eventShape = $this->shape->getMember($eventType);
-        return [$eventType => array_merge($this->parseEventHeaders($event['headers'], $eventShape), $this->parseEventPayload($eventPayload, $eventShape))];
+
+        return [
+            $eventType => array_merge(
+                $this->parseEventHeaders($event['headers'], $eventShape),
+                $this->parseEventPayload($eventPayload, $eventShape)
+            )
+        ];
     }
+
     /**
      * @param $headers
      * @param $eventShape
@@ -119,8 +141,10 @@ class EventParsingIterator implements Iterator
                 $parsedHeaders[$memberName] = $headers[$memberName];
             }
         }
+
         return $parsedHeaders;
     }
+
     /**
      * @param $payload
      * @param $eventShape
@@ -136,11 +160,17 @@ class EventParsingIterator implements Iterator
                 if ($memberShape->getType() === 'blob') {
                     $parsedPayload[$memberName] = $payload;
                 } else {
-                    $parsedPayload[$memberName] = $this->parser->parseMemberFromStream($payload, $memberShape, null);
+                    $parsedPayload[$memberName] = $this->parser->parseMemberFromStream(
+                        $payload,
+                        $memberShape,
+                        null
+                    );
                 }
+
                 break;
             }
         }
+
         if (empty($parsedPayload) && !empty($payload->getContents())) {
             /**
              * If we did not find a member with an eventpayload trait, then we should deserialize the payload
@@ -148,20 +178,20 @@ class EventParsingIterator implements Iterator
              */
             $parsedPayload = $this->parser->parseMemberFromStream($payload, $eventShape, null);
         }
+
         return $parsedPayload;
     }
+
     private function parseError(array $event)
     {
-        throw new EventStreamDataException($event['headers'][':error-code'], $event['headers'][':error-message']);
+        throw new EventStreamDataException(
+            $event['headers'][':error-code'],
+            $event['headers'][':error-message']
+        );
     }
-    private function parseException(array $event)
-    {
-        $payload = $event['payload']?->getContents();
-        $parsedPayload = json_decode($payload, \true);
-        throw new EventStreamDataException($event['headers'][':exception-type'] ?? 'Unknown', $parsedPayload['message'] ?? $payload);
-    }
+
     private function parseInitialResponseEvent($payload): array
     {
-        return ['initial-response' => json_decode($payload, \true)];
+        return ['initial-response' => json_decode($payload, true)];
     }
 }

@@ -4,6 +4,7 @@ namespace ClikIT\Infinite_Uploads\Psr\Http\Client;
 
 use ClikIT\Infinite_Uploads\Psr\Http\Message\RequestInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
+
 interface ClientInterface
 {
     /**
@@ -13,7 +14,7 @@ interface ClientInterface
      *
      * @return ResponseInterface
      *
-     * @throws \Psr\Http\Client\ClientExceptionInterface If an error happens while processing the request.
+     * @throws \ClikIT\Infinite_Uploads\Psr\Http\Client\ClientExceptionInterface If an error happens while processing the request.
      */
     public function sendRequest(RequestInterface $request): ResponseInterface;
 }

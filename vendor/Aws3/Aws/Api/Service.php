@@ -1,30 +1,38 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\Aws\Api;
-
+use ClikIT\Infinite_Uploads\Aws\Api\SupportedProtocols;
 /**
  * Represents a web service API model.
  */
-class Service extends AbstractModel
+class Service extends \ClikIT\Infinite_Uploads\Aws\Api\AbstractModel
 {
     /** @var callable */
     private $apiProvider;
+
     /** @var string */
     private $serviceName;
+
     /** @var string */
     private $apiVersion;
+
     /** @var array */
     private $clientContextParams = [];
+
     /** @var Operation[] */
     private $operations = [];
+
     /** @var array */
     private $paginators = null;
+
     /** @var array */
     private $waiters = null;
+
     /** @var boolean */
-    private $modifiedModel = \false;
+    private $modifiedModel = false;
+
     /** @var string */
     private $protocol;
+
     /**
      * @param array    $definition
      * @param callable $provider
@@ -33,12 +41,28 @@ class Service extends AbstractModel
      */
     public function __construct(array $definition, callable $provider)
     {
-        static $defaults = ['operations' => [], 'shapes' => [], 'metadata' => [], 'clientContextParams' => []], $defaultMeta = ['apiVersion' => null, 'serviceFullName' => null, 'serviceId' => null, 'endpointPrefix' => null, 'signingName' => null, 'signatureVersion' => null, 'protocol' => null, 'uid' => null];
+        static $defaults = [
+            'operations' => [],
+            'shapes'     => [],
+            'metadata'   => [],
+            'clientContextParams' => []
+        ], $defaultMeta = [
+            'apiVersion'       => null,
+            'serviceFullName'  => null,
+            'serviceId'        => null,
+            'endpointPrefix'   => null,
+            'signingName'      => null,
+            'signatureVersion' => null,
+            'protocol'         => null,
+            'uid'              => null
+        ];
+
         $definition += $defaults;
         $definition['metadata'] += $defaultMeta;
         $this->definition = $definition;
         $this->apiProvider = $provider;
         parent::__construct($definition, new ShapeMap($definition['shapes']));
+
         if (isset($definition['metadata']['serviceIdentifier'])) {
             $this->serviceName = $this->getServiceName();
         } else {
@@ -46,10 +70,12 @@ class Service extends AbstractModel
         }
         $this->apiVersion = $this->getApiVersion();
         if (isset($definition['clientContextParams'])) {
-            $this->clientContextParams = $definition['clientContextParams'];
+           $this->clientContextParams = $definition['clientContextParams'];
         }
+
         $this->protocol = $this->selectProtocol($definition);
     }
+
     /**
      * Creates a request serializer for the provided API object.
      *
@@ -61,16 +87,28 @@ class Service extends AbstractModel
      */
     public static function createSerializer(Service $api, $endpoint)
     {
-        static $mapping = ['json' => Serializer\JsonRpcSerializer::class, 'query' => Serializer\QuerySerializer::class, 'rest-json' => Serializer\RestJsonSerializer::class, 'rest-xml' => Serializer\RestXmlSerializer::class];
+        static $mapping = [
+            'json'      => Serializer\JsonRpcSerializer::class,
+            'query'     => Serializer\QuerySerializer::class,
+            'rest-json' => Serializer\RestJsonSerializer::class,
+            'rest-xml'  => Serializer\RestXmlSerializer::class
+        ];
+
         $proto = $api->getProtocol();
+
         if (isset($mapping[$proto])) {
             return new $mapping[$proto]($api, $endpoint);
         }
+
         if ($proto == 'ec2') {
             return new Serializer\QuerySerializer($api, $endpoint, new Serializer\Ec2ParamBuilder());
         }
-        throw new \UnexpectedValueException('Unknown protocol: ' . $api->getProtocol());
+
+        throw new \UnexpectedValueException(
+            'Unknown protocol: ' . $api->getProtocol()
+        );
     }
+
     /**
      * Creates an error parser for the given protocol.
      *
@@ -83,12 +121,21 @@ class Service extends AbstractModel
      */
     public static function createErrorParser($protocol, ?Service $api = null)
     {
-        static $mapping = ['json' => ErrorParser\JsonRpcErrorParser::class, 'query' => ErrorParser\XmlErrorParser::class, 'rest-json' => ErrorParser\RestJsonErrorParser::class, 'rest-xml' => ErrorParser\XmlErrorParser::class, 'ec2' => ErrorParser\XmlErrorParser::class];
+        static $mapping = [
+            'json'      => ErrorParser\JsonRpcErrorParser::class,
+            'query'     => ErrorParser\XmlErrorParser::class,
+            'rest-json' => ErrorParser\RestJsonErrorParser::class,
+            'rest-xml'  => ErrorParser\XmlErrorParser::class,
+            'ec2'       => ErrorParser\XmlErrorParser::class
+        ];
+
         if (isset($mapping[$protocol])) {
             return new $mapping[$protocol]($api);
         }
-        throw new \UnexpectedValueException("Unknown protocol: {$protocol}");
+
+        throw new \UnexpectedValueException("Unknown protocol: $protocol");
     }
+
     /**
      * Applies the listeners needed to parse client models.
      *
@@ -98,16 +145,27 @@ class Service extends AbstractModel
      */
     public static function createParser(Service $api)
     {
-        static $mapping = ['json' => Parser\JsonRpcParser::class, 'query' => Parser\QueryParser::class, 'rest-json' => Parser\RestJsonParser::class, 'rest-xml' => Parser\RestXmlParser::class];
+        static $mapping = [
+            'json'      => Parser\JsonRpcParser::class,
+            'query'     => Parser\QueryParser::class,
+            'rest-json' => Parser\RestJsonParser::class,
+            'rest-xml'  => Parser\RestXmlParser::class
+        ];
+
         $proto = $api->getProtocol();
         if (isset($mapping[$proto])) {
             return new $mapping[$proto]($api);
         }
+
         if ($proto == 'ec2') {
-            return new Parser\QueryParser($api, null, \false);
+            return new Parser\QueryParser($api, null, false);
         }
-        throw new \UnexpectedValueException('Unknown protocol: ' . $api->getProtocol());
+
+        throw new \UnexpectedValueException(
+            'Unknown protocol: ' . $api->getProtocol()
+        );
     }
+
     /**
      * Get the full name of the service
      *
@@ -117,6 +175,7 @@ class Service extends AbstractModel
     {
         return $this->definition['metadata']['serviceFullName'];
     }
+
     /**
      * Get the service id
      *
@@ -126,6 +185,7 @@ class Service extends AbstractModel
     {
         return $this->definition['metadata']['serviceId'];
     }
+
     /**
      * Get the API version of the service
      *
@@ -135,6 +195,7 @@ class Service extends AbstractModel
     {
         return $this->definition['metadata']['apiVersion'];
     }
+
     /**
      * Get the API version of the service
      *
@@ -144,6 +205,7 @@ class Service extends AbstractModel
     {
         return $this->definition['metadata']['endpointPrefix'];
     }
+
     /**
      * Get the signing name used by the service.
      *
@@ -151,8 +213,10 @@ class Service extends AbstractModel
      */
     public function getSigningName()
     {
-        return $this->definition['metadata']['signingName'] ?: $this->definition['metadata']['endpointPrefix'];
+        return $this->definition['metadata']['signingName']
+            ?: $this->definition['metadata']['endpointPrefix'];
     }
+
     /**
      * Get the service name.
      *
@@ -162,6 +226,7 @@ class Service extends AbstractModel
     {
         return $this->definition['metadata']['serviceIdentifier'] ?? null;
     }
+
     /**
      * Get the default signature version of the service.
      *
@@ -173,6 +238,7 @@ class Service extends AbstractModel
     {
         return $this->definition['metadata']['signatureVersion'] ?: 'v4';
     }
+
     /**
      * Get the protocol used by the service.
      *
@@ -182,6 +248,7 @@ class Service extends AbstractModel
     {
         return $this->protocol;
     }
+
     /**
      * Get the uid string used by the service
      *
@@ -191,6 +258,7 @@ class Service extends AbstractModel
     {
         return $this->definition['metadata']['uid'];
     }
+
     /**
      * Check if the description has a specific operation by name.
      *
@@ -202,6 +270,7 @@ class Service extends AbstractModel
     {
         return isset($this['operations'][$name]);
     }
+
     /**
      * Get an operation by name.
      *
@@ -214,14 +283,22 @@ class Service extends AbstractModel
     {
         if (!isset($this->operations[$name])) {
             if (!isset($this->definition['operations'][$name])) {
-                throw new \InvalidArgumentException("Unknown operation: {$name}");
+                throw new \InvalidArgumentException("Unknown operation: $name");
             }
-            $this->operations[$name] = new Operation($this->definition['operations'][$name], $this->shapeMap);
+            $this->operations[$name] = new Operation(
+                $this->definition['operations'][$name],
+                $this->shapeMap
+            );
         } elseif ($this->modifiedModel) {
-            $this->operations[$name] = new Operation($this->definition['operations'][$name], $this->shapeMap);
+            $this->operations[$name] = new Operation(
+                $this->definition['operations'][$name],
+                $this->shapeMap
+            );
         }
+
         return $this->operations[$name];
     }
+
     /**
      * Get all of the operations of the description.
      *
@@ -233,8 +310,10 @@ class Service extends AbstractModel
         foreach ($this->definition['operations'] as $name => $definition) {
             $result[$name] = $this->getOperation($name);
         }
+
         return $result;
     }
+
     /**
      * Get all of the error shapes of the service
      *
@@ -249,8 +328,10 @@ class Service extends AbstractModel
                 $result[] = new StructureShape($definition, $this->getShapeMap());
             }
         }
+
         return $result;
     }
+
     /**
      * Get all of the service metadata or a specific metadata key value.
      *
@@ -263,11 +344,14 @@ class Service extends AbstractModel
         if (!$key) {
             return $this['metadata'];
         }
+
         if (isset($this->definition['metadata'][$key])) {
             return $this->definition['metadata'][$key];
         }
+
         return null;
     }
+
     /**
      * Gets an associative array of available paginator configurations where
      * the key is the name of the paginator, and the value is the paginator
@@ -279,11 +363,20 @@ class Service extends AbstractModel
     public function getPaginators()
     {
         if (!isset($this->paginators)) {
-            $res = call_user_func($this->apiProvider, 'paginator', $this->serviceName, $this->apiVersion);
-            $this->paginators = isset($res['pagination']) ? $res['pagination'] : [];
+            $res = call_user_func(
+                $this->apiProvider,
+                'paginator',
+                $this->serviceName,
+                $this->apiVersion
+            );
+            $this->paginators = isset($res['pagination'])
+                ? $res['pagination']
+                : [];
         }
+
         return $this->paginators;
     }
+
     /**
      * Determines if the service has a paginator by name.
      *
@@ -295,6 +388,7 @@ class Service extends AbstractModel
     {
         return isset($this->getPaginators()[$name]);
     }
+
     /**
      * Retrieve a paginator by name.
      *
@@ -306,12 +400,22 @@ class Service extends AbstractModel
      */
     public function getPaginatorConfig($name)
     {
-        static $defaults = ['input_token' => null, 'output_token' => null, 'limit_key' => null, 'result_key' => null, 'more_results' => null];
+        static $defaults = [
+            'input_token'  => null,
+            'output_token' => null,
+            'limit_key'    => null,
+            'result_key'   => null,
+            'more_results' => null,
+        ];
+
         if ($this->hasPaginator($name)) {
             return $this->paginators[$name] + $defaults;
         }
-        throw new \UnexpectedValueException("There is no {$name} " . "paginator defined for the {$this->serviceName} service.");
+
+        throw new \UnexpectedValueException("There is no {$name} "
+            . "paginator defined for the {$this->serviceName} service.");
     }
+
     /**
      * Gets an associative array of available waiter configurations where the
      * key is the name of the waiter, and the value is the waiter
@@ -322,11 +426,20 @@ class Service extends AbstractModel
     public function getWaiters()
     {
         if (!isset($this->waiters)) {
-            $res = call_user_func($this->apiProvider, 'waiter', $this->serviceName, $this->apiVersion);
-            $this->waiters = isset($res['waiters']) ? $res['waiters'] : [];
+            $res = call_user_func(
+                $this->apiProvider,
+                'waiter',
+                $this->serviceName,
+                $this->apiVersion
+            );
+            $this->waiters = isset($res['waiters'])
+                ? $res['waiters']
+                : [];
         }
+
         return $this->waiters;
     }
+
     /**
      * Determines if the service has a waiter by name.
      *
@@ -338,6 +451,7 @@ class Service extends AbstractModel
     {
         return isset($this->getWaiters()[$name]);
     }
+
     /**
      * Get a waiter configuration by name.
      *
@@ -352,8 +466,11 @@ class Service extends AbstractModel
         if ($this->hasWaiter($name)) {
             return $this->waiters[$name];
         }
-        throw new \UnexpectedValueException("There is no {$name} waiter " . "defined for the {$this->serviceName} service.");
+
+        throw new \UnexpectedValueException("There is no {$name} waiter "
+            . "defined for the {$this->serviceName} service.");
     }
+
     /**
      * Get the shape map used by the API.
      *
@@ -363,6 +480,7 @@ class Service extends AbstractModel
     {
         return $this->shapeMap;
     }
+
     /**
      * Get all the context params of the description.
      *
@@ -372,6 +490,7 @@ class Service extends AbstractModel
     {
         return $this->clientContextParams;
     }
+
     /**
      * Get the service's api provider.
      *
@@ -381,6 +500,7 @@ class Service extends AbstractModel
     {
         return $this->apiProvider;
     }
+
     /**
      * Get the service's definition.
      *
@@ -390,6 +510,7 @@ class Service extends AbstractModel
     {
         return $this->definition;
     }
+
     /**
      * Sets the service's api definition.
      * Intended for internal use only.
@@ -402,8 +523,9 @@ class Service extends AbstractModel
     {
         $this->definition = $definition;
         $this->shapeMap = new ShapeMap($definition['shapes']);
-        $this->modifiedModel = \true;
+        $this->modifiedModel = true;
     }
+
     /**
      * Denotes whether or not a service's definition has
      * been modified.  Intended for internal use only.
@@ -416,6 +538,7 @@ class Service extends AbstractModel
     {
         return $this->modifiedModel;
     }
+
     /**
      * Accepts a list of protocols derived from the service model.
      * Returns the highest priority compatible auth scheme if the `protocols` trait is present.
@@ -425,16 +548,17 @@ class Service extends AbstractModel
      *
      * @return string|null
      */
-    private function selectProtocol(array $definition): string|null
+    private function selectProtocol(array $definition): string | null
     {
         $modeledProtocols = $definition['metadata']['protocols'] ?? null;
         if (!empty($modeledProtocols)) {
-            foreach (SupportedProtocols::cases() as $protocol) {
-                if (in_array($protocol->value, $modeledProtocols)) {
-                    return $protocol->value;
+            foreach(SupportedProtocols::all() as $protocol) {
+                if (in_array($protocol, $modeledProtocols)) {
+                    return $protocol;
                 }
             }
         }
+
         return $definition['metadata']['protocol'] ?? null;
     }
 }

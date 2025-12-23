@@ -1,5 +1,4 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\Aws\Api\Parser;
 
 use ClikIT\Infinite_Uploads\Aws\Api\Operation;
@@ -9,12 +8,14 @@ use ClikIT\Infinite_Uploads\Aws\Result;
 use ClikIT\Infinite_Uploads\Aws\CommandInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\ResponseInterface;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
+
 /**
  * @internal Implements JSON-RPC parsing (e.g., DynamoDB)
  */
 class JsonRpcParser extends AbstractParser
 {
     use PayloadParserTrait;
+
     /**
      * @param Service    $api    Service description
      * @param JsonParser $parser JSON body builder
@@ -24,11 +25,16 @@ class JsonRpcParser extends AbstractParser
         parent::__construct($api);
         $this->parser = $parser ?: new JsonParser();
     }
-    public function __invoke(CommandInterface $command, ResponseInterface $response)
-    {
+
+    public function __invoke(
+        CommandInterface $command,
+        ResponseInterface $response
+    ) {
         $operation = $this->api->getOperation($command->getName());
+
         return $this->parseResponse($response, $operation);
     }
+
     /**
      * This method parses a response based on JSON RPC protocol.
      *
@@ -43,17 +49,34 @@ class JsonRpcParser extends AbstractParser
         if (null === $operation['output']) {
             return new Result([]);
         }
+
         $outputShape = $operation->getOutput();
         foreach ($outputShape->getMembers() as $memberName => $memberProps) {
             if (!empty($memberProps['eventstream'])) {
-                return new Result([$memberName => new EventParsingIterator($response->getBody(), $outputShape->getMember($memberName), $this)]);
+                return new Result([
+                    $memberName => new EventParsingIterator(
+                        $response->getBody(),
+                        $outputShape->getMember($memberName),
+                        $this
+                    )
+                ]);
             }
         }
-        $result = $this->parseMemberFromStream($response->getBody(), $operation->getOutput(), $response);
+
+        $result = $this->parseMemberFromStream(
+                $response->getBody(),
+                $operation->getOutput(),
+                $response
+            );
+
         return new Result(is_null($result) ? [] : $result);
     }
-    public function parseMemberFromStream(StreamInterface $stream, StructureShape $member, $response)
-    {
+
+    public function parseMemberFromStream(
+        StreamInterface $stream,
+        StructureShape $member,
+        $response
+    ) {
         return $this->parser->parse($member, $this->parseJson($stream, $response));
     }
 }

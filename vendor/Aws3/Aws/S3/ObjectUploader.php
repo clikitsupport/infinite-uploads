@@ -1,11 +1,11 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\Aws\S3;
 
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromiseInterface;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise\PromisorInterface;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Psr7;
 use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
+
 /**
  * Uploads an object to S3, using a PutObject command or a multipart upload as
  * appropriate.
@@ -13,14 +13,22 @@ use ClikIT\Infinite_Uploads\Psr\Http\Message\StreamInterface;
 class ObjectUploader implements PromisorInterface
 {
     const DEFAULT_MULTIPART_THRESHOLD = 16777216;
+
     private $client;
     private $bucket;
     private $key;
     private $body;
     private $acl;
     private $options;
-    private static $defaults = ['before_upload' => null, 'concurrency' => 3, 'mup_threshold' => self::DEFAULT_MULTIPART_THRESHOLD, 'params' => [], 'part_size' => null];
+    private static $defaults = [
+        'before_upload' => null,
+        'concurrency'   => 3,
+        'mup_threshold' => self::DEFAULT_MULTIPART_THRESHOLD,
+        'params'        => [],
+        'part_size'     => null,
+    ];
     private $addContentMD5;
+
     /**
      * @param S3ClientInterface $client         The S3 Client used to execute
      *                                          the upload command(s).
@@ -38,8 +46,14 @@ class ObjectUploader implements PromisorInterface
      *                                          through 'params' are added to
      *                                          the sub command(s).
      */
-    public function __construct(S3ClientInterface $client, $bucket, $key, $body, $acl = 'private', array $options = [])
-    {
+    public function __construct(
+        S3ClientInterface $client,
+        $bucket,
+        $key,
+        $body,
+        $acl = 'private',
+        array $options = []
+    ) {
         $this->client = $client;
         $this->bucket = $bucket;
         $this->key = $key;
@@ -47,8 +61,10 @@ class ObjectUploader implements PromisorInterface
         $this->acl = $acl;
         $this->options = $options + self::$defaults;
         // Handle "add_content_md5" option.
-        $this->addContentMD5 = isset($options['add_content_md5']) && $options['add_content_md5'] === \true;
+        $this->addContentMD5 = isset($options['add_content_md5'])
+            && $options['add_content_md5'] === true;
     }
+
     /**
      * @return PromiseInterface
      */
@@ -58,19 +74,32 @@ class ObjectUploader implements PromisorInterface
         $mup_threshold = $this->options['mup_threshold'];
         if ($this->requiresMultipart($this->body, $mup_threshold)) {
             // Perform a multipart upload.
-            return (new MultipartUploader($this->client, $this->body, ['bucket' => $this->bucket, 'key' => $this->key, 'acl' => $this->acl] + $this->options))->promise();
+            return (new MultipartUploader($this->client, $this->body, [
+                    'bucket' => $this->bucket,
+                    'key'    => $this->key,
+                    'acl'    => $this->acl
+                ] + $this->options))->promise();
         }
+
         // Perform a regular PutObject operation.
-        $command = $this->client->getCommand('PutObject', ['Bucket' => $this->bucket, 'Key' => $this->key, 'Body' => $this->body, 'ACL' => $this->acl, 'AddContentMD5' => $this->addContentMD5] + $this->options['params']);
+        $command = $this->client->getCommand('PutObject', [
+                'Bucket' => $this->bucket,
+                'Key'    => $this->key,
+                'Body'   => $this->body,
+                'ACL'    => $this->acl,
+                'AddContentMD5' => $this->addContentMD5
+            ] + $this->options['params']);
         if (is_callable($this->options['before_upload'])) {
             $this->options['before_upload']($command);
         }
         return $this->client->executeAsync($command);
     }
+
     public function upload()
     {
         return $this->promise()->wait();
     }
+
     /**
      * Determines if the body should be uploaded using PutObject or the
      * Multipart Upload System. It also modifies the passed-in $body as needed
@@ -87,6 +116,7 @@ class ObjectUploader implements PromisorInterface
         if ($body->getSize() !== null) {
             return $body->getSize() >= $threshold;
         }
+
         /**
          * Handle the situation where the body size is unknown.
          * Read up to 5MB into a buffer to determine how to upload the body.
@@ -94,12 +124,14 @@ class ObjectUploader implements PromisorInterface
          */
         $buffer = Psr7\Utils::streamFor();
         Psr7\Utils::copyToStream($body, $buffer, MultipartUploader::PART_MIN_SIZE);
+
         // If body < 5MB, use PutObject with the buffer.
         if ($buffer->getSize() < MultipartUploader::PART_MIN_SIZE) {
             $buffer->seek(0);
             $body = $buffer;
-            return \false;
+            return false;
         }
+
         // If body >= 5 MB, then use multipart. [YES]
         if ($body->isSeekable() && $body->getMetadata('uri') !== 'php://input') {
             // If the body is seekable, just rewind the body.
@@ -112,6 +144,7 @@ class ObjectUploader implements PromisorInterface
             $buffer->seek(0);
             $body = new Psr7\AppendStream([$buffer, $body]);
         }
-        return \true;
+
+        return true;
     }
 }

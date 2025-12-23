@@ -1,9 +1,9 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\Aws\Signature;
 
 use ClikIT\Infinite_Uploads\Aws\Exception\UnresolvedSignatureException;
 use ClikIT\Infinite_Uploads\Aws\Token\BearerTokenAuthorization;
+
 /**
  * Signature providers.
  *
@@ -14,9 +14,9 @@ use ClikIT\Infinite_Uploads\Aws\Token\BearerTokenAuthorization;
  * You can wrap your calls to a signature provider with the
  * {@see SignatureProvider::resolve} function to ensure that a signature object
  * is created. If a signature object is not created, then the resolve()
- * function will throw a {@see Aws\Exception\UnresolvedSignatureException}.
+ * function will throw a {@see ClikIT\Infinite_Uploads\Aws\Exception\UnresolvedSignatureException}.
  *
- *     use Aws\Signature\SignatureProvider;
+ *     use ClikIT\Infinite_Uploads\Aws\Signature\SignatureProvider;
  *     $provider = SignatureProvider::defaultProvider();
  *     // Returns a SignatureInterface or NULL.
  *     $signer = $provider('v4', 's3', 'us-west-2');
@@ -41,7 +41,14 @@ use ClikIT\Infinite_Uploads\Aws\Token\BearerTokenAuthorization;
  */
 class SignatureProvider
 {
-    private static $s3v4SignedServices = ['s3' => \true, 's3control' => \true, 's3-outposts' => \true, 's3-object-lambda' => \true, 's3express' => \true];
+    private static $s3v4SignedServices = [
+        's3' => true,
+        's3control' => true,
+        's3-outposts' => true,
+        's3-object-lambda' => true,
+        's3express' => true
+    ];
+
     /**
      * Resolves and signature provider and ensures a non-null return value.
      *
@@ -56,11 +63,18 @@ class SignatureProvider
     public static function resolve(callable $provider, $version, $service, $region)
     {
         $result = $provider($version, $service, $region);
-        if ($result instanceof SignatureInterface || $result instanceof BearerTokenAuthorization || $result instanceof DpopSignature) {
+        if ($result instanceof SignatureInterface
+            || $result instanceof BearerTokenAuthorization
+        ) {
             return $result;
         }
-        throw new UnresolvedSignatureException("Unable to resolve a signature for {$version}/{$service}/{$region}.\n" . "Valid signature versions include v4 and anonymous.");
+
+        throw new UnresolvedSignatureException(
+            "Unable to resolve a signature for $version/$service/$region.\n"
+            . "Valid signature versions include v4 and anonymous."
+        );
     }
+
     /**
      * Default SDK signature provider.
      *
@@ -70,6 +84,7 @@ class SignatureProvider
     {
         return self::memoize(self::version());
     }
+
     /**
      * Creates a signature provider that caches previously created signature
      * objects. The computed cache key is the concatenation of the version,
@@ -83,13 +98,14 @@ class SignatureProvider
     {
         $cache = [];
         return function ($version, $service, $region) use (&$cache, $provider) {
-            $key = "({$version})({$service})({$region})";
+            $key = "($version)($service)($region)";
             if (!isset($cache[$key])) {
                 $cache[$key] = $provider($version, $service, $region);
             }
             return $cache[$key];
         };
     }
+
     /**
      * Creates signature objects from known signature versions.
      *
@@ -108,17 +124,21 @@ class SignatureProvider
                     return new S3ExpressSignature($service, $region);
                 case 's3v4':
                 case 'v4':
-                    return !empty(self::$s3v4SignedServices[$service]) ? new S3SignatureV4($service, $region) : new SignatureV4($service, $region);
+                    return !empty(self::$s3v4SignedServices[$service])
+                        ? new S3SignatureV4($service, $region)
+                        : new SignatureV4($service, $region);
                 case 'v4a':
-                    return !empty(self::$s3v4SignedServices[$service]) ? new S3SignatureV4($service, $region, ['use_v4a' => \true]) : new SignatureV4($service, $region, ['use_v4a' => \true]);
+                    return !empty(self::$s3v4SignedServices[$service])
+                        ? new S3SignatureV4($service, $region, ['use_v4a' => true])
+                        : new SignatureV4($service, $region, ['use_v4a' => true]);
                 case 'v4-unsigned-body':
-                    return !empty(self::$s3v4SignedServices[$service]) ? new S3SignatureV4($service, $region, ['unsigned-body' => 'true']) : new SignatureV4($service, $region, ['unsigned-body' => 'true']);
+                    return !empty(self::$s3v4SignedServices[$service])
+                    ? new S3SignatureV4($service, $region, ['unsigned-body' => 'true'])
+                    : new SignatureV4($service, $region, ['unsigned-body' => 'true']);
                 case 'bearer':
                     return new BearerTokenAuthorization();
                 case 'anonymous':
                     return new AnonymousSignature();
-                case 'dpop':
-                    return new DpopSignature($service);
                 default:
                     return null;
             }

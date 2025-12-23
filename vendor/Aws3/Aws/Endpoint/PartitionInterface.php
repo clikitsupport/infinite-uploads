@@ -1,5 +1,4 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\Aws\Endpoint;
 
 /**
@@ -14,6 +13,7 @@ interface PartitionInterface
      * @return string
      */
     public function getName();
+
     /**
      * Determine if this partition contains the provided region. Include the
      * name of the service to inspect non-regional endpoints
@@ -24,6 +24,7 @@ interface PartitionInterface
      * @return bool
      */
     public function isRegionMatch($region, $service);
+
     /**
      * Return the endpoints supported by a given service.
      *
@@ -38,7 +39,11 @@ interface PartitionInterface
      * 
      * @return string[]
      */
-    public function getAvailableEndpoints($service, $allowNonRegionalEndpoints = \false);
+    public function getAvailableEndpoints(
+        $service,
+        $allowNonRegionalEndpoints = false
+    );
+
     /**
      * A partition must be invokable as an endpoint provider.
      *

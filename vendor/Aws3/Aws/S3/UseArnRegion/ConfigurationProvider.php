@@ -1,5 +1,4 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\Aws\S3\UseArnRegion;
 
 use ClikIT\Infinite_Uploads\Aws\AbstractConfigurationProvider;
@@ -7,13 +6,14 @@ use ClikIT\Infinite_Uploads\Aws\CacheInterface;
 use ClikIT\Infinite_Uploads\Aws\ConfigurationProviderInterface;
 use ClikIT\Infinite_Uploads\Aws\S3\UseArnRegion\Exception\ConfigurationException;
 use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
+
 /**
  * A configuration provider is a function that returns a promise that is
- * fulfilled with a {@see \Aws\S3\UseArnRegion\ConfigurationInterface}
- * or rejected with an {@see \Aws\S3\UseArnRegion\Exception\ConfigurationException}.
+ * fulfilled with a {@see ClikIT\Infinite_Uploads\Aws\S3\UseArnRegion\ConfigurationInterface}
+ * or rejected with an {@see ClikIT\Infinite_Uploads\Aws\S3\UseArnRegion\Exception\ConfigurationException}.
  *
  * <code>
- * use Aws\S3\UseArnRegion\ConfigurationProvider;
+ * use ClikIT\Infinite_Uploads\Aws\S3\UseArnRegion\ConfigurationProvider;
  * $provider = ConfigurationProvider::defaultProvider();
  * // Returns a ConfigurationInterface or throws.
  * $config = $provider()->wait();
@@ -22,7 +22,7 @@ use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
  * Configuration providers can be composed to create configuration using
  * conditional logic that can create different configurations in different
  * environments. You can compose multiple providers into a single provider using
- * {@see Aws\S3\UseArnRegion\ConfigurationProvider::chain}. This function
+ * {@see ClikIT\Infinite_Uploads\Aws\S3\UseArnRegion\ConfigurationProvider::chain}. This function
  * accepts providers as variadic arguments and returns a new function that will
  * invoke each provider until a successful configuration is returned.
  *
@@ -41,14 +41,18 @@ use ClikIT\Infinite_Uploads\GuzzleHttp\Promise;
  * $config = $promise->wait();
  * </code>
  */
-class ConfigurationProvider extends AbstractConfigurationProvider implements ConfigurationProviderInterface
+class ConfigurationProvider extends AbstractConfigurationProvider
+    implements ConfigurationProviderInterface
 {
     const ENV_USE_ARN_REGION = 'AWS_S3_USE_ARN_REGION';
     const INI_USE_ARN_REGION = 's3_use_arn_region';
-    const DEFAULT_USE_ARN_REGION = \true;
+    const DEFAULT_USE_ARN_REGION = true;
+
     public static $cacheKey = 'aws_s3_use_arn_region_config';
+
     protected static $interfaceClass = ConfigurationInterface::class;
     protected static $exceptionClass = ConfigurationException::class;
+
     /**
      * Create a default config provider that first checks for environment
      * variables, then checks for a specified profile in the environment-defined
@@ -67,16 +71,27 @@ class ConfigurationProvider extends AbstractConfigurationProvider implements Con
     public static function defaultProvider(array $config = [])
     {
         $configProviders = [self::env()];
-        if (!isset($config['use_aws_shared_config_files']) || $config['use_aws_shared_config_files'] != \false) {
+        if (
+            !isset($config['use_aws_shared_config_files'])
+            || $config['use_aws_shared_config_files'] != false
+        ) {
             $configProviders[] = self::ini();
         }
         $configProviders[] = self::fallback();
-        $memo = self::memoize(call_user_func_array([ConfigurationProvider::class, 'chain'], $configProviders));
-        if (isset($config['use_arn_region']) && $config['use_arn_region'] instanceof CacheInterface) {
+
+        $memo = self::memoize(
+            call_user_func_array([ConfigurationProvider::class, 'chain'], $configProviders)
+        );
+
+        if (isset($config['use_arn_region'])
+            && $config['use_arn_region'] instanceof CacheInterface
+        ) {
             return self::cache($memo, $config['use_arn_region'], self::$cacheKey);
         }
+
         return $memo;
     }
+
     /**
      * Provider that creates config from environment variables.
      *
@@ -88,11 +103,16 @@ class ConfigurationProvider extends AbstractConfigurationProvider implements Con
             // Use config from environment variables, if available
             $useArnRegion = getenv(self::ENV_USE_ARN_REGION);
             if (!empty($useArnRegion)) {
-                return Promise\Create::promiseFor(new Configuration($useArnRegion));
+                return Promise\Create::promiseFor(
+                    new Configuration($useArnRegion)
+                );
             }
-            return self::reject('Could not find environment variable config' . ' in ' . self::ENV_USE_ARN_REGION);
+
+            return self::reject('Could not find environment variable config'
+                . ' in ' . self::ENV_USE_ARN_REGION);
         };
     }
+
     /**
      * Config provider that creates config using a config file whose location
      * is specified by an environment variable 'AWS_CONFIG_FILE', defaulting to
@@ -107,30 +127,38 @@ class ConfigurationProvider extends AbstractConfigurationProvider implements Con
      */
     public static function ini($profile = null, $filename = null)
     {
-        $filename = $filename ?: self::getDefaultConfigFilename();
+        $filename = $filename ?: (self::getDefaultConfigFilename());
         $profile = $profile ?: (getenv(self::ENV_PROFILE) ?: 'default');
+
         return function () use ($profile, $filename) {
             if (!@is_readable($filename)) {
-                return self::reject("Cannot read configuration from {$filename}");
+                return self::reject("Cannot read configuration from $filename");
             }
+
             // Use INI_SCANNER_NORMAL instead of INI_SCANNER_TYPED for PHP 5.5 compatibility
-            $data = \ClikIT\Infinite_Uploads\Aws\parse_ini_file($filename, \true, \INI_SCANNER_NORMAL);
-            if ($data === \false) {
-                return self::reject("Invalid config file: {$filename}");
+            $data = \Aws\parse_ini_file($filename, true, INI_SCANNER_NORMAL);
+            if ($data === false) {
+                return self::reject("Invalid config file: $filename");
             }
             if (!isset($data[$profile])) {
-                return self::reject("'{$profile}' not found in config file");
+                return self::reject("'$profile' not found in config file");
             }
             if (!isset($data[$profile][self::INI_USE_ARN_REGION])) {
-                return self::reject("Required S3 Use Arn Region config values\n                    not present in INI profile '{$profile}' ({$filename})");
+                return self::reject("Required S3 Use Arn Region config values
+                    not present in INI profile '{$profile}' ({$filename})");
             }
+
             // INI_SCANNER_NORMAL parses false-y values as an empty string
             if ($data[$profile][self::INI_USE_ARN_REGION] === "") {
-                $data[$profile][self::INI_USE_ARN_REGION] = \false;
+                $data[$profile][self::INI_USE_ARN_REGION] = false;
             }
-            return Promise\Create::promiseFor(new Configuration($data[$profile][self::INI_USE_ARN_REGION]));
+
+            return Promise\Create::promiseFor(
+                new Configuration($data[$profile][self::INI_USE_ARN_REGION])
+            );
         };
     }
+
     /**
      * Fallback config options when other sources are not set.
      *
@@ -139,7 +167,9 @@ class ConfigurationProvider extends AbstractConfigurationProvider implements Con
     public static function fallback()
     {
         return function () {
-            return Promise\Create::promiseFor(new Configuration(self::DEFAULT_USE_ARN_REGION));
+            return Promise\Create::promiseFor(
+                new Configuration(self::DEFAULT_USE_ARN_REGION)
+            );
         };
     }
 }

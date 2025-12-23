@@ -1,5 +1,4 @@
 <?php
-
 namespace ClikIT\Infinite_Uploads\Aws\Api;
 
 /**
@@ -9,10 +8,13 @@ abstract class AbstractModel implements \ArrayAccess
 {
     /** @var array */
     protected $definition;
+
     /** @var ShapeMap */
     protected $shapeMap;
+
     /** @var array */
     protected $contextParam;
+
     /**
      * @param array    $definition Service description
      * @param ShapeMap $shapeMap   Shapemap used for creating shapes
@@ -25,18 +27,22 @@ abstract class AbstractModel implements \ArrayAccess
             $this->contextParam = $definition['contextParam'];
         }
     }
+
     public function toArray()
     {
         return $this->definition;
     }
+
     /**
      * @return mixed|null
      */
     #[\ReturnTypeWillChange]
     public function offsetGet($offset)
     {
-        return isset($this->definition[$offset]) ? $this->definition[$offset] : null;
+        return isset($this->definition[$offset])
+            ? $this->definition[$offset] : null;
     }
+
     /**
      * @return void
      */
@@ -45,6 +51,7 @@ abstract class AbstractModel implements \ArrayAccess
     {
         $this->definition[$offset] = $value;
     }
+
     /**
      * @return bool
      */
@@ -53,6 +60,7 @@ abstract class AbstractModel implements \ArrayAccess
     {
         return isset($this->definition[$offset]);
     }
+
     /**
      * @return void
      */
@@ -61,15 +69,21 @@ abstract class AbstractModel implements \ArrayAccess
     {
         unset($this->definition[$offset]);
     }
+
     protected function shapeAt($key)
     {
         if (!isset($this->definition[$key])) {
-            throw new \InvalidArgumentException('Expected shape definition at ' . $key);
+            throw new \InvalidArgumentException('Expected shape definition at '
+                . $key);
         }
+
         return $this->shapeFor($this->definition[$key]);
     }
+
     protected function shapeFor(array $definition)
     {
-        return isset($definition['shape']) ? $this->shapeMap->resolve($definition) : Shape::create($definition, $this->shapeMap);
+        return isset($definition['shape'])
+            ? $this->shapeMap->resolve($definition)
+            : Shape::create($definition, $this->shapeMap);
     }
 }
