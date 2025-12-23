@@ -12,7 +12,7 @@ class InfiniteUploadsVideo {
 
     public function __construct() {
         $this->iup_instance = InfiniteUploads::get_instance();
-        $this->api          = Infinite_Uploads_Api_Handler::get_instance();
+        $this->api          = InfiniteUploadsApiHandler::get_instance();
 
         /*
         //for testing, override values that our API would normally provide TODO remove

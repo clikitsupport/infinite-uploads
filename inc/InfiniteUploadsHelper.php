@@ -209,7 +209,7 @@ class InfiniteUploadsHelper {
 	}
 
 	public static function get_iu_api_data() {
-		$api      = Infinite_Uploads_Api_Handler::get_instance();
+		$api      = InfiniteUploadsApiHandler::get_instance();
 		$api_data = $api->get_site_data();
 
 		return $api_data;

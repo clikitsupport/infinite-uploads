@@ -22,7 +22,7 @@ class InfiniteUploadsAdmin {
 
     public function __construct() {
         $this->iup_instance = InfiniteUploads::get_instance();
-        $this->api          = Infinite_Uploads_Api_Handler::get_instance();
+        $this->api          = InfiniteUploadsApiHandler::get_instance();
         $this->video        = Infinite_Uploads_Video::get_instance();
 
         if ( is_multisite() ) {
