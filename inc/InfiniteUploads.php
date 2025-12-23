@@ -49,7 +49,7 @@ class InfiniteUploads {
      */
     public static function get_instance() {
         if ( ! self::$instance ) {
-            self::$instance = new Infinite_Uploads();
+            self::$instance = new InfiniteUploads();
         }
 
         return self::$instance;
@@ -100,9 +100,9 @@ class InfiniteUploads {
      * Setup the hooks, urls filtering etc for Infinite Uploads
      */
     public function setup() {
-        $this->admin  = Infinite_Uploads_Admin::get_instance();
-        $this->api    = Infinite_Uploads_Api_Handler::get_instance();
-        $this->stream = Infinite_Uploads_Video::get_instance();
+        $this->admin  = InfiniteUploadsAdmin::get_instance();
+        $this->api    = InfiniteUploadsApiHandler::get_instance();
+        $this->stream = InfiniteUploadsVideo::get_instance();
         //Add cloud permissions if present
         $api_data = $this->api->get_site_data();
         if ( $api_data && isset( $api_data->site ) && ! empty( $api_data->site->upload_key ) && ! empty( $api_data->site->upload_secret ) ) {

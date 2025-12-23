@@ -215,11 +215,11 @@ class InfiniteUploadsAdmin {
 
     /**
      *
-     * @return Infinite_Uploads_Admin
+     * @return InfiniteUploadsAdmin
      */
     public static function get_instance() {
         if ( ! self::$instance ) {
-            self::$instance = new Infinite_Uploads_Admin();
+            self::$instance = new InfiniteUploadsAdmin();
         }
 
         return self::$instance;

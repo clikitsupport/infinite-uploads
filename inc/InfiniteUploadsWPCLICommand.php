@@ -68,7 +68,7 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 	 */
 	private function verify_s3_access_constants() {
 		if ( ! Infinite_Uploads::get_instance()->bucket ) {
-			WP_CLI::error( sprintf( 'This site is not yet connected to the Infinite Uploads cloud. Please connect using the settings page: %s', Infinite_Uploads_Admin::get_instance()->settings_url() ), false );
+			WP_CLI::error( sprintf( 'This site is not yet connected to the Infinite Uploads cloud. Please connect using the settings page: %s', InfiniteUploadsAdmin::get_instance()->settings_url() ), false );
 
 			return false;
 		}
