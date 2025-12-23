@@ -336,7 +336,7 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 		$path     = $instance->get_original_upload_dir_root();
 
 		WP_CLI::line( esc_html__( 'Scanning local filesystem...', 'infinite-uploads' ) );
-		$filelist = new Infinite_Uploads_Filelist( $path['basedir'], 9999, [] );
+		$filelist = new InfiniteUploadsFilelist( $path['basedir'], 9999, [] );
 		$filelist->start();
 
 		$stats = $instance->get_sync_stats();

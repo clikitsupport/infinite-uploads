@@ -1,3 +1,9 @@
+<?php
+
+use ClikIT\InfiniteUploads\InfiniteUploadsAdmin as InfiniteUploadsAdmin;
+
+?>
+
 <div id="iup-footer" class="container mt-5">
 	<div class="row">
 		<div class="col-sm text-center text-muted">

@@ -34,7 +34,7 @@ class InfiniteUploadsRewriter {
 		$this->cdn_url = $this->protocolize_url( $cdn_url );
 
 		//generate upload url paths that should be excluded from url replacement
-		$filelist   = new Infinite_Uploads_Filelist( '/' ); //path doesn't matter
+		$filelist   = new InfiniteUploadsFilelist( '/' ); //path doesn't matter
 		$exclusions = apply_filters( 'infinite_uploads_sync_exclusions', $filelist->exclusions );
 		foreach ( $exclusions as $exclusion ) {
 			if ( 0 === strpos( $exclusion, '/' ) ) {

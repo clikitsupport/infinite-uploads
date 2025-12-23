@@ -342,7 +342,7 @@ class InfiniteUploadsAdmin {
             }
         }
 
-        $filelist = new Infinite_Uploads_Filelist( $path, $this->ajax_timelimit, $remaining_dirs );
+        $filelist = new InfiniteUploadsFilelist( $path, $this->ajax_timelimit, $remaining_dirs );
         $filelist->start();
         $this_file_count = count( $filelist->file_list );
         $remaining_dirs  = $filelist->paths_left;
@@ -1333,7 +1333,7 @@ class InfiniteUploadsAdmin {
             $path = $this->iup_instance->get_original_upload_dir_root();
             $path = $path['basedir'];
 
-            $filelist = new Infinite_Uploads_Filelist( $path, 20, $files_to_resync );
+            $filelist = new InfiniteUploadsFilelist( $path, 20, $files_to_resync );
             $filelist->add_files_to_sync();
 
             as_schedule_single_action( time(), 'infinite-uploads-do-sync' );

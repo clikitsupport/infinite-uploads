@@ -7,7 +7,7 @@ namespace ClikIT\InfiniteUploads;
 
 
 /**
- * Infinite_Uploads_Filelist
+ * InfiniteUploadsFilelist
  */
 class InfiniteUploadsFilelist {
 
@@ -38,7 +38,7 @@ class InfiniteUploadsFilelist {
 	protected $insert_rows = 500;
 
 	/**
-	 * Infinite_Uploads_Filelist constructor.
+	 * InfiniteUploadsFilelist constructor.
 	 *
 	 * @param  string  $root_path   The full path of the directory to iterate.
 	 * @param  float   $timeout     Timeout in seconds.

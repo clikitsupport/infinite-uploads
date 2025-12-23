@@ -200,7 +200,7 @@ class InfiniteUploads {
             } else {
                 $cdn_url = $this->get_s3_url();
             }
-            new Infinite_Uploads_Rewriter( $original_root_dirs['baseurl'], $replacements, $cdn_url );
+            new InfiniteUploadsRewriter( $original_root_dirs['baseurl'], $replacements, $cdn_url );
         }
 
     }
@@ -1149,12 +1149,14 @@ function infinite_uploads_wc_uploads( $dir ) {
     return $dir;
 }
 
-add_filter( 'woocommerce_log_directory', 'infinite_uploads_wc_uploads' );
+add_filter( 'woocommerce_log_directory', '\ClikIT\InfiniteUploads\infinite_uploads_wc_uploads' );
+
 
 /**
  * Fix to allow CSV exports from WooCommerce
  */
-add_action( 'admin_init', 'wc_iu_export_fix' );
+add_action( 'admin_init', '\ClikIT\InfiniteUploads\wc_iu_export_fix' );
+
 function wc_iu_export_fix() {
     if ( defined( 'DOING_AJAX' ) && DOING_AJAX && current_user_can( 'manage_options' ) ) {
         if ( isset( $_POST['action'] ) && $_POST['action'] == 'woocommerce_do_ajax_product_export' && class_exists( 'Infinite_Uploads' ) ) {
@@ -1170,8 +1172,9 @@ function wc_iu_export_fix() {
 }
 
 
+
 // Disable Smush filter on Media Library.
-add_action( 'admin_init', 'disable_smush_on_media_library' );
+add_action( 'admin_init', '\ClikIT\InfiniteUploads\disable_smush_on_media_library' );
 
 function disable_smush_on_media_library() {
     if ( class_exists( '\Smush\App\Media_Library' ) ) {
@@ -1234,7 +1237,7 @@ function infinite_uploads_complainz_fix() {
     }
 }
 
-add_action( 'init', 'infinite_uploads_complainz_fix' );
+add_action( 'init', '\ClikIT\InfiniteUploads\infinite_uploads_complainz_fix' );
 
 /**
  * Exclude beaver builder cache directories from being synced.
@@ -1252,7 +1255,7 @@ function infinite_uploads_filter_bb_cache_dir( $dir_info ) {
     return $dir_info;
 }
 
-add_filter( 'fl_builder_get_cache_dir', 'infinite_uploads_filter_bb_cache_dir', 999 );
+add_filter( 'fl_builder_get_cache_dir', '\ClikIT\InfiniteUploads\infinite_uploads_filter_bb_cache_dir', 999 );
 
 /**
  * Initialize WPForo working directories.
@@ -1269,7 +1272,7 @@ function psx_wpforo_init( $dir ) {
     return $dir;
 }
 
-add_filter( 'wpforo_working_folders', 'psx_wpforo_init', 99, 1 );
+add_filter( 'wpforo_working_folders', '\ClikIT\InfiniteUploads\psx_wpforo_init', 99, 1 );
 
 /**
  * Initialize WPDiscuz working directories.
@@ -1280,5 +1283,5 @@ function psx_wpdiscuz_init() {
     }
 }
 
-add_action( 'template_redirect', 'psx_wpdiscuz_init' );
+add_action( 'template_redirect', '\ClikIT\InfiniteUploads\psx_wpdiscuz_init' );
 
