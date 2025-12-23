@@ -11,7 +11,7 @@ class InfiniteUploadsVideo {
     private $api;
 
     public function __construct() {
-        $this->iup_instance = Infinite_Uploads::get_instance();
+        $this->iup_instance = InfiniteUploads::get_instance();
         $this->api          = Infinite_Uploads_Api_Handler::get_instance();
 
         /*

@@ -48,7 +48,7 @@ class InfiniteUploadsFilelist {
 		$this->root_path  = rtrim( $root_path, '/' ); //expected no trailing slash.
 		$this->timeout    = $timeout;
 		$this->paths_left = $paths_left;
-		$this->instance   = Infinite_Uploads::get_instance();
+		$this->instance   = InfiniteUploads::get_instance();
 	}
 
 	/**

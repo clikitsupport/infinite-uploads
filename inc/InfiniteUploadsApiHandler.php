@@ -61,7 +61,7 @@ class InfiniteUploadsApiHandler {
 	 * @internal
 	 */
 	public function __construct() {
-		$this->iup_instance = Infinite_Uploads::get_instance();
+		$this->iup_instance = InfiniteUploads::get_instance();
 
 		if ( defined( 'INFINITE_UPLOADS_CUSTOM_API_SERVER' ) ) {
 			$this->server_root = trailingslashit( INFINITE_UPLOADS_CUSTOM_API_SERVER );

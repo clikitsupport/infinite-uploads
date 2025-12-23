@@ -22,7 +22,7 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 		}
 
 		// Get S3 Upload instance.
-		$instance = Infinite_Uploads::get_instance();
+		$instance = InfiniteUploads::get_instance();
 
 		// Create a path in the base directory, with a random file name to avoid potentially overwriting existing data.
 		$upload_dir = wp_upload_dir();
@@ -67,7 +67,7 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 	 * @return bool true if all constants are set, else false.
 	 */
 	private function verify_s3_access_constants() {
-		if ( ! Infinite_Uploads::get_instance()->bucket ) {
+		if ( ! InfiniteUploads::get_instance()->bucket ) {
 			WP_CLI::error( sprintf( 'This site is not yet connected to the Infinite Uploads cloud. Please connect using the settings page: %s', InfiniteUploadsAdmin::get_instance()->settings_url() ), false );
 
 			return false;
@@ -87,12 +87,12 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 			return;
 		}
 
-		$s3 = Infinite_Uploads::get_instance()->s3();
+		$s3 = InfiniteUploads::get_instance()->s3();
 
 		$prefix = '';
 
-		if ( strpos( Infinite_Uploads::get_instance()->bucket, '/' ) ) {
-			$prefix = trailingslashit( str_replace( strtok( Infinite_Uploads::get_instance()->bucket, '/' ) . '/', '', Infinite_Uploads::get_instance()->bucket ) );
+		if ( strpos( InfiniteUploads::get_instance()->bucket, '/' ) ) {
+			$prefix = trailingslashit( str_replace( strtok( InfiniteUploads::get_instance()->bucket, '/' ) . '/', '', InfiniteUploads::get_instance()->bucket ) );
 		}
 
 		if ( isset( $args[0] ) ) {
@@ -101,7 +101,7 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 
 		try {
 			$objects = $s3->getIterator( 'ListObjects', [
-				'Bucket' => strtok( Infinite_Uploads::get_instance()->bucket, '/' ),
+				'Bucket' => strtok( InfiniteUploads::get_instance()->bucket, '/' ),
 				'Prefix' => $prefix,
 			] );
 			foreach ( $objects as $object ) {
@@ -160,7 +160,7 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 			$to = $args[1];
 		}
 
-		$s3         = Infinite_Uploads::get_instance()->s3();
+		$s3         = InfiniteUploads::get_instance()->s3();
 		$args_assoc = wp_parse_args( $args_assoc, [ 'concurrency' => 20, 'verbose' => false ] );
 
 		$transfer_args = [
@@ -184,7 +184,7 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 			},
 		];
 		try {
-			$manager = new Transfer( $s3, $from, 's3://' . Infinite_Uploads::get_instance()->bucket . '/' . $to, $transfer_args );
+			$manager = new Transfer( $s3, $from, 's3://' . InfiniteUploads::get_instance()->bucket . '/' . $to, $transfer_args );
 			$manager->transfer();
 		} catch ( Exception $e ) {
 			WP_CLI::error( $e->getMessage() );
@@ -200,7 +200,7 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 	public function sync( $args, $args_assoc ) {
 		global $wpdb;
 
-		$instance   = Infinite_Uploads::get_instance();
+		$instance   = InfiniteUploads::get_instance();
 		$args_assoc = wp_parse_args( $args_assoc, [ 'concurrency' => 20, 'noscan' => false, 'verbose' => false ] );
 
 		$path = $instance->get_original_upload_dir_root();
@@ -270,7 +270,7 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 						$command->getHandlerList()->appendSign(
 							Middleware::mapResult( function ( ResultInterface $result ) use ( $args_assoc, $progress_bar, $command, $wpdb, $unsynced, &$uploaded ) {
 								$uploaded ++;
-								$file = '/' . urldecode( strstr( substr( $result['@metadata']["effectiveUri"], ( strrpos( $result['@metadata']["effectiveUri"], Infinite_Uploads::get_instance()->bucket ) + strlen( Infinite_Uploads::get_instance()->bucket ) ) ), '?', true ) ?: substr( $result['@metadata']["effectiveUri"], ( strrpos( $result['@metadata']["effectiveUri"], Infinite_Uploads::get_instance()->bucket ) + strlen( Infinite_Uploads::get_instance()->bucket ) ) ) );
+								$file = '/' . urldecode( strstr( substr( $result['@metadata']["effectiveUri"], ( strrpos( $result['@metadata']["effectiveUri"], InfiniteUploads::get_instance()->bucket ) + strlen( InfiniteUploads::get_instance()->bucket ) ) ), '?', true ) ?: substr( $result['@metadata']["effectiveUri"], ( strrpos( $result['@metadata']["effectiveUri"], InfiniteUploads::get_instance()->bucket ) + strlen( InfiniteUploads::get_instance()->bucket ) ) ) );
 								$wpdb->update( "{$wpdb->base_prefix}infinite_uploads_files", [
 									'synced' => 1,
 									'errors' => 0,
@@ -332,7 +332,7 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 
 	private function build_scan() {
 		global $wpdb;
-		$instance = Infinite_Uploads::get_instance();
+		$instance = InfiniteUploads::get_instance();
 		$path     = $instance->get_original_upload_dir_root();
 
 		WP_CLI::line( esc_html__( 'Scanning local filesystem...', 'infinite-uploads' ) );
@@ -427,7 +427,7 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 			return;
 		}
 
-		$instance   = Infinite_Uploads::get_instance();
+		$instance   = InfiniteUploads::get_instance();
 		$args_assoc = wp_parse_args( $args_assoc, [ 'noscan' => false, 'verbose' => false ] );
 
 		$path = $instance->get_original_upload_dir_root();
@@ -480,7 +480,7 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 			return;
 		}
 
-		$instance   = Infinite_Uploads::get_instance();
+		$instance   = InfiniteUploads::get_instance();
 		$s3         = $instance->s3();
 		$args_assoc = wp_parse_args( $args_assoc, [ 'concurrency' => 20, 'noscan' => false, 'verbose' => false ] );
 
@@ -529,7 +529,7 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 						$command->getHandlerList()->appendSign(
 							Middleware::mapResult( function ( ResultInterface $result ) use ( $args_assoc, $progress_bar, $command, $wpdb, $unsynced, &$downloaded ) {
 								$downloaded ++;
-								$file = '/' . urldecode( strstr( substr( $result['@metadata']["effectiveUri"], ( strrpos( $result['@metadata']["effectiveUri"], Infinite_Uploads::get_instance()->bucket ) + strlen( Infinite_Uploads::get_instance()->bucket ) ) ), '?', true ) ?: substr( $result['@metadata']["effectiveUri"], ( strrpos( $result['@metadata']["effectiveUri"], Infinite_Uploads::get_instance()->bucket ) + strlen( Infinite_Uploads::get_instance()->bucket ) ) ) );
+								$file = '/' . urldecode( strstr( substr( $result['@metadata']["effectiveUri"], ( strrpos( $result['@metadata']["effectiveUri"], InfiniteUploads::get_instance()->bucket ) + strlen( InfiniteUploads::get_instance()->bucket ) ) ), '?', true ) ?: substr( $result['@metadata']["effectiveUri"], ( strrpos( $result['@metadata']["effectiveUri"], InfiniteUploads::get_instance()->bucket ) + strlen( InfiniteUploads::get_instance()->bucket ) ) ) );
 								$wpdb->update( "{$wpdb->base_prefix}infinite_uploads_files", [
 									'deleted' => 0,
 									'errors'  => 0,
@@ -596,13 +596,13 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 			return;
 		}
 
-		$s3 = Infinite_Uploads::get_instance()->s3();
+		$s3 = InfiniteUploads::get_instance()->s3();
 
 		$prefix = '';
 		$regex  = isset( $args_assoc['regex'] ) ? $args_assoc['regex'] : '';
 
-		if ( strpos( Infinite_Uploads::get_instance()->bucket, '/' ) ) {
-			$prefix = trailingslashit( str_replace( strtok( Infinite_Uploads::get_instance()->bucket, '/' ) . '/', '', Infinite_Uploads::get_instance()->bucket ) );
+		if ( strpos( InfiniteUploads::get_instance()->bucket, '/' ) ) {
+			$prefix = trailingslashit( str_replace( strtok( InfiniteUploads::get_instance()->bucket, '/' ) . '/', '', InfiniteUploads::get_instance()->bucket ) );
 		}
 
 		if ( isset( $args[0] ) ) {
@@ -615,7 +615,7 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 
 		try {
 			$s3->deleteMatchingObjects(
-				strtok( Infinite_Uploads::get_instance()->bucket, '/' ),
+				strtok( InfiniteUploads::get_instance()->bucket, '/' ),
 				$prefix,
 				$regex,
 				[
@@ -642,7 +642,7 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 			return;
 		}
 
-		Infinite_Uploads::get_instance()->toggle_cloud( true );
+		InfiniteUploads::get_instance()->toggle_cloud( true );
 
 		WP_CLI::success( 'Media URL rewriting enabled.' );
 	}
@@ -651,7 +651,7 @@ class InfiniteUploadsWPCLICommand extends WP_CLI_Command {
 	 * Disable the auto-rewriting of media links to Infinite Uploads cloud
 	 */
 	public function disable( $args, $assoc_args ) {
-		Infinite_Uploads::get_instance()->toggle_cloud( false );
+		InfiniteUploads::get_instance()->toggle_cloud( false );
 
 		WP_CLI::success( 'Media URL rewriting disabled.' );
 	}

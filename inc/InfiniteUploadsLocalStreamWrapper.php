@@ -37,7 +37,7 @@ class InfiniteUploadsLocalStreamWrapper {
 	 *   String specifying the path.
 	 */
 	static function getDirectoryPath() {
-		$upload_dir = Infinite_Uploads::get_instance()->get_original_upload_dir();
+		$upload_dir = InfiniteUploads::get_instance()->get_original_upload_dir();
 
 		return $upload_dir['basedir'] . '/iu';
 	}
@@ -286,8 +286,8 @@ class InfiniteUploadsLocalStreamWrapper {
 		$result = fflush( $this->handle );
 
 		$params = [
-			'Bucket' => Infinite_Uploads::get_instance()->bucket,
-			'Key'    => trim( str_replace( Infinite_Uploads::get_instance()->bucket, '', $this->getTarget() ), '/' ),
+			'Bucket' => InfiniteUploads::get_instance()->bucket,
+			'Key'    => trim( str_replace( InfiniteUploads::get_instance()->bucket, '', $this->getTarget() ), '/' ),
 		];
 
 		/**
