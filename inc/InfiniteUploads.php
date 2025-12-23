@@ -272,9 +272,9 @@ class InfiniteUploads {
          * @default false
          */
         if ( defined( 'INFINITE_UPLOADS_USE_LOCAL' ) && INFINITE_UPLOADS_USE_LOCAL ) {
-            stream_wrapper_register( 'iu', 'Infinite_Uploads_Local_Stream_Wrapper', STREAM_IS_URL );
+            stream_wrapper_register( 'iu', 'InfiniteUploadsLocalStreamWrapper', STREAM_IS_URL );
         } else {
-            Infinite_Uploads_Stream_Wrapper::register( $this->s3() );
+            InfiniteUploadsStreamWrapper::register( $this->s3() );
             /**
              * INFINITE_UPLOADS_OBJECT_ACL define. If set will override the object ACL for new objects stored in the cloud.
              *
