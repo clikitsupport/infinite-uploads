@@ -56,11 +56,11 @@ class InfiniteUploadsVideo {
 
     /**
      *
-     * @return Infinite_Uploads_Video
+     * @return InfiniteUploadsVideo
      */
     public static function get_instance() {
         if ( ! self::$instance ) {
-            self::$instance = new Infinite_Uploads_Video();
+            self::$instance = new InfiniteUploadsVideo();
         }
 
         return self::$instance;
