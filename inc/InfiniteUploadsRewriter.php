@@ -141,16 +141,16 @@ class InfiniteUploadsRewriter {
 		}
 
 		// Check if file exclusion is enabled and if the path is excluded.
-		if ( Infinite_Uploads_Helper::is_file_exclusion_enabled() ) {
+		if ( InfiniteUploadsHelper::is_file_exclusion_enabled() ) {
 			// If the path is in the exclusion list, return the original match.
 			$path = isset( $matches[2] ) ? $matches[2] : '';
 
-			$original_upload = Infinite_Uploads_Helper::get_original_upload_dir_root();
+			$original_upload = InfiniteUploadsHelper::get_original_upload_dir_root();
 
 			$original_base_dir = $original_upload['basedir'];
 
 			$path = $original_base_dir . '/' . $path;
-			if ( Infinite_Uploads_Helper::is_path_excluded( $path ) ) {
+			if ( InfiniteUploadsHelper::is_path_excluded( $path ) ) {
 				return $matches[0];
 			}
 		}

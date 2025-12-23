@@ -74,7 +74,7 @@ class InfiniteUploadsAdmin {
             add_action( 'infinite_uploads_do_sync', [ $this, 'do_sync' ] );
 
             // This is to handle file exclusions.
-            if ( Infinite_Uploads_Helper::is_file_exclusion_enabled() ) {
+            if ( InfiniteUploadsHelper::is_file_exclusion_enabled() ) {
                 add_filter( 'wp_get_attachment_url', [ $this, 'filter_attachment_url' ], 10, 2 );
                 add_filter( 'pre_move_uploaded_file', [ $this, 'set_the_new_file_path' ], 10, 4 );
                 add_filter( 'wp_handle_upload', [ $this, 'handle_upload' ], 10, 2 );
@@ -105,8 +105,8 @@ class InfiniteUploadsAdmin {
          */
 
         // If the file is excluded, always return local URL.
-        if ( Infinite_Uploads_Helper::is_path_excluded( $url, true ) ) {
-            $url = Infinite_Uploads_Helper::get_local_file_url( $url );
+        if ( InfiniteUploadsHelper::is_path_excluded( $url, true ) ) {
+            $url = InfiniteUploadsHelper::get_local_file_url( $url );
         }
 
         // Get root directories for comparison
@@ -178,10 +178,10 @@ class InfiniteUploadsAdmin {
         // error_log( 'Set New File Path Called for: >>>> ' . $new_file );
 
         // Check if the file is excluded
-        if ( Infinite_Uploads_Helper::is_path_excluded( $new_file ) ) {
-            $new_file = Infinite_Uploads_Helper::get_local_file_path( $new_file );
+        if ( InfiniteUploadsHelper::is_path_excluded( $new_file ) ) {
+            $new_file = InfiniteUploadsHelper::get_local_file_path( $new_file );
         } else {
-            $new_file = Infinite_Uploads_Helper::get_cloud_file_path( $new_file );
+            $new_file = InfiniteUploadsHelper::get_cloud_file_path( $new_file );
         }
 
         error_log( '[set_the_new_file_path] New File Path To Move: >>>> ' . $new_file );
@@ -206,8 +206,8 @@ class InfiniteUploadsAdmin {
         $file = $file_data['file'];
         $url  = $file_data['url'];
 
-        $file_data['file'] = Infinite_Uploads_Helper::get_valid_file_path( $file );
-        $file_data['url']  = Infinite_Uploads_Helper::get_valid_file_url( $url );
+        $file_data['file'] = InfiniteUploadsHelper::get_valid_file_path( $file );
+        $file_data['url']  = InfiniteUploadsHelper::get_valid_file_url( $url );
 
         return $file_data;
     }
@@ -1150,7 +1150,7 @@ class InfiniteUploadsAdmin {
                     $cloud_total_size = $api_data->stats->cloud->storage;
                 }
 
-                $file_exclusion_setting = Infinite_Uploads_Helper::get_file_exclusion_setting();
+                $file_exclusion_setting = InfiniteUploadsHelper::get_file_exclusion_setting();
 
                 require_once( dirname( __FILE__ ) . '/templates/header-columns.php' );
 
@@ -1274,7 +1274,7 @@ class InfiniteUploadsAdmin {
         $excluded_files_array           = isset( $_POST['excluded_files'] ) ? $_POST['excluded_files'] : [];
         $current_file_exclusion_setting = isset( $_POST['enabled_excluded_files'] ) ? $_POST['enabled_excluded_files'] : 'no';
 
-        $previous_file_exclusion_setting = Infinite_Uploads_Helper::get_file_exclusion_setting();
+        $previous_file_exclusion_setting = InfiniteUploadsHelper::get_file_exclusion_setting();
 
         /**
          * Possible values for $previous_file_exclusion_setting and $file_exclusion_setting:
@@ -1319,7 +1319,7 @@ class InfiniteUploadsAdmin {
 
         update_site_option( 'iup_excluded_files', $excluded_files_array );
 
-        Infinite_Uploads_Helper::set_file_exclusion_setting( $current_file_exclusion_setting );
+        InfiniteUploadsHelper::set_file_exclusion_setting( $current_file_exclusion_setting );
 
         wp_send_json_success();
     }

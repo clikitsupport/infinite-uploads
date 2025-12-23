@@ -65,7 +65,7 @@ class InfiniteUploadsImageEditorImagick extends WP_Image_Editor_Imagick {
 		//error_log( 'Upload DIR IMAGICK: ' . print_r( $upload_dir, true ) );
 		//error_log( 'Filename IMAGICK: ' . $filename );
 
-		if ( ! Infinite_Uploads_Helper::is_path_excluded( $filename ) ) {
+		if ( ! InfiniteUploadsHelper::is_path_excluded( $filename ) ) {
 			return [];
 		}
 

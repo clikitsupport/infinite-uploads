@@ -84,11 +84,11 @@ class InfiniteUploadsApiHandler {
 
 	/**
 	 *
-	 * @return Infinite_Uploads_Api_Handler
+	 * @return InfiniteUploadsApiHandler
 	 */
 	public static function get_instance() {
 		if ( ! self::$instance ) {
-			self::$instance = new Infinite_Uploads_Api_Handler();
+			self::$instance = new InfiniteUploadsApiHandler();
 		}
 
 		return self::$instance;
