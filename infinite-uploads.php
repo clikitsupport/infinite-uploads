@@ -21,7 +21,7 @@
 define( 'INFINITE_UPLOADS_VERSION', '3.0.6' );
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
-	require_once dirname( __FILE__ ) . '/inc/class-infinite-uploads-wp-cli-command.php';
+    \WP_CLI::add_command( 'infinite-uploads', '\ClikIT\InfiniteUploads\InfiniteUploadsWPCLICommand' );
 }
 
 //require_once 'inc/class-infinite-uploads-wp-mail.php';
@@ -68,7 +68,7 @@ function infinite_uploads_init() {
 
     $instance = \ClikIT\InfiniteUploads\InfiniteUploads::get_instance();
 
-    require_once dirname( __FILE__ ) . '/inc/functions.php';
+    require_once dirname( __FILE__ ) . '/functions.php';
 
 	$instance->setup();
 }
