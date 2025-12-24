@@ -244,7 +244,7 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 				$to_sync_full[] = $path['basedir'] . $file;
 			}
 
-			$obj  = new ArrayObject( $to_sync_full );
+			$obj  = new \ArrayObject( $to_sync_full );
 			$from = $obj->getIterator();
 
 			$transfer_args = [
@@ -517,7 +517,7 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 				$to_sync_full[] = 's3://' . untrailingslashit( $instance->bucket ) . $file;
 			}
 
-			$obj  = new ArrayObject( $to_sync_full );
+			$obj  = new \ArrayObject( $to_sync_full );
 			$from = $obj->getIterator();
 
 			$transfer_args = [

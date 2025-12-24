@@ -6,6 +6,7 @@ use ClikIT\Infinite_Uploads\Aws\S3\Transfer;
 use ClikIT\Infinite_Uploads\Aws\Middleware;
 use ClikIT\Infinite_Uploads\Aws\ResultInterface;
 use ClikIT\Infinite_Uploads\Aws\CommandPool;
+use ClikIT\Infinite_Uploads\Aws\Command;
 use ClikIT\Infinite_Uploads\Aws\Exception\AwsException;
 use ClikIT\Infinite_Uploads\Aws\S3\Exception\S3Exception;
 use ClikIT\Infinite_Uploads\Aws\S3\MultipartUploader;
@@ -503,13 +504,13 @@ class InfiniteUploadsAdmin {
 
                 $this->sync_debug_log( "Transfer manager batch size " . size_format( $to_sync_size, 2 ) . ", " . count( $to_sync_full ) . " files." );
                 $concurrency = count( $to_sync_full ) > 1 ? INFINITE_UPLOADS_SYNC_CONCURRENCY : INFINITE_UPLOADS_SYNC_MULTIPART_CONCURRENCY;
-                $obj         = new ArrayObject( $to_sync_full );
+                $obj         = new \ArrayObject( $to_sync_full );
                 $from        = $obj->getIterator();
 
                 $transfer_args = [
                         'concurrency' => $concurrency,
                         'base_dir'    => $path['basedir'],
-                        'before'      => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
+                        'before'      => function ( Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
                             //add middleware to modify object headers
                             if ( in_array( $command->getName(), [ 'PutObject', 'CreateMultipartUpload' ], true ) ) {
                                 /// Expires:
@@ -782,13 +783,13 @@ class InfiniteUploadsAdmin {
             //preset the error count in case request times out. Successful sync will clear error count.
             $wpdb->query( "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` SET errors = ( errors + 1 ) WHERE file IN ('" . implode( "','", $to_sync_sql ) . "')" );
 
-            $obj  = new ArrayObject( $to_sync_full );
+            $obj  = new \ArrayObject( $to_sync_full );
             $from = $obj->getIterator();
 
             $transfer_args = [
                     'concurrency' => INFINITE_UPLOADS_SYNC_CONCURRENCY,
                     'base_dir'    => 's3://' . $this->iup_instance->bucket,
-                    'before'      => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$downloaded ) {//add middleware to intercept result of each file upload
+                    'before'      => function ( Command $command ) use ( $wpdb, &$downloaded ) {//add middleware to intercept result of each file upload
                         if ( in_array( $command->getName(), [ 'GetObject' ], true ) ) {
                             $command->getHandlerList()->appendSign(
                                     Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, &$downloaded ) {
@@ -1562,7 +1563,7 @@ class InfiniteUploadsAdmin {
             $wpdb->query( "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` SET errors = ( errors + 1 ) WHERE file IN ('" . implode( "','", $to_sync_sql ) . "')" );
 
             // error_log( 'Step 2 - Files to be downloaded in this batch>>>>' . print_r( $to_sync_full, true ) );
-            $obj  = new ArrayObject( $to_sync_full );
+            $obj  = new \ArrayObject( $to_sync_full );
             $from = $obj->getIterator();
 
             $transfer_args = [
@@ -1658,7 +1659,7 @@ class InfiniteUploadsAdmin {
 
                 $this->sync_debug_log( "Transfer manager batch size " . size_format( $to_sync_size, 2 ) . ", " . count( $to_sync_full ) . " files." );
                 $concurrency = count( $to_sync_full ) > 1 ? INFINITE_UPLOADS_SYNC_CONCURRENCY : INFINITE_UPLOADS_SYNC_MULTIPART_CONCURRENCY;
-                $obj         = new ArrayObject( $to_sync_full );
+                $obj         = new \ArrayObject( $to_sync_full );
                 $from        = $obj->getIterator();
 
                 $transfer_args = [
