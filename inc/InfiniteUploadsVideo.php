@@ -40,6 +40,7 @@ class InfiniteUploadsVideo {
             add_action( 'network_admin_menu', [ &$this, 'admin_menu' ], 20 );
 
             //all write API calls we make on backend to not expose write API key
+            add_action( 'wp_ajax_infinite-uploads-video-library', [ &$this, 'ajax_video_library' ] );
             add_action( 'wp_ajax_infinite-uploads-video-create', [ &$this, 'ajax_create_video' ] );
             add_action( 'wp_ajax_infinite-uploads-video-update', [ &$this, 'ajax_update_video' ] );
             add_action( 'wp_ajax_infinite-uploads-video-delete', [ &$this, 'ajax_delete_video' ] );
@@ -273,6 +274,60 @@ class InfiniteUploadsVideo {
         if ( $this->is_video_active() && ! $this->is_video_enabled() ) {
             wp_send_json_error( esc_html__( 'Infinite Uploads Video is disabled due to an issue with your account.', 'infinite-uploads' ) );
         }
+    }
+
+    /**
+     * Get the video library list.
+     *
+     * @return void
+     */
+    public function ajax_video_library() {
+        $this->ajax_check_permissions();
+
+        $page         = isset( $_REQUEST['page'] ) ? intval( $_REQUEST['page'] ) : 1;
+        $itemsPerPage = isset( $_REQUEST['itemsPerPage'] ) ? intval( $_REQUEST['itemsPerPage'] ) : 10;
+        $orderBy      = isset( $_REQUEST['orderBy'] ) ? sanitize_text_field( $_REQUEST['orderBy'] ) : 'dateCreated';
+        $search       = isset( $_REQUEST['search'] ) ? sanitize_text_field( $_REQUEST['search'] ) : '';
+
+        $params = [
+                'page'         => $page,
+                'itemsPerPage' => $itemsPerPage,
+                'orderBy'      => $orderBy,
+                'search'       => $search,
+        ];
+
+        $result = $this->get_videos( $params );
+
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error( $result );
+        }
+
+        wp_send_json_success( $result );
+    }
+
+    /**
+     * Get the video library list via Infinite Uploads API.
+     *
+     * @param $params
+     *
+     * @return object|WP_Error
+     */
+    public function get_videos( $params = [] ) {
+        $page         = isset( $params['page'] ) ? intval( $params['page'] ) : 1;
+        $itemsPerPage = isset( $params['itemsPerPage'] ) ? intval( $params['itemsPerPage'] ) : 10;
+        $orderBy      = isset( $params['orderBy'] ) ? sanitize_text_field( $params['orderBy'] ) : 'dateCreated';
+        $search       = isset( $params['search'] ) ? sanitize_text_field( $params['search'] ) : '';
+
+        $params = [
+                'page'         => $page,
+                'itemsPerPage' => $itemsPerPage,
+                'orderBy'      => $orderBy,
+                'search'       => $search,
+        ];
+
+        $result = $this->api_call( '/videos', $params, 'GET' );
+
+        return $result;
     }
 
     /**
@@ -586,13 +641,13 @@ class InfiniteUploadsVideo {
                     <?php
                     printf( __( "Files can't be uploaded and your CDN is disabled due to a billing issue with your Infinite Uploads account. Please <a href='%s' class='alert-link'>visit your account page</a> to fix, or disconnect this site from the cloud. Images and links to media on your site may be broken until you take action. <a href='%s' class='alert-link' data-toggle='tooltip' title='Refresh account data'>Already fixed?</a>", 'infinite-uploads' ), esc_url( $this->api_url( '/account/billing/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin' ) ), esc_url( $this->settings_url( [ 'refresh' => 1 ] ) ) ); ?>
                 </div>
-            <?php
+                <?php
             } elseif ( isset( $api_data->site ) && ! $api_data->site->upload_writeable ) { ?>
                 <div class="alert alert-warning mt-1" role="alert">
                     <?php
                     printf( __( "Files can't be uploaded and your CDN will be disabled soon due to a billing issue with your Infinite Uploads account. Please <a href='%s' class='alert-link'>visit your account page</a> to fix, or disconnect this site from the cloud. <a href='%s' class='alert-link' data-toggle='tooltip' title='Refresh account data'>Already fixed?</a>", 'infinite-uploads' ), esc_url( $this->api_url( '/account/billing/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin' ) ), esc_url( $this->settings_url( [ 'refresh' => 1 ] ) ) ); ?>
                 </div>
-            <?php
+                <?php
             } ?>
         </div>
 

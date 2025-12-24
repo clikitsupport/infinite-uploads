@@ -66,8 +66,10 @@ function infinite_uploads_init() {
 
 	infinite_uploads_upgrade();
 
-	// $instance = ClikInfinite_Uploads::get_instance();
     $instance = \ClikIT\InfiniteUploads\InfiniteUploads::get_instance();
+
+    require_once dirname( __FILE__ ) . '/inc/functions.php';
+
 	$instance->setup();
 }
 

@@ -57,20 +57,19 @@ export default function Library({selectVideo}) {
 			method: 'GET',
 			headers: {
 				Accept: 'application/json',
-				AccessKey: IUP_VIDEO.apiKey,
 			},
 		};
 
 		fetch(
-			`https://video.bunnycdn.com/library/${IUP_VIDEO.libraryId}/videos?page=${page}&itemsPerPage=${itemsPerPage}&orderBy=${orderBy}&search=${search}`,
+			`${ajaxurl}?action=infinite-uploads-video-library&page=${page}&itemsPerPage=${itemsPerPage}&orderBy=${orderBy}&search=${search}&nonce=${IUP_VIDEO.nonce}`,
 			options
 		)
 			.then((response) => response.json())
 			.then((data) => {
-				console.log('Videos:', data);
-				setVideos(data.items);
-				setTotalItems(data.totalItems);
-				setItemsPerPage(data.itemsPerPage);
+				console.log('Videos:', data.data);
+				setVideos(data.data.items);
+				setTotalItems(data.data.totalItems);
+				setItemsPerPage(data.data.itemsPerPage);
 				setLoading(false);
 			})
 			.catch((error) => {
