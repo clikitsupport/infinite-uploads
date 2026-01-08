@@ -116,62 +116,35 @@ class InfiniteUploadsAdmin {
         $base_dir  = $root_dirs['basedir'];
         $cloud_url = untrailingslashit( $this->iup_instance->get_s3_url() );
 
-        // 1. Check if URL is local or cloud
         $is_local_url = ( strpos( $url, $base_url ) !== false );
 
-        // error_log( 'Is Local URL: ' . ( $is_local_url ? 'Yes' : 'No' ) );
-
         if ( $is_local_url ) {
-            // Handle local URL scenario
             $file_path = str_replace( $base_url, $base_dir, $url );
 
-            // 2 & 3. Check if file exists locally
             if ( file_exists( $file_path ) ) {
                 return $url;
             }
-
-            // 4. Check if file exists in cloud
-            $cloud_path    = str_replace( $base_url, $cloud_url, $url );
             $relative_path = str_replace( $base_url, '', $url );
-
-            // error_log( 'Relative Path: ' . $relative_path );
-
-            global $wpdb;
-            $is_synced = $wpdb->get_var( $wpdb->prepare(
-                    "SELECT synced FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s AND synced = 1",
-                    $relative_path
-            ) );
-
-            // 5 & 6. Return cloud URL if synced, otherwise return local URL
-            return $is_synced ? $cloud_path : $url;
-
         } else {
-            // Handle cloud URL scenario
             $relative_path = str_replace( $cloud_url, '', $url );
+        }
 
-            // error_log( 'Relative Path: ' . $relative_path );
-            // 7. Check if file is synced to cloud
-            global $wpdb;
-            $is_synced = $wpdb->get_var( $wpdb->prepare(
-                    "SELECT synced FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s AND synced = 1",
-                    $relative_path
-            ) );
+        global $wpdb;
+        $is_synced = $wpdb->get_var( $wpdb->prepare(
+                "SELECT synced FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s AND synced = 1",
+                $relative_path
+        ) );
 
-            // 8. If synced to cloud, return cloud URL
+        if ( $is_local_url ) {
+            return $is_synced ? ( $cloud_url . $relative_path ) : $url;
+        } else {
             if ( $is_synced ) {
                 return $url;
             }
 
-            // 9 & 10. Check if file exists locally
             $local_path = $base_dir . $relative_path;
-            $local_url  = $base_url . $relative_path;
 
-            if ( file_exists( $local_path ) ) {
-                return $local_url;
-            }
-
-            // 11. File doesn't exist locally, return cloud URL (will result in 404)
-            return $url;
+            return file_exists( $local_path ) ? ( $base_url . $relative_path ) : $url;
         }
     }
 
