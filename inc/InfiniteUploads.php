@@ -1172,7 +1172,6 @@ function wc_iu_export_fix() {
 }
 
 
-
 // Disable Smush filter on Media Library.
 add_action( 'admin_init', '\ClikIT\InfiniteUploads\disable_smush_on_media_library' );
 

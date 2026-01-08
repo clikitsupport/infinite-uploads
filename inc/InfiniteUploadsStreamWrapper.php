@@ -1,4 +1,5 @@
 <?php
+
 namespace ClikIT\InfiniteUploads;
 
 use ClikIT\Infinite_Uploads\Aws\S3\S3ClientInterface;

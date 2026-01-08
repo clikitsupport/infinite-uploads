@@ -1,12 +1,12 @@
 <?php
 
 namespace ClikIT\InfiniteUploads;
+
 /**
  * Infinite_Uploads_Rewriter
  *
  * @since 1.0
  */
-
 class InfiniteUploadsRewriter {
 	protected $uploads_path = null;    // uploads PATH
 	protected $replacements = [];    // urls to be searched for and replaced with CDN URL

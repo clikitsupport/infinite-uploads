@@ -1,6 +1,7 @@
 <?php
 
 namespace ClikIT\InfiniteUploads;
+
 /**
  * Lists files using a Breadth-First search algorithm to allow for time limits and resume across multiple requests.
  */

@@ -1,6 +1,7 @@
 <?php
 
 namespace ClikIT\InfiniteUploads;
+
 /**
  * Local streamwrapper that writes files to the upload dir
  *
