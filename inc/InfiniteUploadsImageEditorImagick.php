@@ -2,7 +2,7 @@
 
 namespace ClikIT\InfiniteUploads;
 
-class InfiniteUploadsImageEditorImagick extends WP_Image_Editor_Imagick {
+class InfiniteUploadsImageEditorImagick extends \WP_Image_Editor_Imagick {
 
 	protected $temp_file_to_cleanup = null;
 

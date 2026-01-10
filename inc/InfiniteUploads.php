@@ -871,7 +871,9 @@ class InfiniteUploads {
             unset( $editors[ $position ] );
         }
 
-        array_unshift( $editors, 'Infinite_Uploads_Image_Editor_Imagick' );
+        require_once __DIR__ . '/InfiniteUploadsImageEditorImagick.php';
+
+        array_unshift( $editors, 'ClikIT\InfiniteUploads\InfiniteUploadsImageEditorImagick' );
 
         return $editors;
     }
