@@ -1179,7 +1179,7 @@ add_action( 'admin_init', '\ClikIT\InfiniteUploads\disable_smush_on_media_librar
 
 function disable_smush_on_media_library() {
     if ( class_exists( '\Smush\App\Media_Library' ) ) {
-        $wp_smush               = WP_Smush::get_instance();
+        $wp_smush               = \WP_Smush::get_instance();
         $media_library_instance = $wp_smush->library();
 
         if ( $media_library_instance instanceof \Smush\App\Media_Library ) {
