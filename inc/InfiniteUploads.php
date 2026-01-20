@@ -873,7 +873,7 @@ class InfiniteUploads {
 
         require_once __DIR__ . '/InfiniteUploadsImageEditorImagick.php';
 
-        array_unshift( $editors, 'ClikIT\InfiniteUploads\InfiniteUploadsImageEditorImagick' );
+        array_unshift( $editors, '\ClikIT\InfiniteUploads\InfiniteUploadsImageEditorImagick' );
 
         return $editors;
     }
@@ -946,21 +946,17 @@ class InfiniteUploads {
             $data['filesize'] = '';
         }
 
-        $file = $data['file'];
+        //$file = $data['file'];
+        $file = InfiniteUploadsHelper::get_file_name_from_path( $data['file'] );
         $mime_type = isset( $data['mime_type'] ) ? $data['mime_type'] : 'image/png';
         $width     = $height = 150;
-        // Do thumbnail, medium and full sizes for excluded files so they show in media library.
-        if ( InfiniteUploadsHelper::is_file_exclusion_enabled() ) {
-            if ( ! InfiniteUploadsHelper::is_path_excluded( $file ) ) {
-                $file = InfiniteUploadsHelper::get_file_name_from_path( $data['file'] );
-            }
-        }
 
+        // Do thumbnail, medium and full sizes for excluded files so they show in media library.
         $file_data = [
-                'file'      => $file,
-                'width'     => $width,
-                'height'    => $height,
-                'mime-type' => $mime_type,
+            'file'      => $file,
+            'width'     => $width,
+            'height'    => $height,
+            'mime-type' => $mime_type,
         ];
 
         $data['sizes']['thumbnail']    = $file_data;

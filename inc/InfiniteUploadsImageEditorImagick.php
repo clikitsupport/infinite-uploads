@@ -21,12 +21,12 @@ class InfiniteUploadsImageEditorImagick extends \WP_Image_Editor_Imagick {
 	 * @return true|WP_Error True if loaded; WP_Error on failure.
 	 */
 	public function load() {
-		if ( $this->image instanceof Imagick ) {
+		if ( $this->image instanceof \Imagick ) {
 			return true;
 		}
 
 		if ( ! is_file( $this->file ) && ! preg_match( '|^https?://|', $this->file ) ) {
-			return new WP_Error( 'error_loading_image', __( 'File doesn&#8217;t exist?' ), $this->file );
+			return new \WP_Error( 'error_loading_image', __( 'File doesn&#8217;t exist?' ), $this->file );
 		}
 
 		$upload_dir = wp_upload_dir();
@@ -85,16 +85,20 @@ class InfiniteUploadsImageEditorImagick extends \WP_Image_Editor_Imagick {
 		unlink( $temp_filename );
 
 		if ( ! $copy_result ) {
-			return new WP_Error( 'unable-to-copy-to-s3', 'Unable to copy the temp image to the cloud' );
+			return new \WP_Error( 'unable-to-copy-to-s3', 'Unable to copy the temp image to the cloud' );
 		}
 
-		return [
+		$data = [
 			'path'      => $filename,
 			'file'      => wp_basename( apply_filters( 'image_make_intermediate_size', $filename ) ),
 			'width'     => $this->size['width'],
 			'height'    => $this->size['height'],
 			'mime-type' => $mime_type,
 		];
+
+
+
+		return $data;
 	}
 
 	public function __destruct() {
