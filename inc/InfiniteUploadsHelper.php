@@ -179,6 +179,10 @@ class InfiniteUploadsHelper {
 	}
 
 	public static function get_cloud_file_path( $file_path ) {
+		if( empty( $file_path ) ) {
+			return '';
+		}
+
 		$cloud_upload_dir = self::get_cloud_upload_dir();
 
 		$cloud_upload_path = $cloud_upload_dir['basedir'];
