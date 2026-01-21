@@ -1170,7 +1170,7 @@ function wc_iu_export_fix() {
     }
 
     if ( isset( $_GET['page'] ) && $_GET['page'] == 'product_exporter' ) {
-        if ( class_exists( 'Infinite_Uploads' ) ) {
+        if ( class_exists( '\ClikIT\InfiniteUploads\InfiniteUploads' ) ) {
             remove_filter( 'upload_dir', array( InfiniteUploads::get_instance(), 'filter_upload_dir' ) );
         }
     }

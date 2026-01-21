@@ -2,7 +2,7 @@
 
 function infinite_uploads_get_videos( $params = [] ) {
 	// Is Infinite_Uploads_Video class loaded?
-	if ( ! class_exists( 'InfiniteUploadsVideo' ) ) {
+	if ( ! class_exists( '\ClikIT\InfiniteUploads\InfiniteUploadsVideo' ) ) {
 		require_once dirname( __FILE__ ) . '/inc/InfiniteUploadsVideo.php';
 	}
 
