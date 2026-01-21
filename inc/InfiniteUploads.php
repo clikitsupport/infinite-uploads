@@ -1164,7 +1164,7 @@ add_action( 'admin_init', '\ClikIT\InfiniteUploads\wc_iu_export_fix' );
 
 function wc_iu_export_fix() {
     if ( defined( 'DOING_AJAX' ) && DOING_AJAX && current_user_can( 'manage_options' ) ) {
-        if ( isset( $_POST['action'] ) && $_POST['action'] == 'woocommerce_do_ajax_product_export' && class_exists( 'Infinite_Uploads' ) ) {
+        if ( isset( $_POST['action'] ) && $_POST['action'] == 'woocommerce_do_ajax_product_export' && class_exists( '\ClikIT\InfiniteUploads\InfiniteUploads' ) ) {
             remove_filter( 'upload_dir', array( InfiniteUploads::get_instance(), 'filter_upload_dir' ) );
         }
     }
