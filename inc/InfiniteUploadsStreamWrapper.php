@@ -134,11 +134,25 @@ class InfiniteUploadsStreamWrapper {
 		$this->body = $this->cache = null;
 	}
 
+	/**
+	 * Replace your existing stream_open method with this version
+	 */
 	public function stream_open( $path, $mode, $options, &$opened_path ) {
+		error_log( '[stream_open] Checking for Path: ' . $path );
 		$path = $this->normalizeSmushPath( $path );
+		error_log( '[stream_open] Normalised Path: ' . $path );
+
+		$validation_result = $this->validateStreamPath( $path, $options );
+		if ( $validation_result !== true ) {
+			error_log( '[stream_open] REJECTED: ' . $validation_result );
+
+			return false;
+		}
+
 		$this->initProtocol( $path );
 		$this->params = $this->getBucketKey( $path );
 		$this->mode   = rtrim( $mode, 'bt' );
+
 		if ( $errors = $this->validate( $path, $this->mode ) ) {
 			return $this->triggerError( $errors );
 		}
@@ -153,6 +167,30 @@ class InfiniteUploadsStreamWrapper {
 					return $this->openWriteStream( $path );
 			}
 		} );
+	}
+
+	private function validateStreamPath($path, $options) {
+		$parsed = parse_url($path);
+		$key = isset($parsed['path']) ? ltrim($parsed['path'], '/') : '';
+
+		// Block directory paths (ending with /)
+		if (substr($key, -1) === '/') {
+			if ($options & STREAM_REPORT_ERRORS) {
+				trigger_error("Cannot open directory as file: {$path}", E_USER_WARNING);
+			}
+			return "Directory path detected: {$key}";
+		}
+
+		// Block invalid filenames
+		$basename = basename($key);
+		if (empty($basename) || $basename === '.' || $basename === '..') {
+			if ($options & STREAM_REPORT_ERRORS) {
+				trigger_error("Invalid file path: {$path}", E_USER_WARNING);
+			}
+			return "No valid filename: {$key}";
+		}
+
+		return true;
 	}
 
 	/**
