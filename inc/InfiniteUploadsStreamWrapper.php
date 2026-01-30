@@ -135,6 +135,7 @@ class InfiniteUploadsStreamWrapper {
 	}
 
 	public function stream_open( $path, $mode, $options, &$opened_path ) {
+		$path = $this->normalizeSmushPath( $path );
 		$this->initProtocol( $path );
 		$this->params = $this->getBucketKey( $path );
 		$this->mode   = rtrim( $mode, 'bt' );
@@ -152,6 +153,79 @@ class InfiniteUploadsStreamWrapper {
 					return $this->openWriteStream( $path );
 			}
 		} );
+	}
+
+	/**
+	 * Normalize WP Smush WebP/AVIF paths that are at the wrong bucket level.
+	 *
+	 * Smush uses dirname(basedir) . '/smush-webp' which strips our site_id.
+	 * This method detects such paths and corrects them for ALL file operations.
+	 *
+	 * @param string $path The iu:// path being accessed
+	 * @return string Corrected path with proper prefix
+	 */
+	private function normalizeSmushPath( $path ) {
+		// Only process iu:// paths
+		if ( strpos( $path, 'iu://' ) !== 0 ) {
+			return $path;
+		}
+
+		// Check if this is a smush-webp or smush-avif path
+		$smush_dirs = [ 'smush-webp', 'smush-avif' ];
+		$is_smush_path = false;
+
+		foreach ( $smush_dirs as $dir ) {
+			if ( strpos( $path, '/' . $dir . '/' ) !== false ||
+			     strpos( $path, '/' . $dir . '-test' ) !== false ) {
+				$is_smush_path = true;
+				break;
+			}
+		}
+
+		if ( ! $is_smush_path ) {
+			return $path;
+		}
+
+		// Parse the path: iu://bucket/user_id/smush-webp/...
+		// Should be: iu://bucket/user_id/site_id/smush-webp/...
+		$without_protocol = str_replace( 'iu://', '', $path );
+		$parts = explode( '/', $without_protocol );
+
+		// parts[0] = bucket, parts[1] = user_id, parts[2] = smush-webp (wrong) or site_id (correct)
+		if ( count( $parts ) >= 3 ) {
+			$bucket = $parts[0];
+			$potential_smush_dir = $parts[2];
+
+			// Check if site_id is missing (smush dir is in position 2 instead of 3)
+			foreach ( $smush_dirs as $dir ) {
+				if ( $potential_smush_dir === $dir || strpos( $potential_smush_dir, $dir ) === 0 ) {
+					// Get the correct site_id from our configuration
+					$iup_instance = $this->getOption( 'iup_instance' );
+					if ( $iup_instance && method_exists( $iup_instance, 'get_s3_prefix' ) ) {
+						$prefix = $iup_instance->get_s3_prefix(); // Returns "user_id/site_id"
+						$prefix_parts = explode( '/', $prefix );
+
+						if ( count( $prefix_parts ) >= 2 ) {
+							$site_id = $prefix_parts[1];
+
+							// Rebuild path with site_id inserted
+							// From: bucket/user_id/smush-webp/file.webp
+							// To:   bucket/user_id/site_id/smush-webp/file.webp
+							$user_id = $parts[1];
+							$rest_of_path = array_slice( $parts, 2 ); // smush-webp/file.webp
+
+							$corrected = 'iu://' . $bucket . '/' . $user_id . '/' . $site_id . '/' . implode( '/', $rest_of_path );
+
+							$this->debug( 'Smush path normalized', $path . ' -> ' . $corrected );
+							return $corrected;
+						}
+					}
+					break;
+				}
+			}
+		}
+
+		return $path;
 	}
 
 	/**
@@ -648,7 +722,11 @@ class InfiniteUploadsStreamWrapper {
 	}
 
 	public function stream_metadata( $path, $option, $value ) {
-		if ( is_plugin_active( 'imagify/imagify.php' ) ) {
+		// Support image optimization plugins that use touch()/chmod() on cloud files
+		if ( is_plugin_active( 'imagify/imagify.php' ) ||
+		     is_plugin_active( 'wp-smushit/wp-smush.php' ) ||
+		     is_plugin_active( 'wp-smush-pro/wp-smush.php' )
+		) {
 			return true;
 		} else {
 			return false;
@@ -691,6 +769,7 @@ class InfiniteUploadsStreamWrapper {
 	 * @link http://www.php.net/manual/en/streamwrapper.url-stat.php
 	 */
 	public function url_stat( $path, $flags ) {
+		$path = $this->normalizeSmushPath( $path );
 		$this->initProtocol( $path );
 
 		$extension = pathinfo( $path, PATHINFO_EXTENSION );
@@ -845,6 +924,7 @@ class InfiniteUploadsStreamWrapper {
 	 * @link http://www.php.net/manual/en/streamwrapper.mkdir.php
 	 */
 	public function mkdir( $path, $mode, $options ) {
+		$path = $this->normalizeSmushPath( $path );
 		$this->initProtocol( $path );
 		$params = $this->withPath( $path );
 		$this->clearCacheKey( $path );
@@ -955,6 +1035,7 @@ class InfiniteUploadsStreamWrapper {
 	}
 
 	public function rmdir( $path, $options ) {
+		$path = $this->normalizeSmushPath( $path );
 		$this->initProtocol( $path );
 		$this->clearCacheKey( $path );
 		$params = $this->withPath( $path );
@@ -1008,6 +1089,7 @@ class InfiniteUploadsStreamWrapper {
 	}
 
 	public function unlink( $path ) {
+		$path = $this->normalizeSmushPath( $path );
 		$this->initProtocol( $path );
 
 		return $this->boolCall( function () use ( $path ) {
@@ -1078,6 +1160,7 @@ class InfiniteUploadsStreamWrapper {
 	 * @return bool true on success
 	 */
 	public function dir_opendir( $path, $options ) {
+		$path = $this->normalizeSmushPath( $path );
 		$this->initProtocol( $path );
 		$this->openedPath = $path;
 		$params           = $this->withPath( $path );
@@ -1197,6 +1280,8 @@ class InfiniteUploadsStreamWrapper {
 	 * @link http://www.php.net/manual/en/function.rename.php
 	 */
 	public function rename( $path_from, $path_to ) {
+		$path_from = $this->normalizeSmushPath( $path_from );
+		$path_to   = $this->normalizeSmushPath( $path_to );
 		// PHP will not allow rename across wrapper types, so we can safely
 		// assume $path_from and $path_to have the same protocol
 		$this->initProtocol( $path_from );
