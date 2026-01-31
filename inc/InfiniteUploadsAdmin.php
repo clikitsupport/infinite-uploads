@@ -2183,9 +2183,25 @@ class InfiniteUploadsAdmin {
         require_once( dirname( __FILE__ ) . '/templates/footer.php' );
     }
 
-    public function prepare_directory_tree( $dir, $preselected = [] ) {
+    /**
+     * Prepares a directory tree for jstree from a given directory.
+     *
+     * @param  string  $dir            The directory to scan.
+     * @param  array   $preselected    Array of preselected paths.
+     * @param  array   $virtual_paths  Array of virtual paths to inject.
+     * @param  string  $root_dir       The root directory for virtual path injection.
+     *
+     * @return array The prepared directory tree.
+     */
+    public function prepare_directory_tree( $dir, $preselected = [], $virtual_paths = [], $root_dir = null ) {
         $result = [];
 
+        // Set root dir on first call.
+        if ( $root_dir === null ) {
+            $root_dir = $dir;
+        }
+
+        // Scan real filesystem.
         foreach ( scandir( $dir ) as $file ) {
             if ( $file === '.' || $file === '..' ) {
                 continue;
@@ -2199,15 +2215,65 @@ class InfiniteUploadsAdmin {
                     "data"  => [ "path" => $path ],
                     "state" => [
                             "opened"   => false,
-                            "selected" => in_array( $path, $preselected ),
+                            "selected" => in_array( $path, $preselected, true ),
                     ],
             ];
 
             if ( is_dir( $path ) ) {
-                $node["children"] = $this->prepare_directory_tree( $path, $preselected );
+                $node["children"] = $this->prepare_directory_tree( $path, $preselected, $virtual_paths, $root_dir );
             }
 
             $result[] = $node;
+        }
+
+        // Inject virtual directories ONLY at root level.
+        if ( $dir === $root_dir ) {
+            foreach ( $virtual_paths as $virtual ) {
+                $virtual           = trim( $virtual, DIRECTORY_SEPARATOR );
+                $full_virtual_path = $root_dir . DIRECTORY_SEPARATOR . $virtual;
+
+                // If it already exists on disk, do nothing.
+                if ( is_dir( $full_virtual_path ) ) {
+                    continue;
+                }
+
+                $parts = explode( DIRECTORY_SEPARATOR, $virtual );
+
+                $current_path = $dir;
+                $current      =& $result;
+
+                foreach ( $parts as $part ) {
+                    $current_path .= DIRECTORY_SEPARATOR . $part;
+
+                    $found = false;
+                    foreach ( $current as &$node ) {
+                        if ( $node['text'] === $part ) {
+                            $found = true;
+                            if ( ! isset( $node['children'] ) ) {
+                                $node['children'] = [];
+                            }
+                            $current =& $node['children'];
+                            break;
+                        }
+                    }
+
+                    if ( ! $found ) {
+                        $new_node = [
+                                "text"     => $part,
+                                "icon"     => "jstree-folder",
+                                "data"     => [ "path" => $current_path ],
+                                "state"    => [
+                                        "opened"   => false,
+                                        "selected" => in_array( $current_path, $preselected, true ),
+                                ],
+                                "children" => [],
+                        ];
+
+                        $current[] = $new_node;
+                        $current   =& $current[ count( $current ) - 1 ]['children'];
+                    }
+                }
+            }
         }
 
         return $result;
@@ -2225,7 +2291,11 @@ class InfiniteUploadsAdmin {
         $excluded_files = $this->get_excluded_files();
         // Get the existing excluded files from options
         $upload_dir = $dir['basedir'];
-        $tree       = $this->prepare_directory_tree( $upload_dir, $excluded_files );
+
+        $sub_dir       = $dir['subdir'];
+        $virtual_paths = [ $sub_dir, '/2026/02' ];
+
+        $tree = $this->prepare_directory_tree( $upload_dir, $excluded_files, $virtual_paths );
         //wp_send_json_success( $tree );
 
         echo json_encode( $tree );
