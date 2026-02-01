@@ -2293,7 +2293,7 @@ class InfiniteUploadsAdmin {
         $upload_dir = $dir['basedir'];
 
         $sub_dir       = $dir['subdir'];
-        $virtual_paths = [ $sub_dir, '/2026/02' ];
+        $virtual_paths = [ $sub_dir ];
 
         $tree = $this->prepare_directory_tree( $upload_dir, $excluded_files, $virtual_paths );
         //wp_send_json_success( $tree );
