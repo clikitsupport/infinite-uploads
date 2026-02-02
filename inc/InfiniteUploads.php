@@ -958,10 +958,10 @@ class InfiniteUploads {
 
         // Do thumbnail, medium and full sizes for excluded files so they show in media library.
         $file_data = [
-            'file'      => $file,
-            'width'     => $width,
-            'height'    => $height,
-            'mime-type' => $mime_type,
+                'file'      => $file,
+                'width'     => $width,
+                'height'    => $height,
+                'mime-type' => $mime_type,
         ];
 
         $data['sizes']['thumbnail']    = $file_data;

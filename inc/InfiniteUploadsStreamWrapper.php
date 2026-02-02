@@ -169,24 +169,26 @@ class InfiniteUploadsStreamWrapper {
 		} );
 	}
 
-	private function validateStreamPath($path, $options) {
-		$parsed = parse_url($path);
-		$key = isset($parsed['path']) ? ltrim($parsed['path'], '/') : '';
+	private function validateStreamPath( $path, $options ) {
+		$parsed = parse_url( $path );
+		$key    = isset( $parsed['path'] ) ? ltrim( $parsed['path'], '/' ) : '';
 
 		// Block directory paths (ending with /)
-		if (substr($key, -1) === '/') {
-			if ($options & STREAM_REPORT_ERRORS) {
-				trigger_error("Cannot open directory as file: {$path}", E_USER_WARNING);
+		if ( substr( $key, - 1 ) === '/' ) {
+			if ( $options & STREAM_REPORT_ERRORS ) {
+				trigger_error( "Cannot open directory as file: {$path}", E_USER_WARNING );
 			}
+
 			return "Directory path detected: {$key}";
 		}
 
 		// Block invalid filenames
-		$basename = basename($key);
-		if (empty($basename) || $basename === '.' || $basename === '..') {
-			if ($options & STREAM_REPORT_ERRORS) {
-				trigger_error("Invalid file path: {$path}", E_USER_WARNING);
+		$basename = basename( $key );
+		if ( empty( $basename ) || $basename === '.' || $basename === '..' ) {
+			if ( $options & STREAM_REPORT_ERRORS ) {
+				trigger_error( "Invalid file path: {$path}", E_USER_WARNING );
 			}
+
 			return "No valid filename: {$key}";
 		}
 
@@ -199,7 +201,8 @@ class InfiniteUploadsStreamWrapper {
 	 * Smush uses dirname(basedir) . '/smush-webp' which strips our site_id.
 	 * This method detects such paths and corrects them for ALL file operations.
 	 *
-	 * @param string $path The iu:// path being accessed
+	 * @param  string  $path  The iu:// path being accessed
+	 *
 	 * @return string Corrected path with proper prefix
 	 */
 	private function normalizeSmushPath( $path ) {
@@ -209,7 +212,7 @@ class InfiniteUploadsStreamWrapper {
 		}
 
 		// Check if this is a smush-webp or smush-avif path
-		$smush_dirs = [ 'smush-webp', 'smush-avif' ];
+		$smush_dirs    = [ 'smush-webp', 'smush-avif' ];
 		$is_smush_path = false;
 
 		foreach ( $smush_dirs as $dir ) {
@@ -227,11 +230,11 @@ class InfiniteUploadsStreamWrapper {
 		// Parse the path: iu://bucket/user_id/smush-webp/...
 		// Should be: iu://bucket/user_id/site_id/smush-webp/...
 		$without_protocol = str_replace( 'iu://', '', $path );
-		$parts = explode( '/', $without_protocol );
+		$parts            = explode( '/', $without_protocol );
 
 		// parts[0] = bucket, parts[1] = user_id, parts[2] = smush-webp (wrong) or site_id (correct)
 		if ( count( $parts ) >= 3 ) {
-			$bucket = $parts[0];
+			$bucket              = $parts[0];
 			$potential_smush_dir = $parts[2];
 
 			// Check if site_id is missing (smush dir is in position 2 instead of 3)
@@ -240,7 +243,7 @@ class InfiniteUploadsStreamWrapper {
 					// Get the correct site_id from our configuration
 					$iup_instance = $this->getOption( 'iup_instance' );
 					if ( $iup_instance && method_exists( $iup_instance, 'get_s3_prefix' ) ) {
-						$prefix = $iup_instance->get_s3_prefix(); // Returns "user_id/site_id"
+						$prefix       = $iup_instance->get_s3_prefix(); // Returns "user_id/site_id"
 						$prefix_parts = explode( '/', $prefix );
 
 						if ( count( $prefix_parts ) >= 2 ) {
@@ -249,12 +252,13 @@ class InfiniteUploadsStreamWrapper {
 							// Rebuild path with site_id inserted
 							// From: bucket/user_id/smush-webp/file.webp
 							// To:   bucket/user_id/site_id/smush-webp/file.webp
-							$user_id = $parts[1];
+							$user_id      = $parts[1];
 							$rest_of_path = array_slice( $parts, 2 ); // smush-webp/file.webp
 
 							$corrected = 'iu://' . $bucket . '/' . $user_id . '/' . $site_id . '/' . implode( '/', $rest_of_path );
 
 							$this->debug( 'Smush path normalized', $path . ' -> ' . $corrected );
+
 							return $corrected;
 						}
 					}

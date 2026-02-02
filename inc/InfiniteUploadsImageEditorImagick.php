@@ -97,7 +97,6 @@ class InfiniteUploadsImageEditorImagick extends \WP_Image_Editor_Imagick {
 		];
 
 
-
 		return $data;
 	}
 

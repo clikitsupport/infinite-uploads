@@ -179,7 +179,7 @@ class InfiniteUploadsHelper {
 	}
 
 	public static function get_cloud_file_path( $file_path ) {
-		if( empty( $file_path ) ) {
+		if ( empty( $file_path ) ) {
 			return '';
 		}
 

@@ -2280,6 +2280,19 @@ class InfiniteUploadsAdmin {
     }
 
     /**
+     * Get synced files from database.
+     *
+     * @return array
+     */
+    public function get_synced_files() {
+        global $wpdb;
+
+        $synced_files = $wpdb->get_col( "SELECT DISTINCT file FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1" );
+
+        return $synced_files;
+    }
+
+    /**
      * AJAX handler to get directory tree
      */
     public function get_direcotry_tree() {
@@ -2294,6 +2307,13 @@ class InfiniteUploadsAdmin {
 
         $sub_dir       = $dir['subdir'];
         $virtual_paths = [ $sub_dir ];
+
+        // Get synced files to include as virtual paths.
+        $synced_files = $this->get_synced_files();
+
+        if ( ! empty( $synced_files ) ) {
+            $virtual_paths = array_merge( $virtual_paths, $synced_files );
+        }
 
         $tree = $this->prepare_directory_tree( $upload_dir, $excluded_files, $virtual_paths );
         //wp_send_json_success( $tree );
