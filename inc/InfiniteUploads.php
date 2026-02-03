@@ -946,30 +946,6 @@ class InfiniteUploads {
             $data['filesize'] = '';
         }
 
-        $file = $data['file'];
-        if ( InfiniteUploadsHelper::is_file_exclusion_enabled() ) {
-            $file = InfiniteUploadsHelper::get_file_name_from_path( $file );
-        } else {
-            $file = basename( InfiniteUploadsHelper::get_local_file_path( $file ) );
-        }
-
-        $mime_type = isset( $data['mime_type'] ) ? $data['mime_type'] : 'image/png';
-        $width     = $height = 150;
-
-        // Do thumbnail, medium and full sizes for excluded files so they show in media library.
-        $file_data = [
-                'file'      => $file,
-                'width'     => $width,
-                'height'    => $height,
-                'mime-type' => $mime_type,
-        ];
-
-        $data['sizes']['thumbnail']    = $file_data;
-        $data['sizes']['medium']       = $file_data;
-        $data['sizes']['full']         = $file_data;
-        $data['sizes']['large']        = $file_data;
-        $data['sizes']['medium_large'] = $file_data;
-
         return $data;
     }
 

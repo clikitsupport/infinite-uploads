@@ -55,18 +55,10 @@ class InfiniteUploadsImageEditorImagick extends \WP_Image_Editor_Imagick {
 	 * then copy it to the iu:// path as a workaround.
 	 */
 	protected function _save( $image, $filename = null, $mime_type = null ) {
+		error_log( '[INFINITE_UPLOADS >> saving file: ' . $filename );
 		list( $filename, $extension, $mime_type ) = $this->get_output_format( $filename, $mime_type );
 		if ( ! $filename ) {
 			$filename = $this->generate_filename( null, null, $extension );
-		}
-
-		// $upload_dir = wp_upload_dir();
-
-		//error_log( 'Upload DIR IMAGICK: ' . print_r( $upload_dir, true ) );
-		//error_log( 'Filename IMAGICK: ' . $filename );
-
-		if ( ! InfiniteUploadsHelper::is_path_excluded( $filename ) ) {
-			return [];
 		}
 
 		$temp_filename = tempnam( get_temp_dir(), 'infinite-uploads' );
@@ -95,7 +87,6 @@ class InfiniteUploadsImageEditorImagick extends \WP_Image_Editor_Imagick {
 			'height'    => $this->size['height'],
 			'mime-type' => $mime_type,
 		];
-
 
 		return $data;
 	}
