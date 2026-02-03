@@ -300,4 +300,30 @@ class InfiniteUploadsHelper {
 
 		return update_site_option( 'iu_file_exclusion_enabled', $value );
 	}
+
+	/**
+	 * Log a backtrace to the error log.
+	 *
+	 * @param $limit
+	 *
+	 * @return void
+	 */
+	public static function log_backtrace( $limit = 5 ) {
+		$trace = debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS, $limit );
+
+		$output = "🔍 Backtrace:\n";
+
+		foreach ( $trace as $i => $call ) {
+			$file     = $call['file'] ?? '[internal]';
+			$line     = $call['line'] ?? '';
+			$function = $call['function'] ?? '';
+			$class    = $call['class'] ?? '';
+			$type     = $call['type'] ?? '';
+
+			$output .= "#{$i} {$file}:{$line} — {$class}{$type}{$function}()\n";
+		}
+
+		error_log( $output );
+	}
+
 }
