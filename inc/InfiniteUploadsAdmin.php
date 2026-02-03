@@ -77,12 +77,31 @@ class InfiniteUploadsAdmin {
             // This is to handle file exclusions.
             if ( InfiniteUploadsHelper::is_file_exclusion_enabled() ) {
                 add_filter( 'wp_get_attachment_url', [ $this, 'filter_attachment_url' ], 10, 2 );
+                add_filter( 'wp_calculate_image_srcset', [ $this, 'calculate_image_srcset' ], 10, 5 );
                 add_filter( 'pre_move_uploaded_file', [ $this, 'set_the_new_file_path' ], 10, 4 );
                 add_filter( 'wp_handle_upload', [ $this, 'handle_upload' ], 10, 2 );
             }
         }
     }
 
+    /**
+     * Calculate image srcset to serve from local or cloud based on file existence and sync status.
+     *
+     * @param $sources
+     * @param $size_array
+     * @param $image_src
+     * @param $image_meta
+     * @param $attachment_id
+     *
+     * @return array
+     */
+    public function calculate_image_srcset( $sources, $size_array, $image_src, $image_meta, $attachment_id ) {
+        foreach ( $sources as $key => $source ) {
+            $sources[ $key ]['url'] = $this->serve_media_url( $source['url'] );
+        }
+
+        return $sources;
+    }
     /**
      * Filter attachment URL to serve from local or cloud based on file existence and sync status.
      *
