@@ -146,7 +146,9 @@ class InfiniteUploads {
         add_action( 'shutdown', [ $this, 'stream_wrapper_debug' ] );
 
         $uploads_url = $this->get_original_upload_dir(); //prime the cached value before filtering
-        add_filter( 'upload_dir', [ $this, 'filter_upload_dir' ] );
+
+        // Set the priority to 1 so it runs before other upload_dir filters.
+        add_filter( 'upload_dir', [ $this, 'filter_upload_dir' ], 1 );
 
         //bypass cloud during updates
         add_action( 'load-update.php', [ $this, 'tear_down' ] );
