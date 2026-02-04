@@ -1,0 +1,427 @@
+/* ==========================================================================
+   Infinite Uploads - Media Folders Sidebar
+   ========================================================================== */
+
+/* Layout wrapper for list mode */
+.iu-media-wrapper {
+	display: flex;
+	gap: 0;
+	align-items: flex-start;
+}
+
+.iu-media-wrapper .iu-media-content {
+	flex: 1;
+	min-width: 0;
+}
+
+/* Sidebar wrap (toggle + sidebar) */
+#iu-media-folders-wrap {
+	display: flex;
+	align-items: flex-start;
+	flex-shrink: 0;
+	margin-right: 16px;
+	position: sticky;
+	top: 32px;
+	z-index: 10;
+}
+
+/* Toggle button */
+.iu-sidebar-toggle {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	min-width: 24px;
+	height: 36px;
+	background: #f6f7f7;
+	border: 1px solid #c3c4c7;
+	border-right: none;
+	border-radius: 4px 0 0 4px;
+	cursor: pointer;
+	padding: 0;
+	color: #50575e;
+	transition: background-color 0.15s ease, color 0.15s ease;
+	margin-top: 10px;
+	flex-shrink: 0;
+}
+
+.iu-sidebar-toggle:hover {
+	background: #e2e4e7;
+	color: #1d2327;
+}
+
+.iu-sidebar-toggle .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	transition: transform 0.2s ease;
+}
+
+/* Rotate arrow when sidebar is open */
+#iu-media-folders-wrap:not(.iu-collapsed) .iu-sidebar-toggle .dashicons {
+	transform: rotate(180deg);
+}
+
+/* Sidebar */
+#iu-media-folders-sidebar {
+	width: 240px;
+	min-width: 240px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+	padding: 0;
+	box-sizing: border-box;
+	max-height: calc(100vh - 62px);
+	overflow-y: auto;
+	transition: width 0.2s ease, min-width 0.2s ease, opacity 0.2s ease;
+}
+
+/* Collapsed state */
+#iu-media-folders-wrap.iu-collapsed #iu-media-folders-sidebar {
+	width: 0;
+	min-width: 0;
+	overflow: hidden;
+	border-width: 0;
+	opacity: 0;
+}
+
+#iu-media-folders-wrap.iu-collapsed {
+	margin-right: 0;
+}
+
+#iu-media-folders-wrap.iu-collapsed .iu-sidebar-toggle {
+	border-radius: 4px;
+	border-right: 1px solid #c3c4c7;
+}
+
+/* Grid mode: sidebar is inside the media frame */
+.media-frame.iu-has-folders {
+	display: flex !important;
+}
+
+.media-frame.iu-has-folders #iu-media-folders-wrap {
+	position: relative;
+	top: 0;
+	margin-right: 0;
+	max-height: 100%;
+}
+
+.media-frame.iu-has-folders #iu-media-folders-sidebar {
+	position: relative;
+	top: 0;
+	border: none;
+	border-right: 1px solid #c3c4c7;
+	box-shadow: none;
+	max-height: 100%;
+}
+
+.media-frame.iu-has-folders #iu-media-folders-wrap.iu-collapsed #iu-media-folders-sidebar {
+	border-right-width: 0;
+}
+
+.media-frame.iu-has-folders #iu-media-folders-wrap .iu-sidebar-toggle {
+	border: none;
+	border-right: 1px solid #c3c4c7;
+	border-radius: 0;
+	margin-top: 0;
+	height: 40px;
+}
+
+.media-frame.iu-has-folders #iu-media-folders-wrap.iu-collapsed .iu-sidebar-toggle {
+	border-right: 1px solid #c3c4c7;
+}
+
+.media-frame.iu-has-folders .media-frame-content,
+.media-frame.iu-has-folders .media-toolbar,
+.media-frame.iu-has-folders .attachments-browser {
+	flex: 1;
+	min-width: 0;
+}
+
+/* Sidebar header */
+.iu-folders-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 12px;
+	border-bottom: 1px solid #e2e4e7;
+	background: #f6f7f7;
+}
+
+.iu-folders-title {
+	font-weight: 600;
+	font-size: 13px;
+	color: #1d2327;
+	cursor: pointer;
+	user-select: none;
+}
+
+.iu-folder-add-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 2px;
+	color: #2271b1;
+	line-height: 1;
+	border-radius: 3px;
+	transition: background-color 0.15s ease;
+}
+
+.iu-folder-add-btn:hover {
+	background: #e2e4e7;
+	color: #135e96;
+}
+
+.iu-folder-add-btn .dashicons {
+	font-size: 18px;
+	width: 18px;
+	height: 18px;
+}
+
+/* jstree overrides */
+#iu-folders-tree {
+	padding: 6px 0;
+}
+
+#iu-folders-tree .jstree-anchor {
+	font-size: 13px;
+	color: #50575e;
+	line-height: 28px;
+	height: 28px;
+	padding: 0 8px 0 4px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+#iu-folders-tree .jstree-anchor:hover {
+	color: #1d2327;
+}
+
+#iu-folders-tree .jstree-clicked {
+	background: #e8f0fe !important;
+	color: #2271b1 !important;
+	border-radius: 0;
+}
+
+#iu-folders-tree .jstree-wholerow-clicked {
+	background: #e8f0fe !important;
+}
+
+#iu-folders-tree .jstree-wholerow-hovered {
+	background: #f0f0f1 !important;
+}
+
+/* Folder icon styling */
+#iu-folders-tree .jstree-icon.dashicons {
+	font-size: 16px;
+	width: 20px;
+	height: 28px;
+	line-height: 28px;
+	margin-right: 2px;
+	color: #c3c4c7;
+}
+
+#iu-folders-tree .jstree-clicked > .jstree-icon.dashicons {
+	color: #2271b1;
+}
+
+#iu-folders-tree .jstree-anchor:hover > .jstree-icon.dashicons {
+	color: #50575e;
+}
+
+/* Folder count badge */
+.iu-folder-count {
+	font-size: 11px;
+	color: #8c8f94;
+	margin-left: 4px;
+	font-weight: normal;
+}
+
+#iu-folders-tree .jstree-clicked .iu-folder-count {
+	color: #2271b1;
+}
+
+/* Virtual folder styling */
+.iu-folder-virtual > .jstree-anchor {
+	font-weight: 500;
+}
+
+/* Context menu styling */
+.jstree-contextmenu .jstree-anchor {
+	font-size: 13px !important;
+}
+
+.jstree-contextmenu .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	margin-right: 6px;
+	vertical-align: middle;
+}
+
+.vakata-context {
+	z-index: 100001 !important;
+	box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16) !important;
+	border: 1px solid #c3c4c7 !important;
+	border-radius: 4px !important;
+	padding: 4px 0 !important;
+	min-width: 160px !important;
+}
+
+.vakata-context li > a {
+	padding: 4px 12px !important;
+	line-height: 22px !important;
+}
+
+.vakata-context li > a:hover {
+	background: #f0f0f1 !important;
+	box-shadow: none !important;
+}
+
+.vakata-context .vakata-context-separator {
+	margin: 4px 0 !important;
+}
+
+/* ==========================================================================
+   Drag-and-Drop
+   ========================================================================== */
+
+/* Drag helper */
+.iu-drag-helper {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+	padding: 4px;
+	max-width: 60px;
+	max-height: 60px;
+	overflow: hidden;
+	position: relative;
+	cursor: grabbing;
+}
+
+.iu-drag-helper img {
+	width: 50px;
+	height: 50px;
+	object-fit: cover;
+	display: block;
+	border-radius: 2px;
+}
+
+.iu-drag-helper-list {
+	max-width: 200px;
+	max-height: none;
+	padding: 6px 10px;
+	font-size: 12px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.iu-drag-count {
+	position: absolute;
+	top: -6px;
+	right: -6px;
+	background: #2271b1;
+	color: #fff;
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 18px;
+	width: 18px;
+	height: 18px;
+	text-align: center;
+	border-radius: 50%;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.iu-drag-helper-list .iu-drag-count {
+	position: static;
+	display: inline-block;
+	margin-left: 6px;
+	vertical-align: middle;
+}
+
+/* Drop target highlighting */
+#iu-media-folders-sidebar.iu-drop-active {
+	border-color: #2271b1;
+	box-shadow: 0 0 0 1px #2271b1;
+}
+
+#iu-media-folders-sidebar.iu-drop-active + .iu-sidebar-toggle,
+.iu-drop-active ~ .iu-sidebar-toggle {
+	border-color: #2271b1;
+}
+
+#iu-folders-tree .iu-drop-hover > .jstree-wholerow {
+	background: #e8f0fe !important;
+}
+
+#iu-folders-tree .iu-drop-hover > .jstree-anchor {
+	color: #2271b1 !important;
+	font-weight: 600;
+}
+
+/* jstree DND marker */
+#jstree-marker {
+	z-index: 100002 !important;
+}
+
+#jstree-dnd {
+	z-index: 100002 !important;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 4px 8px;
+	font-size: 12px;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media screen and (max-width: 782px) {
+	#iu-media-folders-sidebar {
+		width: 200px;
+		min-width: 200px;
+	}
+}
+
+@media screen and (max-width: 600px) {
+	.iu-media-wrapper {
+		flex-direction: column;
+	}
+
+	#iu-media-folders-wrap {
+		position: static;
+		margin-right: 0;
+		margin-bottom: 12px;
+		width: 100%;
+	}
+
+	#iu-media-folders-sidebar {
+		width: 100% !important;
+		min-width: 100% !important;
+		max-height: none;
+	}
+
+	#iu-media-folders-wrap.iu-collapsed #iu-media-folders-sidebar {
+		width: 0 !important;
+		min-width: 0 !important;
+	}
+
+	#iu-folders-tree {
+		max-height: 200px;
+		overflow-y: auto;
+	}
+
+	.media-frame.iu-has-folders {
+		flex-direction: column !important;
+	}
+
+	.media-frame.iu-has-folders #iu-media-folders-sidebar {
+		border-right: none;
+		border-bottom: 1px solid #c3c4c7;
+	}
+}

@@ -2,7 +2,7 @@
 /*
  * Plugin Name: Infinite Uploads
  * Description: Infinitely scalable cloud storage and delivery for your videos and uploads made easy! Upload directly to cloud storage and manage your files right from the WordPress Media Library.
- * Version: 3.0.6
+ * Version: 3.0.7
  * Author: Infinite Uploads
  * Author URI: https://infiniteuploads.com/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin&utm_content=meta
  * Text Domain: infinite-uploads
@@ -18,7 +18,7 @@
  * Copyright 2021-2025 ClikIT, LLC
 */
 
-define( 'INFINITE_UPLOADS_VERSION', '3.0.6' );
+define( 'INFINITE_UPLOADS_VERSION', '3.0.7' );
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
     \WP_CLI::add_command( 'infinite-uploads', '\ClikIT\InfiniteUploads\InfiniteUploadsWPCLICommand' );
@@ -109,6 +109,28 @@ function infinite_uploads_install() {
             KEY `type` (`type`),
             KEY `synced` (`synced`),
             KEY `deleted` (`deleted`)
+        ) {$charset_collate};";
+
+	// Media folders table.
+	$sql .= "\nCREATE TABLE {$wpdb->prefix}iu_media_folders (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            name VARCHAR(255) NOT NULL,
+            parent_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+            created_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id),
+            KEY parent_id (parent_id),
+            KEY sort_order (sort_order)
+        ) {$charset_collate};";
+
+	// Media-to-folder relationship table.
+	$sql .= "\nCREATE TABLE {$wpdb->prefix}iu_media_folder_relationships (
+            folder_id BIGINT UNSIGNED NOT NULL,
+            attachment_id BIGINT UNSIGNED NOT NULL,
+            PRIMARY KEY  (folder_id, attachment_id),
+            KEY attachment_id (attachment_id)
         ) {$charset_collate};";
 
 	if ( ! function_exists( 'dbDelta' ) ) {

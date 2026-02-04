@@ -103,6 +103,9 @@ class InfiniteUploads {
         $this->admin  = InfiniteUploadsAdmin::get_instance();
         $this->api    = InfiniteUploadsApiHandler::get_instance();
         $this->stream = InfiniteUploadsVideo::get_instance();
+
+        // Initialize media folders (works independently of cloud sync).
+        MediaFolders::get_instance();
         //Add cloud permissions if present
         $api_data = $this->api->get_site_data();
         if ( $api_data && isset( $api_data->site ) && ! empty( $api_data->site->upload_key ) && ! empty( $api_data->site->upload_secret ) ) {
