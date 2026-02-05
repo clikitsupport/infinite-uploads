@@ -6,7 +6,8 @@
 .iu-media-wrapper {
 	display: flex;
 	gap: 0;
-	align-items: flex-start;
+	align-items: stretch;
+	min-height: calc(100vh - 32px);
 }
 
 .iu-media-wrapper .iu-media-content {
@@ -21,45 +22,78 @@
 	flex-shrink: 0;
 	position: sticky;
 	top: 32px;
+	align-self: flex-start;
+	height: calc(100vh - 32px);
 	z-index: 10;
 }
 
 /* ==========================================================================
-   Toggle Button (collapse/expand chevron on right edge)
+   Sidebar Handle (resize strip + circular toggle)
    ========================================================================== */
 
+.iu-sidebar-handle {
+	position: relative;
+	width: 16px;
+	margin-right: 4px;
+	cursor: col-resize;
+	flex-shrink: 0;
+	align-self: stretch;
+	z-index: 11;
+}
+
+/* Vertical line via pseudo-element */
+.iu-sidebar-handle::before {
+	content: '';
+	position: absolute;
+	right: 0;
+	top: 0;
+	width: 1px;
+	height: 100%;
+	background: #c1c3c5b4;
+	transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.iu-sidebar-handle:hover::before {
+	background: #2271b1;
+	box-shadow: 1px 0 0 0 #2271b1;
+}
+
+/* Circular toggle button */
 .iu-sidebar-toggle {
+	position: absolute;
+	left: 3px;
+	top: 79px;
+	z-index: 999;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 20px;
-	min-width: 20px;
-	background: #f0f0f1;
-	border: 1px solid #c3c4c7;
-	border-left: none;
+	width: 24px;
+	height: 24px;
 	cursor: pointer;
+	border-radius: 50%;
+	background: #fff;
+	color: #6b778c;
+	border: none;
 	padding: 0;
-	color: #787c82;
-	transition: background-color 0.15s ease, color 0.15s ease;
-	flex-shrink: 0;
-	align-self: stretch;
+	box-shadow: 0 0 0 1px #c3c4c7, 0 2px 5px rgba(51, 51, 51, 0.1);
+	transform: translateX(-50%) scaleX(-1);
+	transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .iu-sidebar-toggle:hover {
-	background: #e2e4e7;
-	color: #1d2327;
+	background: #2271b1;
+	color: #fff;
+	box-shadow: 0 0 0 1px #2271b1, 0 2px 5px rgba(51, 51, 51, 0.1);
 }
 
-.iu-sidebar-toggle .dashicons {
-	font-size: 14px;
-	width: 14px;
-	height: 14px;
-	transition: transform 0.2s ease;
+.iu-sidebar-toggle svg {
+	width: 16px;
+	height: 16px;
 }
 
-/* Collapsed: show right arrow */
-#iu-media-folders-wrap.iu-collapsed .iu-sidebar-toggle .dashicons {
-	transform: rotate(180deg);
+/* Collapsed: flip arrow direction */
+#iu-media-folders-wrap.iu-collapsed .iu-sidebar-toggle {
+	transform: translateX(-50%) scaleX(1);
 }
 
 /* ==========================================================================
@@ -69,14 +103,15 @@
 #iu-media-folders-sidebar {
 	width: 280px;
 	min-width: 280px;
-	background: #fff;
+	background: #f0f0f1;
 	border: 1px solid #c3c4c7;
 	border-right: none;
 	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 	padding: 0;
 	box-sizing: border-box;
-	max-height: calc(100vh - 62px);
 	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
 	transition: width 0.2s ease, min-width 0.2s ease, opacity 0.2s ease;
 }
 
@@ -89,13 +124,14 @@
 	opacity: 0;
 }
 
-#iu-media-folders-wrap.iu-collapsed .iu-sidebar-resize-handle {
+#iu-media-folders-wrap.iu-collapsed .iu-sidebar-handle::before {
 	display: none;
 }
 
-#iu-media-folders-wrap.iu-collapsed .iu-sidebar-toggle {
-	border-left: 1px solid #c3c4c7;
-	border-radius: 4px;
+#iu-media-folders-wrap.iu-collapsed .iu-sidebar-handle {
+	cursor: default;
+	width: 12px;
+	margin-right: 0;
 }
 
 /* Grid mode: sidebar is inside the media frame */
@@ -122,10 +158,8 @@
 	border-right-width: 0;
 }
 
-.media-frame.iu-has-folders #iu-media-folders-wrap .iu-sidebar-toggle {
-	border: none;
-	border-left: 1px solid #c3c4c7;
-	border-radius: 0;
+.media-frame.iu-has-folders .iu-sidebar-handle::before {
+	background: #c3c4c7;
 }
 
 .media-frame.iu-has-folders .media-frame-content,
@@ -503,6 +537,8 @@
 
 #iu-folders-tree {
 	padding: 4px 0;
+	flex: 1;
+	overflow-y: auto;
 }
 
 #iu-folders-tree .jstree-anchor {
@@ -618,30 +654,8 @@
 }
 
 /* ==========================================================================
-   Resize Handle
+   Resizing state
    ========================================================================== */
-
-.iu-sidebar-resize-handle {
-	width: 6px;
-	cursor: col-resize;
-	background: transparent;
-	flex-shrink: 0;
-	align-self: stretch;
-	transition: background-color 0.15s ease;
-	position: relative;
-	z-index: 11;
-	margin-left: -3px;
-	margin-right: -3px;
-}
-
-.iu-sidebar-resize-handle:hover {
-	background: rgba(34, 113, 177, 0.15);
-}
-
-.iu-sidebar-resize-handle:active,
-body.iu-resizing .iu-sidebar-resize-handle {
-	background: rgba(34, 113, 177, 0.3);
-}
 
 body.iu-resizing {
 	user-select: none;
@@ -651,6 +665,11 @@ body.iu-resizing {
 
 body.iu-resizing * {
 	cursor: col-resize !important;
+}
+
+body.iu-resizing .iu-sidebar-handle::before {
+	background: #2271b1;
+	box-shadow: 1px 0 0 0 #2271b1;
 }
 
 /* ==========================================================================
@@ -752,7 +771,7 @@ body.iu-resizing * {
 		min-width: 220px;
 	}
 
-	.iu-sidebar-resize-handle {
+	.iu-sidebar-handle {
 		display: none;
 	}
 
@@ -778,11 +797,14 @@ body.iu-resizing * {
 @media screen and (max-width: 600px) {
 	.iu-media-wrapper {
 		flex-direction: column;
+		min-height: auto;
 	}
 
 	#iu-media-folders-wrap {
 		position: static;
 		width: 100%;
+		height: auto;
+		align-self: auto;
 	}
 
 	#iu-media-folders-sidebar {
@@ -810,7 +832,7 @@ body.iu-resizing * {
 		border-bottom: 1px solid #c3c4c7;
 	}
 
-	.iu-sidebar-resize-handle {
+	.iu-sidebar-handle {
 		display: none;
 	}
 }

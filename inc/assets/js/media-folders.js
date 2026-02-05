@@ -105,18 +105,19 @@
 						// Folder tree (user folders only)
 						'<div id="iu-folders-tree"></div>' +
 					'</div>' +
-					'<div class="iu-sidebar-resize-handle"></div>' +
-					'<button type="button" class="iu-sidebar-toggle" title="Toggle folders">' +
-						'<span class="dashicons dashicons-arrow-left-alt2"></span>' +
-					'</button>' +
+					'<div class="iu-sidebar-handle">' +
+						'<span class="iu-sidebar-toggle" title="Toggle folders">' +
+							'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M10.5 17a1 1 0 0 1-.71-.29 1 1 0 0 1 0-1.42L13.1 12 9.92 8.69a1 1 0 0 1 0-1.41 1 1 0 0 1 1.42 0l3.86 4a1 1 0 0 1 0 1.4l-4 4a1 1 0 0 1-.7.32z"></path></svg>' +
+						'</span>' +
+					'</div>' +
 				'</div>';
 
 			if (this.isListMode) {
 				var $wrap = $('.wrap');
 				if ($wrap.length) {
-					var $pageTitle = $wrap.find('.page-title-action').last();
-					var $content = $pageTitle.length ? $pageTitle.nextAll() : $wrap.children().not('h1');
-					$content.wrapAll('<div class="iu-media-content"></div>');
+					// Wrap ALL children of .wrap (including h1, Add New button, etc.)
+					// inside .iu-media-content so the sidebar sits alongside everything.
+					$wrap.children().wrapAll('<div class="iu-media-content"></div>');
 					$wrap.find('.iu-media-content').first().before(sidebarHtml);
 					$wrap.find('#iu-media-folders-wrap, .iu-media-content').wrapAll('<div class="iu-media-wrapper"></div>');
 				}
@@ -419,7 +420,8 @@
 			var isResizing = false;
 			var startX, startWidth;
 
-			$(document).on('mousedown', '.iu-sidebar-resize-handle', function (e) {
+			$(document).on('mousedown', '.iu-sidebar-handle', function (e) {
+				if ($(e.target).closest('.iu-sidebar-toggle').length) return;
 				e.preventDefault();
 				isResizing = true;
 				startX = e.clientX;
