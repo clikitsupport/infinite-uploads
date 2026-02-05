@@ -325,14 +325,11 @@ class InfiniteUploadsAdmin {
         $path = $path['basedir'];
 
         $remaining_dirs = [];
-        //validate path is within uploads dir to prevent path traversal
-        if ( isset( $_POST['remaining_dirs'] ) && is_array( $_POST['remaining_dirs'] ) ) {
-            foreach ( $_POST['remaining_dirs'] as $dir ) {
-                $realpath = realpath( $path . $dir );
-                if ( 0 === strpos( $realpath, $path ) ) { //check that parsed path begins with upload dir
-                    $remaining_dirs[] = $dir;
-                }
-            }
+        $is_continuing  = ! empty( $_POST['scan_continue'] );
+
+        if ( $is_continuing ) {
+            // Retrieve remaining dirs from server-side storage to avoid large POST payloads.
+            $remaining_dirs = get_site_option( 'iup_scan_remaining_dirs', [] );
         } elseif ( ! empty( $this->iup_instance->bucket ) ) {
             //If we are starting a new filesync and are logged into cloud storage abort any unfinished multipart uploads
             $to_abort = $wpdb->get_results( "SELECT file, transfer_status as upload_id FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE transfer_status IS NOT NULL" );
@@ -366,7 +363,14 @@ class InfiniteUploadsAdmin {
         $is_done         = $filelist->is_done;
         $nonce           = wp_create_nonce( 'iup_scan' );
 
-        $data  = compact( 'this_file_count', 'is_done', 'remaining_dirs', 'nonce' );
+        // Store remaining dirs server-side to avoid large POST payloads.
+        if ( ! $is_done ) {
+            update_site_option( 'iup_scan_remaining_dirs', $remaining_dirs );
+        } else {
+            delete_site_option( 'iup_scan_remaining_dirs' );
+        }
+
+        $data  = compact( 'this_file_count', 'is_done', 'nonce' );
         $stats = $this->iup_instance->get_sync_stats();
         if ( $stats ) {
             $data = array_merge( $data, $stats );
