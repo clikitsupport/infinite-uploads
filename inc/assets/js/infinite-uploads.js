@@ -20,7 +20,7 @@ jQuery(document).ready(function ($) {
 		$('html, body').animate({scrollTop: 0}, 1000);
 	};
 
-	var buildFilelist = function (remaining_dirs, nonce = '') {
+	var buildFilelist = function (scan_continue, nonce = '') {
 		if (iupStopLoop) {
 			iupStopLoop = false;
 			iupProcessingLoop = false;
@@ -28,7 +28,10 @@ jQuery(document).ready(function ($) {
 		}
 		iupProcessingLoop = true;
 
-		var data = {remaining_dirs: remaining_dirs};
+		var data = {};
+		if (scan_continue) {
+			data.scan_continue = 1;
+		}
 		if (nonce) {
 			data.nonce = nonce;
 		} else {
@@ -44,7 +47,7 @@ jQuery(document).ready(function ($) {
 					$('#iup-scan-progress').show();
 					if ( !json.data.is_done) {
 						buildFilelist(
-							json.data.remaining_dirs,
+							true,
 							json.data.nonce
 						);
 					} else {
@@ -394,7 +397,7 @@ jQuery(document).ready(function ($) {
 		.on('show.bs.modal', function () {
 			$('#iup-error').hide();
 			iupStopLoop = false;
-			buildFilelist([]);
+			buildFilelist(false);
 		})
 		.on('hide.bs.modal', function () {
 			iupStopLoop = true;
