@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Infinite Uploads - Media Folders Sidebar
+   Infinite Uploads - Media Folders Sidebar (FileBird-style)
    ========================================================================== */
 
 /* Layout wrapper for list mode */
@@ -14,35 +14,35 @@
 	min-width: 0;
 }
 
-/* Sidebar wrap (toggle + sidebar) */
+/* Sidebar wrap (sidebar + resize + toggle) */
 #iu-media-folders-wrap {
 	display: flex;
-	align-items: flex-start;
+	align-items: stretch;
 	flex-shrink: 0;
-	margin-right: 16px;
 	position: sticky;
 	top: 32px;
 	z-index: 10;
 }
 
-/* Toggle button */
+/* ==========================================================================
+   Toggle Button (collapse/expand chevron on right edge)
+   ========================================================================== */
+
 .iu-sidebar-toggle {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 24px;
-	min-width: 24px;
-	height: 36px;
-	background: #f6f7f7;
+	width: 20px;
+	min-width: 20px;
+	background: #f0f0f1;
 	border: 1px solid #c3c4c7;
-	border-right: none;
-	border-radius: 4px 0 0 4px;
+	border-left: none;
 	cursor: pointer;
 	padding: 0;
-	color: #50575e;
+	color: #787c82;
 	transition: background-color 0.15s ease, color 0.15s ease;
-	margin-top: 10px;
 	flex-shrink: 0;
+	align-self: stretch;
 }
 
 .iu-sidebar-toggle:hover {
@@ -51,23 +51,27 @@
 }
 
 .iu-sidebar-toggle .dashicons {
-	font-size: 16px;
-	width: 16px;
-	height: 16px;
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
 	transition: transform 0.2s ease;
 }
 
-/* Rotate arrow when sidebar is open */
-#iu-media-folders-wrap:not(.iu-collapsed) .iu-sidebar-toggle .dashicons {
+/* Collapsed: show right arrow */
+#iu-media-folders-wrap.iu-collapsed .iu-sidebar-toggle .dashicons {
 	transform: rotate(180deg);
 }
 
-/* Sidebar */
+/* ==========================================================================
+   Sidebar
+   ========================================================================== */
+
 #iu-media-folders-sidebar {
-	width: 240px;
-	min-width: 240px;
+	width: 280px;
+	min-width: 280px;
 	background: #fff;
 	border: 1px solid #c3c4c7;
+	border-right: none;
 	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 	padding: 0;
 	box-sizing: border-box;
@@ -85,13 +89,13 @@
 	opacity: 0;
 }
 
-#iu-media-folders-wrap.iu-collapsed {
-	margin-right: 0;
+#iu-media-folders-wrap.iu-collapsed .iu-sidebar-resize-handle {
+	display: none;
 }
 
 #iu-media-folders-wrap.iu-collapsed .iu-sidebar-toggle {
+	border-left: 1px solid #c3c4c7;
 	border-radius: 4px;
-	border-right: 1px solid #c3c4c7;
 }
 
 /* Grid mode: sidebar is inside the media frame */
@@ -102,7 +106,6 @@
 .media-frame.iu-has-folders #iu-media-folders-wrap {
 	position: relative;
 	top: 0;
-	margin-right: 0;
 	max-height: 100%;
 }
 
@@ -121,14 +124,8 @@
 
 .media-frame.iu-has-folders #iu-media-folders-wrap .iu-sidebar-toggle {
 	border: none;
-	border-right: 1px solid #c3c4c7;
+	border-left: 1px solid #c3c4c7;
 	border-radius: 0;
-	margin-top: 0;
-	height: 40px;
-}
-
-.media-frame.iu-has-folders #iu-media-folders-wrap.iu-collapsed .iu-sidebar-toggle {
-	border-right: 1px solid #c3c4c7;
 }
 
 .media-frame.iu-has-folders .media-frame-content,
@@ -138,49 +135,374 @@
 	min-width: 0;
 }
 
-/* Sidebar header */
+/* ==========================================================================
+   Header Row 1: Title + New Folder Button
+   ========================================================================== */
+
 .iu-folders-header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	padding: 10px 12px;
 	border-bottom: 1px solid #e2e4e7;
-	background: #f6f7f7;
 }
 
 .iu-folders-title {
 	font-weight: 600;
-	font-size: 13px;
+	font-size: 14px;
 	color: #1d2327;
-	cursor: pointer;
-	user-select: none;
 }
 
 .iu-folder-add-btn {
-	background: none;
-	border: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	background: #2271b1;
+	color: #fff;
+	border: 1px solid #2271b1;
+	border-radius: 4px;
 	cursor: pointer;
-	padding: 2px;
-	color: #2271b1;
-	line-height: 1;
-	border-radius: 3px;
-	transition: background-color 0.15s ease;
+	padding: 5px 12px;
+	font-size: 13px;
+	font-weight: 500;
+	line-height: 1.4;
+	transition: background-color 0.15s ease, border-color 0.15s ease;
+	white-space: nowrap;
 }
 
 .iu-folder-add-btn:hover {
-	background: #e2e4e7;
-	color: #135e96;
+	background: #135e96;
+	border-color: #135e96;
+	color: #fff;
+}
+
+.iu-folder-add-btn:active {
+	background: #0a4b78;
+	border-color: #0a4b78;
 }
 
 .iu-folder-add-btn .dashicons {
-	font-size: 18px;
-	width: 18px;
-	height: 18px;
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	line-height: 16px;
 }
 
-/* jstree overrides */
+.iu-btn-label {
+	font-size: 13px;
+}
+
+/* ==========================================================================
+   Header Row 2: Actions (Rename, Delete, Sort, More)
+   ========================================================================== */
+
+.iu-folders-actions {
+	display: flex;
+	align-items: center;
+	padding: 6px 10px;
+	border-bottom: 1px solid #e2e4e7;
+	gap: 4px;
+}
+
+.iu-action-rename,
+.iu-action-delete {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	cursor: pointer;
+	padding: 3px 8px;
+	font-size: 12px;
+	color: #50575e;
+	line-height: 1.4;
+	transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.iu-action-rename:hover:not(:disabled),
+.iu-action-delete:hover:not(:disabled) {
+	background: #f0f0f1;
+	color: #1d2327;
+	border-color: #8c8f94;
+}
+
+.iu-action-rename:disabled,
+.iu-action-delete:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.iu-action-rename .dashicons,
+.iu-action-delete .dashicons {
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
+}
+
+.iu-actions-right {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	margin-left: auto;
+}
+
+.iu-sort-btn,
+.iu-action-more {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	background: none;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	cursor: pointer;
+	padding: 0;
+	color: #50575e;
+	transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.iu-sort-btn:hover,
+.iu-action-more:hover {
+	background: #f0f0f1;
+	color: #1d2327;
+	border-color: #c3c4c7;
+}
+
+.iu-sort-btn.iu-active {
+	background: #e8f0fe;
+	color: #2271b1;
+	border-color: #2271b1;
+}
+
+.iu-sort-btn .dashicons,
+.iu-action-more .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+}
+
+/* Rotate ellipsis to vertical dots */
+.iu-action-more .dashicons {
+	transform: rotate(90deg);
+}
+
+/* ==========================================================================
+   More Dropdown Menu
+   ========================================================================== */
+
+.iu-more-dropdown {
+	position: relative;
+}
+
+.iu-more-menu {
+	display: none;
+	position: absolute;
+	right: 0;
+	top: 100%;
+	margin-top: 4px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+	z-index: 100;
+	min-width: 150px;
+	padding: 4px 0;
+}
+
+.iu-more-menu.iu-open {
+	display: block;
+}
+
+.iu-more-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	padding: 6px 12px;
+	border: none;
+	background: none;
+	cursor: pointer;
+	font-size: 13px;
+	color: #50575e;
+	line-height: 1.4;
+	text-align: left;
+}
+
+.iu-more-item:hover {
+	background: #f0f0f1;
+	color: #1d2327;
+}
+
+.iu-more-item .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	color: #787c82;
+}
+
+/* ==========================================================================
+   Virtual Folders (All Files + Uncategorized)
+   ========================================================================== */
+
+.iu-virtual-folders {
+	padding: 4px 0;
+	border-bottom: 1px solid #e2e4e7;
+}
+
+.iu-virtual-folder {
+	display: flex;
+	align-items: center;
+	padding: 6px 12px;
+	cursor: pointer;
+	transition: background-color 0.1s ease;
+	position: relative;
+	user-select: none;
+}
+
+.iu-virtual-folder:hover {
+	background: #f0f0f1;
+}
+
+.iu-virtual-folder.iu-vf-selected {
+	background: #e8f0fe;
+}
+
+.iu-virtual-folder.iu-vf-selected .iu-vf-name {
+	color: #2271b1;
+	font-weight: 500;
+}
+
+.iu-virtual-folder.iu-vf-selected .iu-vf-icon {
+	color: #2271b1;
+}
+
+.iu-vf-icon {
+	font-size: 16px;
+	width: 20px;
+	height: 20px;
+	line-height: 20px;
+	margin-right: 6px;
+	color: #a7aaad;
+}
+
+.iu-vf-name {
+	flex: 1;
+	font-size: 13px;
+	color: #1d2327;
+	line-height: 20px;
+}
+
+/* Virtual folder drop hover */
+.iu-virtual-folder.iu-drop-hover {
+	background: #e8f0fe;
+}
+
+.iu-virtual-folder.iu-drop-hover .iu-vf-name {
+	color: #2271b1;
+	font-weight: 600;
+}
+
+/* ==========================================================================
+   Search Input
+   ========================================================================== */
+
+.iu-folders-search {
+	position: relative;
+	padding: 8px 12px;
+	border-bottom: 1px solid #e2e4e7;
+}
+
+.iu-search-icon {
+	position: absolute;
+	left: 18px;
+	top: 50%;
+	transform: translateY(-50%);
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
+	color: #a7aaad;
+	pointer-events: none;
+}
+
+.iu-folder-search-input {
+	width: 100%;
+	padding: 6px 8px 6px 28px;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	font-size: 13px;
+	line-height: 1.4;
+	background: #fff;
+	color: #1d2327;
+	box-sizing: border-box;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.iu-folder-search-input:focus {
+	border-color: #2271b1;
+	box-shadow: 0 0 0 1px #2271b1;
+	outline: none;
+}
+
+.iu-folder-search-input::placeholder {
+	color: #a7aaad;
+}
+
+/* ==========================================================================
+   Count Badges (right-aligned pill)
+   ========================================================================== */
+
+.iu-count-badge {
+	display: inline-block;
+	min-width: 20px;
+	height: 20px;
+	line-height: 20px;
+	padding: 0 6px;
+	font-size: 11px;
+	font-weight: 500;
+	text-align: center;
+	color: #50575e;
+	background: #f0f0f1;
+	border-radius: 10px;
+	box-sizing: border-box;
+	margin-left: auto;
+}
+
+/* Badge inside virtual folder */
+.iu-virtual-folder .iu-count-badge {
+	position: static;
+	transform: none;
+}
+
+.iu-virtual-folder.iu-vf-selected .iu-count-badge {
+	color: #2271b1;
+	background: #d4e4f7;
+}
+
+/* Badge inside jstree anchor */
+#iu-folders-tree .jstree-anchor .iu-count-badge {
+	position: absolute;
+	right: 8px;
+	top: 50%;
+	transform: translateY(-50%);
+}
+
+#iu-folders-tree .jstree-clicked .iu-count-badge {
+	color: #2271b1;
+	background: #d4e4f7;
+}
+
+#iu-folders-tree .jstree-anchor:hover .iu-count-badge {
+	background: #e2e4e7;
+}
+
+/* ==========================================================================
+   jstree overrides
+   ========================================================================== */
+
 #iu-folders-tree {
-	padding: 6px 0;
+	padding: 4px 0;
 }
 
 #iu-folders-tree .jstree-anchor {
@@ -192,6 +514,8 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	position: relative;
+	padding-right: 48px;
 }
 
 #iu-folders-tree .jstree-anchor:hover {
@@ -219,7 +543,7 @@
 	height: 28px;
 	line-height: 28px;
 	margin-right: 2px;
-	color: #c3c4c7;
+	color: #a7aaad;
 }
 
 #iu-folders-tree .jstree-clicked > .jstree-icon.dashicons {
@@ -230,24 +554,34 @@
 	color: #50575e;
 }
 
-/* Folder count badge */
-.iu-folder-count {
-	font-size: 11px;
-	color: #8c8f94;
-	margin-left: 4px;
-	font-weight: normal;
+/* Tree connecting lines */
+#iu-folders-tree .jstree-icon.jstree-ocl {
+	color: #c3c4c7;
 }
 
-#iu-folders-tree .jstree-clicked .iu-folder-count {
-	color: #2271b1;
+/* ==========================================================================
+   Cut indicator
+   ========================================================================== */
+
+#iu-folders-tree .iu-cut > .jstree-anchor {
+	opacity: 0.5;
+	font-style: italic;
 }
 
-/* Virtual folder styling */
-.iu-folder-virtual > .jstree-anchor {
-	font-weight: 500;
+/* ==========================================================================
+   jstree search highlight
+   ========================================================================== */
+
+#iu-folders-tree .jstree-search {
+	color: #1d2327 !important;
+	font-weight: 600 !important;
+	font-style: normal !important;
 }
 
-/* Context menu styling */
+/* ==========================================================================
+   Context menu styling
+   ========================================================================== */
+
 .jstree-contextmenu .jstree-anchor {
 	font-size: 13px !important;
 }
@@ -284,10 +618,45 @@
 }
 
 /* ==========================================================================
+   Resize Handle
+   ========================================================================== */
+
+.iu-sidebar-resize-handle {
+	width: 6px;
+	cursor: col-resize;
+	background: transparent;
+	flex-shrink: 0;
+	align-self: stretch;
+	transition: background-color 0.15s ease;
+	position: relative;
+	z-index: 11;
+	margin-left: -3px;
+	margin-right: -3px;
+}
+
+.iu-sidebar-resize-handle:hover {
+	background: rgba(34, 113, 177, 0.15);
+}
+
+.iu-sidebar-resize-handle:active,
+body.iu-resizing .iu-sidebar-resize-handle {
+	background: rgba(34, 113, 177, 0.3);
+}
+
+body.iu-resizing {
+	user-select: none;
+	-webkit-user-select: none;
+	cursor: col-resize;
+}
+
+body.iu-resizing * {
+	cursor: col-resize !important;
+}
+
+/* ==========================================================================
    Drag-and-Drop
    ========================================================================== */
 
-/* Drag helper */
 .iu-drag-helper {
 	background: #fff;
 	border: 1px solid #c3c4c7;
@@ -342,17 +711,13 @@
 	vertical-align: middle;
 }
 
-/* Drop target highlighting */
+/* Drop target highlighting on sidebar */
 #iu-media-folders-sidebar.iu-drop-active {
 	border-color: #2271b1;
 	box-shadow: 0 0 0 1px #2271b1;
 }
 
-#iu-media-folders-sidebar.iu-drop-active + .iu-sidebar-toggle,
-.iu-drop-active ~ .iu-sidebar-toggle {
-	border-color: #2271b1;
-}
-
+/* Drop target highlighting on jstree nodes */
 #iu-folders-tree .iu-drop-hover > .jstree-wholerow {
 	background: #e8f0fe !important;
 }
@@ -383,8 +748,30 @@
 
 @media screen and (max-width: 782px) {
 	#iu-media-folders-sidebar {
-		width: 200px;
-		min-width: 200px;
+		width: 220px;
+		min-width: 220px;
+	}
+
+	.iu-sidebar-resize-handle {
+		display: none;
+	}
+
+	.iu-folder-add-btn .iu-btn-label {
+		display: none;
+	}
+
+	.iu-folder-add-btn {
+		padding: 5px 8px;
+	}
+
+	.iu-action-rename span:not(.dashicons),
+	.iu-action-delete span:not(.dashicons) {
+		display: none;
+	}
+
+	.iu-action-rename,
+	.iu-action-delete {
+		padding: 3px 6px;
 	}
 }
 
@@ -395,8 +782,6 @@
 
 	#iu-media-folders-wrap {
 		position: static;
-		margin-right: 0;
-		margin-bottom: 12px;
 		width: 100%;
 	}
 
@@ -423,5 +808,9 @@
 	.media-frame.iu-has-folders #iu-media-folders-sidebar {
 		border-right: none;
 		border-bottom: 1px solid #c3c4c7;
+	}
+
+	.iu-sidebar-resize-handle {
+		display: none;
 	}
 }

@@ -24,6 +24,7 @@ class MediaFolders {
 		add_action( 'wp_ajax_iu_delete_folder', [ $this, 'ajax_delete_folder' ] );
 		add_action( 'wp_ajax_iu_move_folder', [ $this, 'ajax_move_folder' ] );
 		add_action( 'wp_ajax_iu_move_media', [ $this, 'ajax_move_media' ] );
+		add_action( 'wp_ajax_iu_sort_folders', [ $this, 'ajax_sort_folders' ] );
 		add_action( 'wp_ajax_iu_get_folder_counts', [ $this, 'ajax_get_folder_counts' ] );
 
 		// Filter media library queries.
@@ -101,12 +102,22 @@ class MediaFolders {
 		wp_localize_script( 'iu-media-folders', 'iuMediaFolders', [
 			'ajax_url'       => admin_url( 'admin-ajax.php' ),
 			'nonce'          => wp_create_nonce( 'iu_media_folders' ),
-			'all_label'      => __( 'All Media', 'infinite-uploads' ),
+			'all_label'      => __( 'All Files', 'infinite-uploads' ),
 			'uncat_label'    => __( 'Uncategorized', 'infinite-uploads' ),
 			'new_folder'     => __( 'New Folder', 'infinite-uploads' ),
+			'new_subfolder'  => __( 'New Subfolder', 'infinite-uploads' ),
 			'rename'         => __( 'Rename', 'infinite-uploads' ),
+			'cut'            => __( 'Cut', 'infinite-uploads' ),
+			'paste'          => __( 'Paste', 'infinite-uploads' ),
 			'delete'         => __( 'Delete', 'infinite-uploads' ),
 			'confirm_delete' => __( 'Delete this folder? Media files inside will be moved to Uncategorized.', 'infinite-uploads' ),
+			'search_folders' => __( 'Enter folder name…', 'infinite-uploads' ),
+			'sort_az'        => __( 'Sort A-Z', 'infinite-uploads' ),
+			'sort_za'        => __( 'Sort Z-A', 'infinite-uploads' ),
+			'expand_all'     => __( 'Expand All', 'infinite-uploads' ),
+			'collapse_all'   => __( 'Collapse All', 'infinite-uploads' ),
+			'folders_title'  => __( 'Folders', 'infinite-uploads' ),
+			'more'           => __( 'More', 'infinite-uploads' ),
 			'is_list_mode'   => ( isset( $_GET['mode'] ) && $_GET['mode'] === 'list' ) || ( ! isset( $_GET['mode'] ) && get_user_option( 'media_library_mode' ) === 'list' ),
 		] );
 	}
@@ -124,8 +135,22 @@ class MediaFolders {
 
 		global $wpdb;
 
+		$sort = sanitize_text_field( $_POST['sort'] ?? 'custom' );
+
+		switch ( $sort ) {
+			case 'az':
+				$order_clause = 'ORDER BY name ASC';
+				break;
+			case 'za':
+				$order_clause = 'ORDER BY name DESC';
+				break;
+			default:
+				$order_clause = 'ORDER BY sort_order ASC, name ASC';
+				break;
+		}
+
 		$folders = $wpdb->get_results(
-			"SELECT * FROM {$this->folders_table()} ORDER BY sort_order ASC, name ASC"
+			"SELECT * FROM {$this->folders_table()} {$order_clause}"
 		);
 
 		$counts = $this->get_folder_counts();
@@ -134,16 +159,22 @@ class MediaFolders {
 		foreach ( $folders as $folder ) {
 			$tree[] = [
 				'id'     => 'folder_' . $folder->id,
-				'text'   => esc_html( $folder->name ) . ' <span class="iu-folder-count">(' . ( $counts[ (int) $folder->id ] ?? 0 ) . ')</span>',
+				'text'   => esc_html( $folder->name ),
 				'parent' => $folder->parent_id ? 'folder_' . $folder->parent_id : '#',
 				'data'   => [
-					'folder_id' => (int) $folder->id,
-					'count'     => $counts[ (int) $folder->id ] ?? 0,
+					'folder_id'   => (int) $folder->id,
+					'folder_name' => $folder->name,
+					'count'       => $counts[ (int) $folder->id ] ?? 0,
 				],
 			];
 		}
 
-		wp_send_json_success( $tree );
+		wp_send_json_success( [
+			'folders'              => $tree,
+			'total_count'          => $this->get_total_count(),
+			'uncategorized_count'  => $this->get_uncategorized_count(),
+			'counts'               => $counts,
+		] );
 	}
 
 	// -----------------------------------------------------------------
@@ -191,9 +222,14 @@ class MediaFolders {
 
 		wp_send_json_success( [
 			'id'        => 'folder_' . $folder_id,
-			'text'      => esc_html( $name ) . ' <span class="iu-folder-count">(0)</span>',
+			'text'      => esc_html( $name ),
 			'parent'    => $parent_id ? 'folder_' . $parent_id : '#',
 			'folder_id' => $folder_id,
+			'data'      => [
+				'folder_id'   => $folder_id,
+				'folder_name' => $name,
+				'count'       => 0,
+			],
 		] );
 	}
 
@@ -396,9 +432,11 @@ class MediaFolders {
 		}
 
 		wp_send_json_success( [
-			'moved'     => count( $attachment_ids ),
-			'folder_id' => $folder_id,
-			'counts'    => $this->get_folder_counts(),
+			'moved'                => count( $attachment_ids ),
+			'folder_id'            => $folder_id,
+			'counts'               => $this->get_folder_counts(),
+			'total_count'          => $this->get_total_count(),
+			'uncategorized_count'  => $this->get_uncategorized_count(),
 		] );
 	}
 
@@ -414,6 +452,75 @@ class MediaFolders {
 		}
 
 		wp_send_json_success( $this->get_folder_counts() );
+	}
+
+	// -----------------------------------------------------------------
+	// AJAX: Sort folders (save custom order)
+	// -----------------------------------------------------------------
+
+	public function ajax_sort_folders() {
+		check_ajax_referer( 'iu_media_folders', 'nonce' );
+
+		if ( ! current_user_can( 'upload_files' ) ) {
+			wp_send_json_error( 'Permission denied.' );
+		}
+
+		$order = array_map( 'absint', (array) ( $_POST['order'] ?? [] ) );
+
+		if ( empty( $order ) ) {
+			wp_send_json_error( __( 'No folder order provided.', 'infinite-uploads' ) );
+		}
+
+		global $wpdb;
+
+		foreach ( $order as $position => $folder_id ) {
+			if ( ! $folder_id ) {
+				continue;
+			}
+			$wpdb->update(
+				$this->folders_table(),
+				[ 'sort_order' => $position ],
+				[ 'id' => $folder_id ],
+				[ '%d' ],
+				[ '%d' ]
+			);
+		}
+
+		wp_send_json_success( [ 'sorted' => count( $order ) ] );
+	}
+
+	// -----------------------------------------------------------------
+	// Helper methods
+	// -----------------------------------------------------------------
+
+	/**
+	 * Get total count of all media attachments.
+	 *
+	 * @return int
+	 */
+	private function get_total_count() {
+		global $wpdb;
+
+		return (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'attachment'"
+		);
+	}
+
+	/**
+	 * Get count of uncategorized media (not in any folder).
+	 *
+	 * @return int
+	 */
+	private function get_uncategorized_count() {
+		global $wpdb;
+
+		return (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM {$wpdb->posts} p
+			 WHERE p.post_type = 'attachment'
+			   AND p.ID NOT IN (
+			       SELECT r.attachment_id FROM {$this->relationships_table()} r
+			   )"
+		);
 	}
 
 	/**

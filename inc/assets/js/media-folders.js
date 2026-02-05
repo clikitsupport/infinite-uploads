@@ -13,10 +13,17 @@
 		tree: null,
 		isListMode: iuMediaFolders.is_list_mode,
 		dragIds: [],
+		sortMode: localStorage.getItem('iu_folders_sort') || 'custom',
+		cutNode: null,
+		totalCount: 0,
+		uncategorizedCount: 0,
+		folderCounts: {},
 
 		init: function () {
 			this.injectSidebar();
 			this.initTree();
+			this.initSearch();
+			this.initResize();
 			this.bindEvents();
 
 			if (!this.isListMode) {
@@ -31,21 +38,77 @@
 		 */
 		injectSidebar: function () {
 			var collapsed = localStorage.getItem('iu_folders_collapsed') === '1';
+			var savedWidth = localStorage.getItem('iu_folders_width');
+
+			var sidebarStyle = savedWidth ? ' style="width:' + savedWidth + 'px;min-width:' + savedWidth + 'px"' : '';
 
 			var sidebarHtml =
 				'<div id="iu-media-folders-wrap" class="' + (collapsed ? 'iu-collapsed' : '') + '">' +
-					'<button type="button" class="iu-sidebar-toggle" title="Toggle folders">' +
-						'<span class="dashicons dashicons-arrow-right-alt2"></span>' +
-					'</button>' +
-					'<div id="iu-media-folders-sidebar">' +
+					'<div id="iu-media-folders-sidebar"' + sidebarStyle + '>' +
+						// Row 1: Title + New Folder button
 						'<div class="iu-folders-header">' +
-							'<span class="iu-folders-title">' + iuMediaFolders.all_label + '</span>' +
+							'<span class="iu-folders-title">' + iuMediaFolders.folders_title + '</span>' +
 							'<button type="button" class="iu-folder-add-btn" title="' + iuMediaFolders.new_folder + '">' +
-								'<span class="dashicons dashicons-plus-alt2"></span>' +
+								'<span class="dashicons dashicons-open-folder"></span>' +
+								'<span class="iu-btn-label">' + iuMediaFolders.new_folder + '</span>' +
 							'</button>' +
 						'</div>' +
+						// Row 2: Rename, Delete, Sort, More
+						'<div class="iu-folders-actions">' +
+							'<button type="button" class="iu-action-rename" disabled title="' + iuMediaFolders.rename + '">' +
+								'<span class="dashicons dashicons-edit"></span>' +
+								'<span>' + iuMediaFolders.rename + '</span>' +
+							'</button>' +
+							'<button type="button" class="iu-action-delete" disabled title="' + iuMediaFolders.delete + '">' +
+								'<span class="dashicons dashicons-trash"></span>' +
+								'<span>' + iuMediaFolders.delete + '</span>' +
+							'</button>' +
+							'<div class="iu-actions-right">' +
+								'<button type="button" class="iu-sort-btn" title="' + iuMediaFolders.sort_az + '">' +
+									'<span class="dashicons dashicons-sort"></span>' +
+								'</button>' +
+								'<div class="iu-more-dropdown">' +
+									'<button type="button" class="iu-action-more" title="' + iuMediaFolders.more + '">' +
+										'<span class="dashicons dashicons-ellipsis"></span>' +
+									'</button>' +
+									'<div class="iu-more-menu">' +
+										'<button type="button" class="iu-more-item iu-expand-all-btn">' +
+											'<span class="dashicons dashicons-arrow-down-alt2"></span>' +
+											iuMediaFolders.expand_all +
+										'</button>' +
+										'<button type="button" class="iu-more-item iu-collapse-all-btn">' +
+											'<span class="dashicons dashicons-arrow-up-alt2"></span>' +
+											iuMediaFolders.collapse_all +
+										'</button>' +
+									'</div>' +
+								'</div>' +
+							'</div>' +
+						'</div>' +
+						// Virtual folders: All Files + Uncategorized
+						'<div class="iu-virtual-folders">' +
+							'<div class="iu-virtual-folder iu-vf-selected" data-folder="all">' +
+								'<span class="dashicons dashicons-open-folder iu-vf-icon"></span>' +
+								'<span class="iu-vf-name">' + iuMediaFolders.all_label + '</span>' +
+								'<span class="iu-count-badge" data-count="all">0</span>' +
+							'</div>' +
+							'<div class="iu-virtual-folder" data-folder="uncategorized">' +
+								'<span class="dashicons dashicons-portfolio iu-vf-icon"></span>' +
+								'<span class="iu-vf-name">' + iuMediaFolders.uncat_label + '</span>' +
+								'<span class="iu-count-badge" data-count="uncategorized">0</span>' +
+							'</div>' +
+						'</div>' +
+						// Search input
+						'<div class="iu-folders-search">' +
+							'<span class="dashicons dashicons-open-folder iu-search-icon"></span>' +
+							'<input type="text" class="iu-folder-search-input" placeholder="' + iuMediaFolders.search_folders + '" />' +
+						'</div>' +
+						// Folder tree (user folders only)
 						'<div id="iu-folders-tree"></div>' +
 					'</div>' +
+					'<div class="iu-sidebar-resize-handle"></div>' +
+					'<button type="button" class="iu-sidebar-toggle" title="Toggle folders">' +
+						'<span class="dashicons dashicons-arrow-left-alt2"></span>' +
+					'</button>' +
 				'</div>';
 
 			if (this.isListMode) {
@@ -67,7 +130,7 @@
 		},
 
 		/**
-		 * Initialize the jstree instance.
+		 * Initialize the jstree instance (user folders only).
 		 */
 		initTree: function () {
 			var self = this;
@@ -77,22 +140,22 @@
 					data: function (node, callback) {
 						self.loadFolders(callback);
 					},
-					check_callback: true,
+					check_callback: function (operation) {
+						if (operation === 'move_node') {
+							return true;
+						}
+						return true;
+					},
 					themes: {
-						dots: false,
+						dots: true,
 						icons: true,
 						responsive: false,
 					},
 					multiple: false,
 				},
-				plugins: ['dnd', 'contextmenu', 'wholerow'],
+				plugins: ['dnd', 'contextmenu', 'wholerow', 'search'],
 				dnd: {
-					is_draggable: function (nodes) {
-						for (var i = 0; i < nodes.length; i++) {
-							if (nodes[i].id === 'all' || nodes[i].id === 'uncategorized') {
-								return false;
-							}
-						}
+					is_draggable: function () {
 						return true;
 					},
 					check_while_dragging: true,
@@ -102,12 +165,23 @@
 						return self.getContextMenu(node);
 					},
 				},
+				search: {
+					show_only_matches: true,
+					show_only_matches_children: true,
+					search_callback: function (str, node) {
+						var folderName = (node.data && node.data.folder_name) || node.text || '';
+						return folderName.toLowerCase().indexOf(str.toLowerCase()) !== -1;
+					},
+				},
 			});
 
 			this.tree = $('#iu-folders-tree').jstree(true);
 
+			// When a jstree node is selected, deselect virtual folders.
 			$('#iu-folders-tree').on('select_node.jstree', function (e, data) {
-				self.onFolderSelect(data.node);
+				self.deselectVirtualFolders();
+				self.updateToolbarButtons(data.node);
+				self.onFolderSelect(data.node.id);
 			});
 
 			$('#iu-folders-tree').on('move_node.jstree', function (e, data) {
@@ -117,10 +191,20 @@
 			$('#iu-folders-tree').on('rename_node.jstree', function (e, data) {
 				self.onFolderRename(data);
 			});
+
+			// Re-render count badges when tree redraws or nodes open.
+			$('#iu-folders-tree').on('redraw.jstree open_node.jstree', function () {
+				self.renderCountBadges();
+			});
+
+			// When tree is ready, update sort button and restore selection.
+			$('#iu-folders-tree').on('ready.jstree', function () {
+				self.updateSortButton();
+			});
 		},
 
 		/**
-		 * Load folders from the server.
+		 * Load folders from the server (user folders only, no virtual nodes).
 		 */
 		loadFolders: function (callback) {
 			var self = this;
@@ -128,47 +212,248 @@
 			$.post(iuMediaFolders.ajax_url, {
 				action: 'iu_get_folders',
 				nonce: iuMediaFolders.nonce,
+				sort: self.sortMode,
 			}, function (response) {
 				if (response.success) {
-					var data = [
-						{
-							id: 'all',
-							text: iuMediaFolders.all_label,
-							parent: '#',
-							icon: 'dashicons dashicons-media-default',
-							state: { selected: !self.currentFolder, opened: true },
-							li_attr: { class: 'iu-folder-virtual' },
-						},
-						{
-							id: 'uncategorized',
-							text: iuMediaFolders.uncat_label,
-							parent: '#',
-							icon: 'dashicons dashicons-category',
-							li_attr: { class: 'iu-folder-virtual' },
-						},
-					];
+					var folders = response.data.folders || [];
+					self.totalCount = response.data.total_count || 0;
+					self.uncategorizedCount = response.data.uncategorized_count || 0;
+					self.folderCounts = response.data.counts || {};
 
-					for (var i = 0; i < response.data.length; i++) {
-						response.data[i].icon = 'dashicons dashicons-open-folder';
-						data.push(response.data[i]);
+					// Update virtual folder badges.
+					self.updateVirtualCounts();
+
+					// Only user folders go into jstree.
+					for (var i = 0; i < folders.length; i++) {
+						folders[i].icon = 'dashicons dashicons-open-folder';
 					}
 
-					callback(data);
+					callback(folders);
 				}
 			}, 'json');
+		},
+
+		// -----------------------------------------------------------------
+		// Virtual folder management
+		// -----------------------------------------------------------------
+
+		deselectVirtualFolders: function () {
+			$('.iu-virtual-folder').removeClass('iu-vf-selected');
+		},
+
+		selectVirtualFolder: function (folder) {
+			this.deselectVirtualFolders();
+			$('.iu-virtual-folder[data-folder="' + folder + '"]').addClass('iu-vf-selected');
+			// Deselect jstree nodes.
+			if (this.tree) {
+				this.tree.deselect_all(true);
+			}
+			this.updateToolbarButtons(null);
+			this.currentFolder = folder;
+		},
+
+		updateVirtualCounts: function () {
+			$('.iu-count-badge[data-count="all"]').text(this.totalCount);
+			$('.iu-count-badge[data-count="uncategorized"]').text(this.uncategorizedCount);
+		},
+
+		// -----------------------------------------------------------------
+		// Toolbar buttons (Rename / Delete)
+		// -----------------------------------------------------------------
+
+		getSelectedUserFolder: function () {
+			if (!this.tree) return null;
+			var sel = this.tree.get_selected(true);
+			if (sel.length && sel[0].id.indexOf('folder_') === 0) {
+				return sel[0];
+			}
+			return null;
+		},
+
+		updateToolbarButtons: function (node) {
+			var isUserFolder = node && node.id && node.id.indexOf('folder_') === 0;
+			$('.iu-action-rename').prop('disabled', !isUserFolder);
+			$('.iu-action-delete').prop('disabled', !isUserFolder);
+		},
+
+		/**
+		 * Render count badges on jstree nodes via DOM injection.
+		 */
+		renderCountBadges: function () {
+			var self = this;
+
+			$('#iu-folders-tree .jstree-anchor').each(function () {
+				var $anchor = $(this);
+				var nodeId = $anchor.closest('.jstree-node').attr('id');
+
+				// Remove existing badge.
+				$anchor.find('.iu-count-badge').remove();
+
+				var folderId = parseInt(nodeId.replace('folder_', ''), 10);
+				var count = self.folderCounts[folderId] || 0;
+
+				$anchor.append('<span class="iu-count-badge">' + count + '</span>');
+			});
+
+			// Also update virtual folder counts.
+			self.updateVirtualCounts();
+		},
+
+		/**
+		 * Update counts from an AJAX response without full tree refresh.
+		 */
+		updateCountsFromResponse: function (data) {
+			if (data.counts) {
+				this.folderCounts = data.counts;
+			}
+			if (typeof data.total_count !== 'undefined') {
+				this.totalCount = data.total_count;
+			}
+			if (typeof data.uncategorized_count !== 'undefined') {
+				this.uncategorizedCount = data.uncategorized_count;
+			}
+			this.renderCountBadges();
+		},
+
+		// -----------------------------------------------------------------
+		// Search
+		// -----------------------------------------------------------------
+
+		initSearch: function () {
+			var self = this;
+			var searchTimeout = null;
+
+			$(document).on('input', '.iu-folder-search-input', function () {
+				var val = $(this).val();
+				clearTimeout(searchTimeout);
+				searchTimeout = setTimeout(function () {
+					if (val.length > 0) {
+						self.tree.search(val);
+					} else {
+						self.tree.clear_search();
+					}
+				}, 250);
+			});
+		},
+
+		// -----------------------------------------------------------------
+		// Sort
+		// -----------------------------------------------------------------
+
+		sortFolders: function () {
+			if (this.sortMode === 'custom' || this.sortMode === 'za') {
+				this.sortMode = 'az';
+			} else if (this.sortMode === 'az') {
+				this.sortMode = 'za';
+			}
+			localStorage.setItem('iu_folders_sort', this.sortMode);
+			this.updateSortButton();
+			this.tree.refresh();
+		},
+
+		updateSortButton: function () {
+			var $btn = $('.iu-sort-btn');
+			if (this.sortMode === 'az') {
+				$btn.attr('title', iuMediaFolders.sort_za).addClass('iu-active');
+			} else if (this.sortMode === 'za') {
+				$btn.attr('title', iuMediaFolders.sort_az).addClass('iu-active');
+			} else {
+				$btn.attr('title', iuMediaFolders.sort_az).removeClass('iu-active');
+			}
+		},
+
+		// -----------------------------------------------------------------
+		// Expand / Collapse All
+		// -----------------------------------------------------------------
+
+		expandAll: function () {
+			this.tree.open_all();
+		},
+
+		collapseAll: function () {
+			this.tree.close_all();
+		},
+
+		// -----------------------------------------------------------------
+		// Cut / Paste
+		// -----------------------------------------------------------------
+
+		cutFolder: function (node) {
+			$('#iu-folders-tree .iu-cut').removeClass('iu-cut');
+			this.cutNode = node;
+			$('#' + node.id).addClass('iu-cut');
+		},
+
+		pasteFolder: function (targetNode) {
+			var self = this;
+			if (!this.cutNode) return;
+
+			var termId = parseInt(this.cutNode.id.replace('folder_', ''), 10);
+			var newParent = 0;
+
+			if (targetNode && targetNode.id && targetNode.id.indexOf('folder_') === 0) {
+				newParent = parseInt(targetNode.id.replace('folder_', ''), 10);
+			}
+
+			$.post(iuMediaFolders.ajax_url, {
+				action: 'iu_move_folder',
+				nonce: iuMediaFolders.nonce,
+				term_id: termId,
+				parent: newParent,
+			}, function (response) {
+				$('#iu-folders-tree .iu-cut').removeClass('iu-cut');
+				self.cutNode = null;
+				if (response.success) {
+					self.tree.refresh();
+				} else {
+					alert(response.data);
+				}
+			}, 'json');
+		},
+
+		// -----------------------------------------------------------------
+		// Resize sidebar
+		// -----------------------------------------------------------------
+
+		initResize: function () {
+			var isResizing = false;
+			var startX, startWidth;
+
+			$(document).on('mousedown', '.iu-sidebar-resize-handle', function (e) {
+				e.preventDefault();
+				isResizing = true;
+				startX = e.clientX;
+				startWidth = $('#iu-media-folders-sidebar').outerWidth();
+				$('body').addClass('iu-resizing');
+			});
+
+			$(document).on('mousemove', function (e) {
+				if (!isResizing) return;
+				var newWidth = startWidth + (e.clientX - startX);
+				newWidth = Math.max(180, Math.min(500, newWidth));
+				$('#iu-media-folders-sidebar').css({ width: newWidth, minWidth: newWidth });
+			});
+
+			$(document).on('mouseup', function () {
+				if (!isResizing) return;
+				isResizing = false;
+				$('body').removeClass('iu-resizing');
+				var finalWidth = $('#iu-media-folders-sidebar').outerWidth();
+				localStorage.setItem('iu_folders_width', finalWidth);
+			});
 		},
 
 		// -----------------------------------------------------------------
 		// Folder selection / filtering
 		// -----------------------------------------------------------------
 
-		onFolderSelect: function (node) {
-			this.currentFolder = node.id;
+		onFolderSelect: function (folderId) {
+			this.currentFolder = folderId;
 
 			if (this.isListMode) {
-				this.filterListMode(node.id);
+				this.filterListMode(folderId);
 			} else {
-				this.filterGridMode(node.id);
+				this.filterGridMode(folderId);
 			}
 		},
 
@@ -225,7 +510,7 @@
 			var termId = parseInt(data.node.id.replace('folder_', ''), 10);
 			var newParent = 0;
 
-			if (data.parent && data.parent !== '#' && data.parent !== 'all') {
+			if (data.parent && data.parent !== '#') {
 				newParent = parseInt(data.parent.replace('folder_', ''), 10);
 			}
 
@@ -244,15 +529,14 @@
 		onFolderRename: function (data) {
 			var nodeId = data.node.id;
 
-			if (nodeId === 'all' || nodeId === 'uncategorized') return;
-
+			// New temp node (jstree assigns IDs starting with 'j').
 			if (nodeId.indexOf('j') === 0) {
 				this.createFolder(data.node, data.text);
 				return;
 			}
 
 			var termId = parseInt(nodeId.replace('folder_', ''), 10);
-			var name = data.text.replace(/<span[^>]*>.*?<\/span>/gi, '').trim();
+			var name = data.text.trim();
 
 			if (!name) {
 				this.tree.refresh();
@@ -276,7 +560,7 @@
 			var parentId = node.parent;
 			var parent = 0;
 
-			if (parentId && parentId !== '#' && parentId !== 'all' && parentId !== 'uncategorized') {
+			if (parentId && parentId !== '#') {
 				parent = parseInt(parentId.replace('folder_', ''), 10);
 			}
 
@@ -290,6 +574,13 @@
 					self.tree.set_id(node, response.data.id);
 					self.tree.set_text(node, response.data.text);
 					self.tree.set_icon(node, 'dashicons dashicons-open-folder');
+
+					var nodeObj = self.tree.get_node(response.data.id);
+					if (nodeObj && response.data.data) {
+						nodeObj.data = response.data.data;
+					}
+
+					self.renderCountBadges();
 				} else {
 					self.tree.delete_node(node);
 					alert(response.data);
@@ -301,19 +592,8 @@
 			var self = this;
 			var items = {};
 
-			if (node.id === 'all') {
-				items.create = {
-					label: iuMediaFolders.new_folder,
-					icon: 'dashicons dashicons-plus-alt2',
-					action: function () { self.addNewFolder('#'); },
-				};
-				return items;
-			}
-
-			if (node.id === 'uncategorized') return {};
-
 			items.create = {
-				label: iuMediaFolders.new_folder,
+				label: iuMediaFolders.new_subfolder,
 				icon: 'dashicons dashicons-plus-alt2',
 				action: function () { self.addNewFolder(node.id); },
 			};
@@ -321,9 +601,22 @@
 				label: iuMediaFolders.rename,
 				icon: 'dashicons dashicons-edit',
 				action: function () {
-					self.tree.edit(node, node.text.replace(/<span[^>]*>.*?<\/span>/gi, '').trim());
+					self.tree.edit(node, node.text.trim());
 				},
 			};
+			items.cut = {
+				label: iuMediaFolders.cut,
+				icon: 'dashicons dashicons-clipboard',
+				action: function () { self.cutFolder(node); },
+			};
+			if (self.cutNode && self.cutNode.id !== node.id) {
+				items.paste = {
+					label: iuMediaFolders.paste,
+					icon: 'dashicons dashicons-clipboard',
+					action: function () { self.pasteFolder(node); },
+				};
+			}
+			items.separator = { separator_before: false, separator_after: true, label: '' };
 			items.remove = {
 				label: iuMediaFolders.delete,
 				icon: 'dashicons dashicons-trash',
@@ -366,8 +659,8 @@
 				if (response.success) {
 					self.tree.delete_node(node);
 					if (self.currentFolder === node.id) {
-						self.currentFolder = null;
-						self.tree.select_node('all');
+						self.selectVirtualFolder('all');
+						self.onFolderSelect('all');
 					}
 				} else {
 					alert(response.data);
@@ -376,13 +669,9 @@
 		},
 
 		// -----------------------------------------------------------------
-		// HTML5 Drag-and-Drop: media items → folder tree
+		// HTML5 Drag-and-Drop: media items -> folder tree
 		// -----------------------------------------------------------------
 
-		/**
-		 * Hook grid mode – make attachment thumbnails draggable via the
-		 * native HTML5 drag API and observe DOM for new items.
-		 */
 		hookGridMode: function () {
 			var self = this;
 
@@ -400,10 +689,8 @@
 				};
 			}
 
-			// Mark existing items draggable.
 			self.markDraggable();
 
-			// Use MutationObserver to catch dynamically added attachments.
 			var debounce = null;
 			var observer = new MutationObserver(function () {
 				clearTimeout(debounce);
@@ -416,34 +703,25 @@
 			}
 		},
 
-		/**
-		 * Hook list mode – make table rows draggable via the
-		 * native HTML5 drag API.
-		 */
 		hookListMode: function () {
 			var self = this;
 
-			// Restore selected folder from URL.
 			var urlParams = new URLSearchParams(window.location.search);
 			var currentFolderParam = urlParams.get('iu_folder');
 
 			$('#iu-folders-tree').on('ready.jstree', function () {
 				if (currentFolderParam === 'uncategorized') {
-					self.tree.select_node('uncategorized');
+					self.selectVirtualFolder('uncategorized');
 				} else if (currentFolderParam && currentFolderParam !== '') {
 					self.tree.select_node('folder_' + currentFolderParam);
 				} else {
-					self.tree.select_node('all');
+					self.selectVirtualFolder('all');
 				}
 			});
 
-			// Mark rows draggable once DOM is settled.
 			setTimeout(function () { self.markDraggable(); }, 300);
 		},
 
-		/**
-		 * Set draggable="true" on media items that don't have it yet.
-		 */
 		markDraggable: function () {
 			if (this.isListMode) {
 				$('#the-list tr:not([draggable])').attr('draggable', 'true');
@@ -456,9 +734,6 @@
 		// Shared drag / drop event handlers (bound via delegation)
 		// -----------------------------------------------------------------
 
-		/**
-		 * Bind all UI events – called once during init.
-		 */
 		bindEvents: function () {
 			var self = this;
 
@@ -476,6 +751,98 @@
 				self.addNewFolder('#');
 			});
 
+			// --- Toolbar Rename ---
+			$(document).on('click', '.iu-action-rename', function (e) {
+				e.preventDefault();
+				var node = self.getSelectedUserFolder();
+				if (node) {
+					self.tree.edit(node, node.text.trim());
+				}
+			});
+
+			// --- Toolbar Delete ---
+			$(document).on('click', '.iu-action-delete', function (e) {
+				e.preventDefault();
+				var node = self.getSelectedUserFolder();
+				if (node && confirm(iuMediaFolders.confirm_delete)) {
+					self.deleteFolder(node);
+				}
+			});
+
+			// --- Sort button ---
+			$(document).on('click', '.iu-sort-btn', function (e) {
+				e.preventDefault();
+				self.sortFolders();
+			});
+
+			// --- More dropdown toggle ---
+			$(document).on('click', '.iu-action-more', function (e) {
+				e.preventDefault();
+				e.stopPropagation();
+				var $menu = $(this).siblings('.iu-more-menu');
+				$menu.toggleClass('iu-open');
+			});
+
+			// Close more dropdown on outside click.
+			$(document).on('click', function (e) {
+				if (!$(e.target).closest('.iu-more-dropdown').length) {
+					$('.iu-more-menu').removeClass('iu-open');
+				}
+			});
+
+			// --- Expand all ---
+			$(document).on('click', '.iu-expand-all-btn', function (e) {
+				e.preventDefault();
+				self.expandAll();
+				$('.iu-more-menu').removeClass('iu-open');
+			});
+
+			// --- Collapse all ---
+			$(document).on('click', '.iu-collapse-all-btn', function (e) {
+				e.preventDefault();
+				self.collapseAll();
+				$('.iu-more-menu').removeClass('iu-open');
+			});
+
+			// --- Virtual folder click ---
+			$(document).on('click', '.iu-virtual-folder', function (e) {
+				e.preventDefault();
+				var folder = $(this).data('folder');
+				self.selectVirtualFolder(folder);
+				self.onFolderSelect(folder);
+			});
+
+			// --- Virtual folder drag-drop targets ---
+			$(document)
+				.on('dragover', '.iu-virtual-folder', function (e) {
+					e.preventDefault();
+					e.originalEvent.dataTransfer.dropEffect = 'move';
+					$(this).addClass('iu-drop-hover');
+				})
+				.on('dragleave', '.iu-virtual-folder', function (e) {
+					var related = e.originalEvent.relatedTarget;
+					if (!this.contains(related)) {
+						$(this).removeClass('iu-drop-hover');
+					}
+				})
+				.on('drop', '.iu-virtual-folder', function (e) {
+					e.preventDefault();
+					e.stopPropagation();
+					$(this).removeClass('iu-drop-hover');
+					var folder = $(this).data('folder');
+					var ids = self.dragIds.length ? self.dragIds : [];
+					if (!ids.length) {
+						try {
+							ids = JSON.parse(e.originalEvent.dataTransfer.getData('text/plain'));
+						} catch (err) {
+							ids = [];
+						}
+					}
+					if (ids.length && folder !== 'all') {
+						self.moveMedia(ids, folder);
+					}
+				});
+
 			// --- Native dragstart on media items (delegated) ---
 			$(document).on('dragstart', '.attachment[draggable], #the-list tr[draggable]', function (e) {
 				var ids = self.collectDragIds($(this));
@@ -486,17 +853,14 @@
 
 				self.dragIds = ids;
 
-				// dataTransfer payload (needed for the drag to register).
 				e.originalEvent.dataTransfer.effectAllowed = 'move';
 				e.originalEvent.dataTransfer.setData('text/plain', JSON.stringify(ids));
 
-				// Build a small drag image.
 				var ghost = self.buildDragGhost($(this), ids.length);
 				document.body.appendChild(ghost);
 				e.originalEvent.dataTransfer.setDragImage(ghost, 28, 28);
 				setTimeout(function () { document.body.removeChild(ghost); }, 0);
 
-				// Visual cues.
 				$('#iu-media-folders-wrap').removeClass('iu-collapsed');
 				$('#iu-media-folders-sidebar').addClass('iu-drop-active');
 			});
@@ -505,6 +869,7 @@
 				self.dragIds = [];
 				$('#iu-media-folders-sidebar').removeClass('iu-drop-active');
 				$('#iu-folders-tree .iu-drop-hover').removeClass('iu-drop-hover');
+				$('.iu-virtual-folder.iu-drop-hover').removeClass('iu-drop-hover');
 			});
 
 			// --- Drop targets: jstree anchor rows (delegated) ---
@@ -515,7 +880,6 @@
 					$(this).closest('.jstree-node').addClass('iu-drop-hover');
 				})
 				.on('dragleave', '.jstree-anchor', function (e) {
-					// Only remove if we actually left this node.
 					var related = e.originalEvent.relatedTarget;
 					var node = $(this).closest('.jstree-node')[0];
 					if (!node || !node.contains(related)) {
@@ -532,7 +896,6 @@
 					var folderId = $node.attr('id');
 					var ids = self.dragIds.length ? self.dragIds : [];
 
-					// Fallback: try dataTransfer.
 					if (!ids.length) {
 						try {
 							ids = JSON.parse(e.originalEvent.dataTransfer.getData('text/plain'));
@@ -547,15 +910,10 @@
 				});
 		},
 
-		/**
-		 * Collect attachment IDs for the current drag operation.
-		 * Prefers multi-selection; falls back to the single dragged item.
-		 */
 		collectDragIds: function ($el) {
 			var ids = [];
 
 			if (this.isListMode) {
-				// List mode: checked checkboxes first.
 				$('#the-list input[name="media[]"]:checked').each(function () {
 					ids.push(parseInt($(this).val(), 10));
 				});
@@ -566,7 +924,6 @@
 					}
 				}
 			} else {
-				// Grid mode: wp.media selection first.
 				ids = this.getSelectedAttachments();
 				if (!ids.length) {
 					var dataId = $el.data('id');
@@ -579,16 +936,12 @@
 			return ids;
 		},
 
-		/**
-		 * Build an off-screen ghost element used as the drag image.
-		 */
 		buildDragGhost: function ($el, count) {
 			var ghost = document.createElement('div');
 			ghost.className = 'iu-drag-helper';
 			ghost.style.position = 'absolute';
 			ghost.style.top = '-1000px';
 
-			// Try to grab a thumbnail.
 			var img = $el.find('.thumbnail img, .media-icon img').first();
 			if (img.length) {
 				var clone = img[0].cloneNode(true);
@@ -611,9 +964,6 @@
 			return ghost;
 		},
 
-		/**
-		 * Get selected attachment IDs in grid mode via wp.media.
-		 */
 		getSelectedAttachments: function () {
 			var ids = [];
 
@@ -636,9 +986,6 @@
 			return ids;
 		},
 
-		/**
-		 * Move media items to a folder via AJAX.
-		 */
 		moveMedia: function (attachmentIds, folderId) {
 			var self = this;
 
@@ -655,7 +1002,7 @@
 				folder_id: targetFolderId,
 			}, function (response) {
 				if (response.success) {
-					self.tree.refresh();
+					self.updateCountsFromResponse(response.data);
 
 					if (self.currentFolder && self.currentFolder !== 'all') {
 						if (self.isListMode) {
