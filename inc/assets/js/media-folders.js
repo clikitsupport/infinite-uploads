@@ -116,7 +116,7 @@
 				if ($wrap.length) {
 					// Wrap ALL children of .wrap (including h1, Add New button, etc.)
 					// inside .iu-media-content so the sidebar sits alongside everything.
-					$wrap.children().wrapAll('<div class="iu-media-content"></div>');
+					$wrap.children().wrapAll('<div class="iu-media-content" style="min-height: 558.734px;"></div>');
 					$wrap.find('.iu-media-content').first().before(sidebarHtml);
 					$wrap.find('#iu-media-folders-wrap, .iu-media-content').wrapAll('<div class="iu-media-wrapper"></div>');
 				}
@@ -153,7 +153,7 @@
 					},
 					multiple: false,
 				},
-				plugins: ['dnd', 'contextmenu', 'wholerow', 'search'],
+				plugins: ['dnd', 'contextmenu', 'search'],
 				dnd: {
 					is_draggable: function () {
 						return true;

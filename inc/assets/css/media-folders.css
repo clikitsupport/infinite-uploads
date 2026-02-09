@@ -4,7 +4,7 @@
 
 /* Layout wrapper for list mode */
 .iu-media-wrapper {
-	display: flex;
+	display: inline-flex;
 	gap: 0;
 	align-items: stretch;
 	min-height: calc(100vh - 32px);
@@ -58,10 +58,15 @@
 	box-shadow: 1px 0 0 0 #2271b1;
 }
 
+.iu-sidebar-handle:hover::before {
+	background: #2271b1;
+	box-shadow: 1px 0 0 0 #2271b1;
+}
+
 /* Circular toggle button - flex item after handle */
 .iu-sidebar-toggle {
 	position: relative;
-	margin-top: 79px;
+	margin-top: 50px;
 	margin-left: -12px;
 	z-index: 999;
 	display: flex;
@@ -89,8 +94,8 @@
 }
 
 .iu-sidebar-toggle svg {
-	width: 16px;
-	height: 16px;
+	width: 24px;
+	height: 24px;
 }
 
 /* ==========================================================================
@@ -101,7 +106,7 @@
 	width: 280px;
 	min-width: 280px;
 	background: #f0f0f1;
-	border: 1px solid #c3c4c7;
+	/*border: 1px solid #c3c4c7;*/
 	border-right: none;
 	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 	padding: 0;
@@ -127,10 +132,6 @@
 	width: 0;
 	margin-right: 0;
 	cursor: default;
-}
-
-#iu-media-folders-wrap.iu-collapsed .iu-sidebar-handle::before {
-	display: none;
 }
 
 #iu-media-folders-wrap.iu-collapsed .iu-sidebar-toggle {
@@ -251,7 +252,7 @@
 	border-radius: 4px;
 	cursor: pointer;
 	padding: 3px 8px;
-	font-size: 12px;
+	font-size: 14px;
 	color: #50575e;
 	line-height: 1.4;
 	transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
@@ -596,6 +597,7 @@
 /* Tree connecting lines */
 #iu-folders-tree .jstree-icon.jstree-ocl {
 	color: #c3c4c7;
+	margin-top: 4px;
 }
 
 /* ==========================================================================
