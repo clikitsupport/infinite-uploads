@@ -64,9 +64,9 @@
 								'<span>' + iuMediaFolders.delete + '</span>' +
 							'</button>' +
 							'<div class="iu-actions-right">' +
-								'<button type="button" class="iu-sort-btn" title="' + iuMediaFolders.sort_az + '">' +
-									'<span class="dashicons dashicons-sort"></span>' +
-								'</button>' +
+								// '<button type="button" class="iu-sort-btn" title="' + iuMediaFolders.sort_az + '">' +
+								// 	'<span class="dashicons dashicons-sort"></span>' +
+								// '</button>' +
 								'<div class="iu-more-dropdown">' +
 									'<button type="button" class="iu-action-more" title="' + iuMediaFolders.more + '">' +
 										'<span class="dashicons dashicons-ellipsis"></span>' +
@@ -98,10 +98,10 @@
 							'</div>' +
 						'</div>' +
 						// Search input
-						'<div class="iu-folders-search">' +
-							'<span class="dashicons dashicons-open-folder iu-search-icon"></span>' +
-							'<input type="text" class="iu-folder-search-input" placeholder="' + iuMediaFolders.search_folders + '" />' +
-						'</div>' +
+						// '<div class="iu-folders-search">' +
+						// 	'<span class="dashicons dashicons-open-folder iu-search-icon"></span>' +
+						// 	'<input type="text" class="iu-folder-search-input" placeholder="' + iuMediaFolders.search_folders + '" />' +
+						// '</div>' +
 						// Folder tree (user folders only)
 						'<div id="iu-folders-tree"></div>' +
 					'</div>' +
