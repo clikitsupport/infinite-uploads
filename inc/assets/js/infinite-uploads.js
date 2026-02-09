@@ -20,7 +20,7 @@ jQuery(document).ready(function ($) {
 		$('html, body').animate({scrollTop: 0}, 1000);
 	};
 
-	var buildFilelist = function (remaining_dirs, nonce = '') {
+	var buildFilelist = function (scan_continue, nonce = '') {
 		if (iupStopLoop) {
 			iupStopLoop = false;
 			iupProcessingLoop = false;
@@ -28,7 +28,10 @@ jQuery(document).ready(function ($) {
 		}
 		iupProcessingLoop = true;
 
-		var data = {remaining_dirs: remaining_dirs};
+		var data = {};
+		if (scan_continue) {
+			data.scan_continue = 1;
+		}
 		if (nonce) {
 			data.nonce = nonce;
 		} else {
@@ -42,9 +45,9 @@ jQuery(document).ready(function ($) {
 					$('#iup-scan-storage').text(json.data.local_size);
 					$('#iup-scan-files').text(json.data.local_files);
 					$('#iup-scan-progress').show();
-					if (!json.data.is_done) {
+					if ( !json.data.is_done) {
 						buildFilelist(
-							json.data.remaining_dirs,
+							true,
 							json.data.nonce
 						);
 					} else {
@@ -88,7 +91,7 @@ jQuery(document).ready(function ($) {
 					);
 					$('#iup-scan-remote-files').text(json.data.cloud_files);
 					$('#iup-scan-remote-progress').show();
-					if (!json.data.is_done) {
+					if ( !json.data.is_done) {
 						fetchRemoteFilelist(
 							json.data.next_token,
 							json.data.nonce
@@ -170,7 +173,7 @@ jQuery(document).ready(function ($) {
 						.css('width', json.data.pcnt_complete + '%')
 						.attr('aria-valuenow', json.data.pcnt_complete)
 						.text(json.data.pcnt_complete + '%');
-					if (!json.data.is_done) {
+					if ( !json.data.is_done) {
 						data.nonce = json.data.nonce; //save for future errors
 						syncFilelist(json.data.nonce);
 					} else {
@@ -239,7 +242,7 @@ jQuery(document).ready(function ($) {
 	};
 
 	var getSyncStatus = function () {
-		if (!iupProcessingLoop) {
+		if ( !iupProcessingLoop) {
 			return false;
 		}
 
@@ -286,7 +289,7 @@ jQuery(document).ready(function ($) {
 					//$('.iup-progress-pcnt').text(json.data.pcnt_complete);
 					$('#iup-delete-size').text(json.data.deletable_size);
 					$('#iup-delete-files').text(json.data.deletable_files);
-					if (!json.data.is_done) {
+					if ( !json.data.is_done) {
 						deleteFiles();
 					} else {
 						location.reload();
@@ -332,7 +335,7 @@ jQuery(document).ready(function ($) {
 						.css('width', json.data.pcnt_downloaded + '%')
 						.attr('aria-valuenow', json.data.pcnt_downloaded)
 						.text(json.data.pcnt_downloaded + '%');
-					if (!json.data.is_done) {
+					if ( !json.data.is_done) {
 						data.nonce = json.data.nonce; //save for future errors
 						downloadFiles(json.data.nonce);
 					} else {
@@ -394,7 +397,7 @@ jQuery(document).ready(function ($) {
 		.on('show.bs.modal', function () {
 			$('#iup-error').hide();
 			iupStopLoop = false;
-			buildFilelist([]);
+			buildFilelist(false);
 		})
 		.on('hide.bs.modal', function () {
 			iupStopLoop = true;
@@ -650,4 +653,114 @@ jQuery(document).ready(function ($) {
 			window.myPieCloud = new Chart(ctx, config_cloud);
 		}
 	};
+
+
+	let saveTimeout;
+	const excludedFiles = $('#iu_excluded_files');
+
+	// Load saved value
+	excludedFiles.val(iup_data.excludedFiles || '');
+
+	// Save on change with debounce
+	excludedFiles.on('input', function () {
+		clearTimeout(saveTimeout);
+
+		$('.iu-success-message').remove();
+
+		saveTimeout = setTimeout(function () {
+			$.ajax({
+				url: ajaxurl,
+				type: 'POST',
+				data: {
+					action: 'save_iu_excluded_files',
+					excluded_files: excludedFiles.val(),
+					nonce: iup_data.nonce.excludedFiles
+				},
+				success: function (response) {
+					if (response.success) {
+						// Create and insert success message
+						const successMessage = $('<div class="iu-success-message" style="color: #008000; margin-top: 8px;">Settings saved successfully!</div>');
+						excludedFiles.after(successMessage);
+
+						// Remove the message after 3 seconds
+						setTimeout(function () {
+							successMessage.fadeOut(400, function () {
+								$(this).remove();
+							});
+						}, 3000);
+					}
+				}
+			});
+		}, 1000);
+	});
+
+
+	$('#folderTree').jstree({
+		'plugins': ["checkbox"],
+		'checkbox': {
+			// Select all children when parent is selected
+			'three_state': true,
+			'cascade': 'up+down',
+			'tie_selection': true
+		},
+		'core': {
+			'data': {
+				"url": ajaxurl,
+				"data": function (node) {
+					return {
+						"action": "get_directory_tree",
+						"nonce": iup_data.nonce.getTree
+					}
+				},
+				"dataType": "json"
+			}
+		}
+	})
+		// When folder checkbox clicked → open folder
+		.on("select_node.jstree", function (e, data) {
+			if (data.node.children.length) {
+				$('#folderTree').jstree('open_node', data.node);
+			}
+		});
+
+	// Get selected paths
+	$('#saveExcludedFilesSettings').on("click", function () {
+		var selected = $('#folderTree').jstree("get_selected", true);
+
+		var excludedFiles = [];
+		if (selected.length) {
+			excludedFiles = selected.map(node => node.data.path);
+		}
+
+		const excludedFilesOption = $('input[name="iu_file_exclusion_enabled"]:checked').val();
+
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'save_iu_excluded_files',
+				excluded_files: excludedFiles,
+				enabled_excluded_files: excludedFilesOption,
+				nonce: iup_data.nonce.saveExcludedFiles
+			},
+			success: function (response) {
+				if (response.success) {
+					// Create and insert success message
+					const successMessage = $('<span class="iu-success-message" style="color: #008000; margin-top: 8px;">Settings saved successfully! Syncing is in progress. We will notify you once it\'s done.</span>');
+					// Remove any existing success messages before adding a new one
+					$('.iu-success-message').remove();
+					// Append the new success message
+					$('#saveExcludedFilesSettings').after(successMessage);
+
+					// Remove the message after 3 seconds
+					setTimeout(function () {
+						successMessage.fadeOut(400, function () {
+							$(this).remove();
+						});
+					}, 3000);
+				}
+			}
+		});
+	});
+
 });

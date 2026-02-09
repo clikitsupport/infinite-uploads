@@ -2,12 +2,12 @@
 /*
  * Plugin Name: Infinite Uploads
  * Description: Infinitely scalable cloud storage and delivery for your videos and uploads made easy! Upload directly to cloud storage and manage your files right from the WordPress Media Library.
- * Version: 3.0.6
+ * Version: 3.1.0
  * Author: Infinite Uploads
  * Author URI: https://infiniteuploads.com/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin&utm_content=meta
  * Text Domain: infinite-uploads
  * Requires at least: 6.0
- * Tested up to: 6.8
+ * Tested up to: 6.9.1
  * Requires PHP: 8.0
  * License: GPLv2
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -18,15 +18,18 @@
  * Copyright 2021-2025 ClikIT, LLC
 */
 
-define( 'INFINITE_UPLOADS_VERSION', '3.0.6' );
+define( 'INFINITE_UPLOADS_VERSION', '3.1.0' );
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
-	require_once dirname( __FILE__ ) . '/inc/class-infinite-uploads-wp-cli-command.php';
+    \WP_CLI::add_command( 'infinite-uploads', '\ClikIT\InfiniteUploads\InfiniteUploadsWPCLICommand' );
 }
 
 //require_once 'inc/class-infinite-uploads-wp-mail.php';
 
 register_activation_hook( __FILE__, 'infinite_uploads_install' );
+
+// Load action scheduler.
+require_once dirname( __FILE__ ) . '/libs/action-scheduler/action-scheduler.php';
 
 add_action( 'plugins_loaded', 'infinite_uploads_init' );
 
@@ -54,6 +57,7 @@ function infinite_uploads_init() {
 	}
 
 	// Require Our custom AWS Autoloader file.
+
 	require_once dirname( __FILE__ ) . '/vendor/Aws3/aws-autoloader.php';
 
 	if ( ! infinite_uploads_check_requirements() ) {
@@ -62,7 +66,10 @@ function infinite_uploads_init() {
 
 	infinite_uploads_upgrade();
 
-	$instance = Infinite_Uploads::get_instance();
+    $instance = \ClikIT\InfiniteUploads\InfiniteUploads::get_instance();
+
+    require_once dirname( __FILE__ ) . '/functions.php';
+
 	$instance->setup();
 }
 
@@ -171,6 +178,9 @@ function infinite_uploads_enabled() {
 	return get_site_option( 'iup_enabled' );
 }
 
+if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
+    require_once __DIR__ . '/vendor/autoload.php';
+}
 /**
  * Autoload callback.
  *
@@ -192,4 +202,4 @@ function infinite_uploads_autoload( $class_name ) {
 	}
 }
 
-spl_autoload_register( 'infinite_uploads_autoload' );
+// spl_autoload_register( 'infinite_uploads_autoload' );
