@@ -112,7 +112,7 @@ function infinite_uploads_install() {
         ) {$charset_collate};";
 
 	// Media folders table.
-	$sql .= "\nCREATE TABLE {$wpdb->prefix}iu_media_folders (
+	$sql .= "\nCREATE TABLE {$wpdb->prefix}infinite_uploads_media_folders (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             name VARCHAR(255) NOT NULL,
             parent_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
@@ -126,7 +126,7 @@ function infinite_uploads_install() {
         ) {$charset_collate};";
 
 	// Media-to-folder relationship table.
-	$sql .= "\nCREATE TABLE {$wpdb->prefix}iu_media_folder_relationships (
+	$sql .= "\nCREATE TABLE {$wpdb->prefix}infinite_uploads_media_folder_relationships (
             folder_id BIGINT UNSIGNED NOT NULL,
             attachment_id BIGINT UNSIGNED NOT NULL,
             PRIMARY KEY  (folder_id, attachment_id),

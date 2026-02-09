@@ -25,5 +25,5 @@ wp_unschedule_hook( 'infinite_uploads_sync' );
 // drop custom database tables
 global $wpdb;
 $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->base_prefix}infinite_uploads_files" );
-$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}iu_media_folder_relationships" );
-$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}iu_media_folders" );
+$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->base_prefix}infinite_uploads_media_folder_relationships" );
+$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->base_prefix}infinite_uploads_media_folders" );

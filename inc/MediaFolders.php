@@ -45,7 +45,7 @@ class MediaFolders {
 	private function folders_table() {
 		global $wpdb;
 
-		return $wpdb->prefix . 'iu_media_folders';
+		return $wpdb->prefix . 'infinite_uploads_media_folders';
 	}
 
 	/**
@@ -56,7 +56,7 @@ class MediaFolders {
 	private function relationships_table() {
 		global $wpdb;
 
-		return $wpdb->prefix . 'iu_media_folder_relationships';
+		return $wpdb->prefix . 'infinite_uploads_media_folder_relationships';
 	}
 
 	/**
