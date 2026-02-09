@@ -18,13 +18,13 @@
 /* Sidebar wrap (sidebar + resize + toggle) */
 #iu-media-folders-wrap {
 	display: flex;
-	align-items: stretch;
-	flex-shrink: 0;
 	position: sticky;
 	top: 32px;
 	align-self: flex-start;
 	height: calc(100vh - 32px);
 	z-index: 10;
+	flex-shrink: 0;
+	margin-right: 10px;
 }
 
 /* ==========================================================================
@@ -32,13 +32,13 @@
    ========================================================================== */
 
 .iu-sidebar-handle {
-	position: relative;
+	position: sticky;
 	width: 16px;
-	margin-right: 4px;
 	cursor: col-resize;
 	flex-shrink: 0;
 	align-self: stretch;
 	z-index: 11;
+	transition: width 0.2s ease, margin 0.2s ease;
 }
 
 /* Vertical line via pseudo-element */
@@ -58,11 +58,11 @@
 	box-shadow: 1px 0 0 0 #2271b1;
 }
 
-/* Circular toggle button */
+/* Circular toggle button - flex item after handle */
 .iu-sidebar-toggle {
-	position: absolute;
-	left: 3px;
-	top: 79px;
+	position: relative;
+	margin-top: 79px;
+	margin-left: -12px;
 	z-index: 999;
 	display: flex;
 	align-items: center;
@@ -76,8 +76,10 @@
 	border: none;
 	padding: 0;
 	box-shadow: 0 0 0 1px #c3c4c7, 0 2px 5px rgba(51, 51, 51, 0.1);
-	transform: translateX(-50%) scaleX(-1);
-	transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+	transform: scaleX(-1);
+	transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.2s ease;
+	flex-shrink: 0;
+	align-self: flex-start;
 }
 
 .iu-sidebar-toggle:hover {
@@ -89,11 +91,6 @@
 .iu-sidebar-toggle svg {
 	width: 16px;
 	height: 16px;
-}
-
-/* Collapsed: flip arrow direction */
-#iu-media-folders-wrap.iu-collapsed .iu-sidebar-toggle {
-	transform: translateX(-50%) scaleX(1);
 }
 
 /* ==========================================================================
@@ -120,18 +117,24 @@
 	width: 0;
 	min-width: 0;
 	overflow: hidden;
+	display: none;
 	border-width: 0;
 	opacity: 0;
+	padding: 0;
+}
+
+#iu-media-folders-wrap.iu-collapsed .iu-sidebar-handle {
+	width: 0;
+	margin-right: 0;
+	cursor: default;
 }
 
 #iu-media-folders-wrap.iu-collapsed .iu-sidebar-handle::before {
 	display: none;
 }
 
-#iu-media-folders-wrap.iu-collapsed .iu-sidebar-handle {
-	cursor: default;
-	width: 12px;
-	margin-right: 0;
+#iu-media-folders-wrap.iu-collapsed .iu-sidebar-toggle {
+	transform: scaleX(1);
 }
 
 /* Grid mode: sidebar is inside the media frame */
