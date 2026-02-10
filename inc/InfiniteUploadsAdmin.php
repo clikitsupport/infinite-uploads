@@ -182,8 +182,6 @@ class InfiniteUploadsAdmin {
     }
 
     public function set_the_new_file_path( $uploaded, $file, $new_file, $type ) {
-        // error_log( 'Set New File Path Called for: >>>> ' . $new_file );
-
         // Check if the file is excluded
         if ( InfiniteUploadsHelper::is_path_excluded( $new_file ) ) {
             $new_file = InfiniteUploadsHelper::get_local_file_path( $new_file );
@@ -191,9 +189,16 @@ class InfiniteUploadsAdmin {
             $new_file = InfiniteUploadsHelper::get_cloud_file_path( $new_file );
         }
 
-        error_log( '[set_the_new_file_path] New File Path To Move: >>>> ' . $new_file );
+        // Ensure the destination directory exists.
+        wp_mkdir_p( dirname( $new_file ) );
 
+        // Try move_uploaded_file first (works for standard HTTP POST uploads).
+        // Fall back to rename() for files not in PHP's upload tmp (e.g. Big File Uploads plugin chunks in bfu-temp).
         $move_new_file = @move_uploaded_file( $file['tmp_name'], $new_file );
+
+        if ( false === $move_new_file ) {
+            $move_new_file = @rename( $file['tmp_name'], $new_file );
+        }
 
         if ( false === $move_new_file ) {
             return wp_handle_upload_error(
