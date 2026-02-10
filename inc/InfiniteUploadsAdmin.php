@@ -2217,34 +2217,40 @@ class InfiniteUploadsAdmin {
      *
      * @return array The prepared directory tree.
      */
-    public function prepare_directory_tree( $dir, $preselected = [], $virtual_paths = [], $root_dir = null ) {
+    public function prepare_directory_tree( $dir, $preselected = [], $virtual_paths = [], $root_dir = null, $preselected_map = null ) {
         $result = [];
 
-        // Set root dir on first call.
+        // Set root dir and build lookup map on first call.
         if ( $root_dir === null ) {
             $root_dir = $dir;
         }
+        if ( $preselected_map === null ) {
+            $preselected_map = array_flip( $preselected );
+        }
 
-        // Scan real filesystem.
-        foreach ( scandir( $dir ) as $file ) {
-            if ( $file === '.' || $file === '..' ) {
-                continue;
-            }
+        // Scan real filesystem using FilesystemIterator (skips ./.. automatically, efficient type detection).
+        try {
+            $iterator = new \FilesystemIterator( $dir, \FilesystemIterator::SKIP_DOTS );
+        } catch ( \UnexpectedValueException $e ) {
+            return $result;
+        }
 
-            $path = $dir . DIRECTORY_SEPARATOR . $file;
+        foreach ( $iterator as $file_info ) {
+            $path   = $file_info->getPathname();
+            $is_dir = $file_info->isDir();
 
             $node = [
-                    "text"  => $file,
-                    "icon"  => is_dir( $path ) ? "jstree-folder" : "jstree-file",
+                    "text"  => $file_info->getFilename(),
+                    "icon"  => $is_dir ? "jstree-folder" : "jstree-file",
                     "data"  => [ "path" => $path ],
                     "state" => [
                             "opened"   => false,
-                            "selected" => in_array( $path, $preselected, true ),
+                            "selected" => isset( $preselected_map[ $path ] ),
                     ],
             ];
 
-            if ( is_dir( $path ) ) {
-                $node["children"] = $this->prepare_directory_tree( $path, $preselected, $virtual_paths, $root_dir );
+            if ( $is_dir ) {
+                $node["children"] = $this->prepare_directory_tree( $path, $preselected, $virtual_paths, $root_dir, $preselected_map );
             }
 
             $result[] = $node;
@@ -2261,34 +2267,32 @@ class InfiniteUploadsAdmin {
                     continue;
                 }
 
-                $parts = explode( DIRECTORY_SEPARATOR, $virtual );
-
+                $parts        = explode( DIRECTORY_SEPARATOR, $virtual );
                 $current_path = $dir;
                 $current      =& $result;
 
                 foreach ( $parts as $part ) {
                     $current_path .= DIRECTORY_SEPARATOR . $part;
 
-                    $found = false;
-                    foreach ( $current as &$node ) {
-                        if ( $node['text'] === $part ) {
-                            $found = true;
-                            if ( ! isset( $node['children'] ) ) {
-                                $node['children'] = [];
-                            }
-                            $current =& $node['children'];
-                            break;
-                        }
+                    // Build a name→index map for the current level (O(1) lookup instead of linear scan).
+                    $name_map = [];
+                    foreach ( $current as $ci => $cr ) {
+                        $name_map[ $cr['text'] ] = $ci;
                     }
 
-                    if ( ! $found ) {
+                    if ( isset( $name_map[ $part ] ) ) {
+                        if ( ! isset( $current[ $name_map[ $part ] ]['children'] ) ) {
+                            $current[ $name_map[ $part ] ]['children'] = [];
+                        }
+                        $current =& $current[ $name_map[ $part ] ]['children'];
+                    } else {
                         $new_node = [
                                 "text"     => $part,
                                 "icon"     => "jstree-folder",
                                 "data"     => [ "path" => $current_path ],
                                 "state"    => [
                                         "opened"   => false,
-                                        "selected" => in_array( $current_path, $preselected, true ),
+                                        "selected" => isset( $preselected_map[ $current_path ] ),
                                 ],
                                 "children" => [],
                         ];
@@ -2297,6 +2301,7 @@ class InfiniteUploadsAdmin {
                         $current   =& $current[ count( $current ) - 1 ]['children'];
                     }
                 }
+                unset( $current );
             }
         }
 
