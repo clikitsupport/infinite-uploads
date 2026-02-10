@@ -20,16 +20,19 @@
 
 define( 'INFINITE_UPLOADS_VERSION', '3.1.0' );
 
+if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
+    require_once __DIR__ . '/vendor/autoload.php';
+}
+
+// Load action scheduler.
+require_once dirname( __FILE__ ) . '/libs/action-scheduler/action-scheduler.php';
+
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
     \WP_CLI::add_command( 'infinite-uploads', '\ClikIT\InfiniteUploads\InfiniteUploadsWPCLICommand' );
 }
 
 //require_once 'inc/class-infinite-uploads-wp-mail.php';
-
 register_activation_hook( __FILE__, 'infinite_uploads_install' );
-
-// Load action scheduler.
-require_once dirname( __FILE__ ) . '/libs/action-scheduler/action-scheduler.php';
 
 add_action( 'plugins_loaded', 'infinite_uploads_init' );
 
@@ -178,9 +181,6 @@ function infinite_uploads_enabled() {
 	return get_site_option( 'iup_enabled' );
 }
 
-if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
-    require_once __DIR__ . '/vendor/autoload.php';
-}
 /**
  * Autoload callback.
  *
