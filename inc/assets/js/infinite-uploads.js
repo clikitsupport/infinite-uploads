@@ -707,10 +707,14 @@ jQuery(document).ready(function ($) {
 			'data': {
 				"url": ajaxurl,
 				"data": function (node) {
-					return {
+					var params = {
 						"action": "get_directory_tree",
 						"nonce": iup_data.nonce.getTree
+					};
+					if (node.id !== '#') {
+						params.dir = node.data.path;
 					}
+					return params;
 				},
 				"dataType": "json"
 			}

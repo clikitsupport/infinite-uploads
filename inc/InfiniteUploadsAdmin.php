@@ -2217,22 +2217,31 @@ class InfiniteUploadsAdmin {
      *
      * @return array The prepared directory tree.
      */
-    public function prepare_directory_tree( $dir, $preselected = [], $virtual_paths = [], $root_dir = null, $preselected_map = null ) {
+    public function prepare_directory_tree( $dir, $preselected = [], $virtual_paths = [], $root_dir = null ) {
         $result = [];
 
-        // Set root dir and build lookup map on first call.
+        // Set root dir on first call.
         if ( $root_dir === null ) {
             $root_dir = $dir;
         }
-        if ( $preselected_map === null ) {
-            $preselected_map = array_flip( $preselected );
+
+        $preselected_map = array_flip( $preselected );
+
+        // Compute relative prefix for this $dir relative to $root_dir.
+        $rel_prefix = '';
+        if ( $dir !== $root_dir ) {
+            $rel_prefix = ltrim( substr( $dir, strlen( $root_dir ) ), DIRECTORY_SEPARATOR );
         }
 
-        // Scan real filesystem using FilesystemIterator (skips ./.. automatically, efficient type detection).
+        // Track existing names at this level to avoid duplicates with virtual paths.
+        $existing_names = [];
+
+        // Scan real filesystem — single level only (no recursion).
         try {
             $iterator = new \FilesystemIterator( $dir, \FilesystemIterator::SKIP_DOTS );
         } catch ( \UnexpectedValueException $e ) {
-            return $result;
+            // Directory doesn't exist (could be a virtual-only path); continue to inject virtuals below.
+            $iterator = [];
         }
 
         foreach ( $iterator as $file_info ) {
@@ -2250,59 +2259,63 @@ class InfiniteUploadsAdmin {
             ];
 
             if ( $is_dir ) {
-                $node["children"] = $this->prepare_directory_tree( $path, $preselected, $virtual_paths, $root_dir, $preselected_map );
+                // Lazy-load marker: jstree will fire a new AJAX request on expand.
+                $node["children"] = true;
             }
 
+            $existing_names[ $file_info->getFilename() ] = true;
             $result[] = $node;
         }
 
-        // Inject virtual directories ONLY at root level.
-        if ( $dir === $root_dir ) {
-            foreach ( $virtual_paths as $virtual ) {
-                $virtual           = trim( $virtual, DIRECTORY_SEPARATOR );
-                $full_virtual_path = $root_dir . DIRECTORY_SEPARATOR . $virtual;
+        // Inject virtual directory children at this level.
+        $injected_names = [];
+        foreach ( $virtual_paths as $virtual ) {
+            $virtual = trim( $virtual, DIRECTORY_SEPARATOR );
+            if ( $virtual === '' ) {
+                continue;
+            }
 
-                // If it already exists on disk, do nothing.
-                if ( is_dir( $full_virtual_path ) ) {
+            // For root level ($rel_prefix is ''), the virtual path itself is what we examine.
+            // For deeper levels, the virtual path must start with $rel_prefix/.
+            if ( $rel_prefix !== '' ) {
+                if ( strpos( $virtual, $rel_prefix . DIRECTORY_SEPARATOR ) !== 0 && $virtual !== $rel_prefix ) {
                     continue;
                 }
-
-                $parts        = explode( DIRECTORY_SEPARATOR, $virtual );
-                $current_path = $dir;
-                $current      =& $result;
-
-                foreach ( $parts as $part ) {
-                    $current_path .= DIRECTORY_SEPARATOR . $part;
-
-                    // Build a name→index map for the current level (O(1) lookup instead of linear scan).
-                    $name_map = [];
-                    foreach ( $current as $ci => $cr ) {
-                        $name_map[ $cr['text'] ] = $ci;
-                    }
-
-                    if ( isset( $name_map[ $part ] ) ) {
-                        if ( ! isset( $current[ $name_map[ $part ] ]['children'] ) ) {
-                            $current[ $name_map[ $part ] ]['children'] = [];
-                        }
-                        $current =& $current[ $name_map[ $part ] ]['children'];
-                    } else {
-                        $new_node = [
-                                "text"     => $part,
-                                "icon"     => "jstree-folder",
-                                "data"     => [ "path" => $current_path ],
-                                "state"    => [
-                                        "opened"   => false,
-                                        "selected" => isset( $preselected_map[ $current_path ] ),
-                                ],
-                                "children" => [],
-                        ];
-
-                        $current[] = $new_node;
-                        $current   =& $current[ count( $current ) - 1 ]['children'];
-                    }
-                }
-                unset( $current );
+                $remaining = substr( $virtual, strlen( $rel_prefix ) + 1 );
+            } else {
+                $remaining = $virtual;
             }
+
+            if ( $remaining === '' || $remaining === false ) {
+                continue;
+            }
+
+            // Take only the first path segment (direct child at this level).
+            $segments   = explode( DIRECTORY_SEPARATOR, $remaining );
+            $child_name = $segments[0];
+
+            // Skip if already exists on disk or already injected.
+            if ( isset( $existing_names[ $child_name ] ) || isset( $injected_names[ $child_name ] ) ) {
+                continue;
+            }
+
+            $child_path = $dir . DIRECTORY_SEPARATOR . $child_name;
+            $has_deeper = count( $segments ) > 1;
+
+            $is_path_dir = is_dir( $child_path );
+            $new_node = [
+                    "text"     => $child_name,
+                    "icon"     => $is_path_dir ? "jstree-folder" : "jstree-file",
+                    "data"     => [ "path" => $child_path ],
+                    "state"    => [
+                            "opened"   => false,
+                            "selected" => isset( $preselected_map[ $child_path ] ),
+                    ],
+                    "children" => $has_deeper ? true : false,
+            ];
+
+            $injected_names[ $child_name ] = true;
+            $result[] = $new_node;
         }
 
         return $result;
@@ -2334,6 +2347,31 @@ class InfiniteUploadsAdmin {
         // Get the existing excluded files from options
         $upload_dir = $dir['basedir'];
 
+        // Determine which directory to scan (supports lazy loading of subdirectories).
+        $scan_dir = $upload_dir;
+        if ( ! empty( $_REQUEST['dir'] ) ) {
+            $requested_dir = sanitize_text_field( wp_unslash( $_REQUEST['dir'] ) );
+
+            // Security: reject path traversal attempts.
+            if ( strpos( $requested_dir, '..' ) !== false ) {
+                wp_send_json_error( 'Invalid directory path.' );
+            }
+
+            // Normalize and verify the path is within the upload basedir.
+            $requested_dir = realpath( $requested_dir );
+            if ( $requested_dir === false ) {
+                // Path doesn't exist on disk — could be a virtual-only directory.
+                // Reconstruct from the sanitized input for virtual path injection.
+                $requested_dir = sanitize_text_field( wp_unslash( $_REQUEST['dir'] ) );
+            }
+
+            if ( strpos( $requested_dir, $upload_dir ) !== 0 ) {
+                wp_send_json_error( 'Directory is outside the uploads folder.' );
+            }
+
+            $scan_dir = $requested_dir;
+        }
+
         $sub_dir       = $dir['subdir'];
         $virtual_paths = [ $sub_dir ];
 
@@ -2344,8 +2382,7 @@ class InfiniteUploadsAdmin {
             $virtual_paths = array_merge( $virtual_paths, $synced_files );
         }
 
-        $tree = $this->prepare_directory_tree( $upload_dir, $excluded_files, $virtual_paths );
-        //wp_send_json_success( $tree );
+        $tree = $this->prepare_directory_tree( $scan_dir, $excluded_files, $virtual_paths, $upload_dir );
 
         echo json_encode( $tree );
         die();
