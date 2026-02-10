@@ -104,7 +104,9 @@
                 </div>
                 <div class="row">
                     <div class="col text-left p-3">
-                        <div id="folderTree" style="max-height:300px; overflow:auto; border:1px solid #ddd; border-radius:5px; background:#f9f9f9;"></div>
+                        <div id="folderTreeWrapper" style="<?php echo ( $file_exclusion_setting !== 'yes' ) ? 'display:none;' : ''; ?>">
+                            <div id="folderTree" style="max-height:300px; overflow:auto; border:1px solid #ddd; border-radius:5px; background:#f9f9f9;"></div>
+                        </div>
                         <button class="btn text-nowrap btn-primary btn-lg m-4" id="saveExcludedFilesSettings">Save Settings</button>
                     </div>
                 </div>
