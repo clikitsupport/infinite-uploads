@@ -695,33 +695,57 @@ jQuery(document).ready(function ($) {
 	});
 
 
-	$('#folderTree').jstree({
-		'plugins': ["checkbox"],
-		'checkbox': {
-			// Select all children when parent is selected
-			'three_state': true,
-			'cascade': 'up+down',
-			'tie_selection': true
-		},
-		'core': {
-			'data': {
-				"url": ajaxurl,
-				"data": function (node) {
-					return {
-						"action": "get_directory_tree",
-						"nonce": iup_data.nonce.getTree
-					}
-				},
-				"dataType": "json"
-			}
+	function initFolderTree() {
+		if ($.jstree.reference('#folderTree')) {
+			return; // Already initialized.
 		}
-	})
-		// When folder checkbox clicked → open folder
-		.on("select_node.jstree", function (e, data) {
-			if (data.node.children.length) {
-				$('#folderTree').jstree('open_node', data.node);
+		$('#folderTree').jstree({
+			'plugins': ["checkbox"],
+			'checkbox': {
+				// Select all children when parent is selected
+				'three_state': true,
+				'cascade': 'up+down',
+				'tie_selection': true
+			},
+			'core': {
+				'data': {
+					"url": ajaxurl,
+					"data": function (node) {
+						var params = {
+							"action": "get_directory_tree",
+							"nonce": iup_data.nonce.getTree
+						};
+						if (node.id !== '#') {
+							params.dir = node.data.path;
+						}
+						return params;
+					},
+					"dataType": "json"
+				}
 			}
-		});
+		})
+			// When folder checkbox clicked → open folder
+			.on("select_node.jstree", function (e, data) {
+				if (data.node.children.length) {
+					$('#folderTree').jstree('open_node', data.node);
+				}
+			});
+	}
+
+	// Show/hide folder tree based on file exclusion radio buttons.
+	$('input[name="iu_file_exclusion_enabled"]').on('change', function () {
+		if ($(this).val() === 'yes') {
+			$('#folderTreeWrapper').show();
+			initFolderTree();
+		} else {
+			$('#folderTreeWrapper').hide();
+		}
+	});
+
+	// Initialize tree on page load if file exclusion is already enabled.
+	if ($('input[name="iu_file_exclusion_enabled"]:checked').val() === 'yes') {
+		initFolderTree();
+	}
 
 	// Get selected paths
 	$('#saveExcludedFilesSettings').on("click", function () {
