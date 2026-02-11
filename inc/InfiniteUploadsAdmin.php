@@ -182,12 +182,14 @@ class InfiniteUploadsAdmin {
     }
 
     public function set_the_new_file_path( $uploaded, $file, $new_file, $type ) {
-        // Check if the file is excluded
-        if ( InfiniteUploadsHelper::is_path_excluded( $new_file ) ) {
-            $new_file = InfiniteUploadsHelper::get_local_file_path( $new_file );
-        } else {
-            $new_file = InfiniteUploadsHelper::get_cloud_file_path( $new_file );
+        // Only intercept excluded files to move them to the local path.
+        // Non-excluded files should fall through to WordPress's normal handling
+        // so the stream wrapper routes them to cloud as usual.
+        if ( ! InfiniteUploadsHelper::is_path_excluded( $new_file ) ) {
+            return $uploaded;
         }
+
+        $new_file = InfiniteUploadsHelper::get_local_file_path( $new_file );
 
         // Ensure the destination directory exists.
         wp_mkdir_p( dirname( $new_file ) );
