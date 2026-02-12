@@ -2268,6 +2268,19 @@ class InfiniteUploadsAdmin {
             if ( $is_dir ) {
                 // Lazy-load marker: jstree will fire a new AJAX request on expand.
                 $node["children"] = true;
+
+                // If this directory is not itself selected but has excluded descendants,
+                // mark it as undetermined so the checkbox shows the partial-selection state
+                // even before the user opens the node (lazy-loaded children).
+                if ( ! isset( $preselected_map[ $path ] ) ) {
+                    $dir_prefix = $path . DIRECTORY_SEPARATOR;
+                    foreach ( $preselected as $excluded_path ) {
+                        if ( strpos( $excluded_path, $dir_prefix ) === 0 ) {
+                            $node["state"]["undetermined"] = true;
+                            break;
+                        }
+                    }
+                }
             }
 
             $existing_names[ $file_info->getFilename() ] = true;
@@ -2320,6 +2333,17 @@ class InfiniteUploadsAdmin {
                     ],
                     "children" => $has_deeper ? true : false,
             ];
+
+            // Mark virtual directories with excluded descendants as undetermined.
+            if ( $has_deeper && ! isset( $preselected_map[ $child_path ] ) ) {
+                $dir_prefix = $child_path . DIRECTORY_SEPARATOR;
+                foreach ( $preselected as $excluded_path ) {
+                    if ( strpos( $excluded_path, $dir_prefix ) === 0 ) {
+                        $new_node["state"]["undetermined"] = true;
+                        break;
+                    }
+                }
+            }
 
             $injected_names[ $child_name ] = true;
             $result[] = $new_node;
