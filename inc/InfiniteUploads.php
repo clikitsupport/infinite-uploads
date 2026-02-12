@@ -1404,3 +1404,16 @@ function psx_wpdiscuz_init() {
 
 add_action( 'template_redirect', '\ClikIT\InfiniteUploads\psx_wpdiscuz_init' );
 
+// Disable Smush filter on Media Library.
+add_action( 'admin_init', '\ClikIT\InfiniteUploads\disable_smush_on_media_library' );
+
+function disable_smush_on_media_library() {
+    if ( class_exists( '\Smush\App\Media_Library' ) ) {
+        $wp_smush               = \WP_Smush::get_instance();
+        $media_library_instance = $wp_smush->library();
+
+        if ( $media_library_instance instanceof \Smush\App\Media_Library ) {
+            remove_filter( 'wp_prepare_attachment_for_js', array( $media_library_instance, 'smush_send_status' ), 99 );
+        }
+    }
+}
