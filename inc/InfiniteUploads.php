@@ -172,6 +172,7 @@ class InfiniteUploads {
         add_filter( 'wp_update_attachment_metadata', [ $this, 'update_attachment_metadata' ], 10, 2 );
         add_filter( 'wp_get_attachment_metadata', [ $this, 'get_attachment_metadata' ] );
         add_filter( '_wp_relative_upload_path', [ $this, 'filter_wp_relative_upload_path' ], 10, 2 );
+        add_filter( 'get_attached_file', [ $this, 'filter_get_attached_file' ], 10, 2 );
         add_filter( 'wp_resource_hints', [ $this, 'wp_filter_resource_hints' ], 10, 2 );
         remove_filter( 'admin_notices', 'wpthumb_errors' );
 
@@ -702,7 +703,6 @@ class InfiniteUploads {
     }
 
     public function filter_upload_dir( $dirs ) {
-        // bail if path is excluded.
         $root_dirs = $this->get_original_upload_dir_root();
 
         $dirs['path']    = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $this->bucket ), $dirs['path'] );
@@ -1035,6 +1035,64 @@ class InfiniteUploads {
     }
 
     /**
+     * Filter get_attached_file to return local paths for excluded files.
+     *
+     * When file exclusion is enabled, excluded files reside on the local server,
+     * not on the cloud. This filter ensures get_attached_file() returns the local
+     * filesystem path instead of the iu:// stream wrapper path.
+     *
+     * @param string $file          The file path.
+     * @param int    $attachment_id The attachment ID.
+     *
+     * @return string The corrected file path.
+     */
+    function filter_get_attached_file( $file, $attachment_id ) {
+        if ( ! InfiniteUploadsHelper::is_file_exclusion_enabled() ) {
+            return $file;
+        }
+
+        if ( InfiniteUploadsHelper::is_path_excluded( $file ) ) {
+            return InfiniteUploadsHelper::get_local_file_path( $file );
+        }
+
+        return $file;
+    }
+
+    /**
+     * Filter Smush Pro media item sizes to use local paths for excluded files.
+     *
+     * Smush constructs file paths and URLs from wp_upload_dir() which always returns
+     * cloud values when IU is active. For excluded files that reside locally, we need
+     * to replace the size object with one using local dir and base_url.
+     *
+     * @param object $size       The Media_Item_Size object.
+     * @param string $key        The size key.
+     * @param array  $metadata   The size metadata.
+     * @param object $media_item The Media_Item object.
+     *
+     * @return object The corrected Media_Item_Size object.
+     */
+    function filter_smush_media_item_size( $size, $key, $metadata, $media_item ) {
+        $root_dirs    = $this->get_original_upload_dir_root();
+        $relative_dir = $media_item->get_relative_file_dir();
+        $local_dir    = trailingslashit( $root_dirs['basedir'] ) . $relative_dir . '/';
+
+        if ( ! InfiniteUploadsHelper::is_path_excluded( $local_dir ) ) {
+            return $size;
+        }
+
+        $local_base_url = trailingslashit( $root_dirs['baseurl'] ) . $relative_dir . '/';
+
+        return new \Smush\Core\Media\Media_Item_Size(
+            $key,
+            $media_item->get_id(),
+            $local_dir,
+            $local_base_url,
+            $metadata
+        );
+    }
+
+    /**
      * Add the DNS address for the S3 Bucket to list for DNS prefetch.
      *
      * @param $hints
@@ -1118,6 +1176,11 @@ class InfiniteUploads {
 
         //WP Migrate DB
         add_filter( 'wpmdb_upload_info', array( $this, 'wpmdb_upload_info' ) );
+
+        // Smush Pro: redirect excluded file sizes to local paths.
+        if ( InfiniteUploadsHelper::is_file_exclusion_enabled() && class_exists( '\Smush\Core\Media\Media_Item_Size' )) {
+            add_filter( 'wp_smush_media_item_size', [ $this, 'filter_smush_media_item_size' ], 10, 4 );
+        }
 
         //Handle WooCommerce CSV imports
         add_filter( 'woocommerce_product_csv_importer_check_import_file_path', '__return_false' );
