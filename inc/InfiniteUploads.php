@@ -171,6 +171,8 @@ class InfiniteUploads {
         add_filter( 'wp_read_image_metadata', [ $this, 'wp_filter_read_image_metadata' ], 10, 2 );
         add_filter( 'wp_update_attachment_metadata', [ $this, 'update_attachment_metadata' ], 10, 2 );
         add_filter( 'wp_get_attachment_metadata', [ $this, 'get_attachment_metadata' ] );
+        add_filter( '_wp_relative_upload_path', [ $this, 'filter_wp_relative_upload_path' ], 10, 2 );
+        add_filter( 'get_attached_file', [ $this, 'filter_get_attached_file' ], 10, 2 );
         add_filter( 'wp_resource_hints', [ $this, 'wp_filter_resource_hints' ], 10, 2 );
         remove_filter( 'admin_notices', 'wpthumb_errors' );
 
@@ -701,7 +703,6 @@ class InfiniteUploads {
     }
 
     public function filter_upload_dir( $dirs ) {
-        // bail if path is excluded.
         $root_dirs = $this->get_original_upload_dir_root();
 
         $dirs['path']    = str_replace( $root_dirs['basedir'], 'iu://' . untrailingslashit( $this->bucket ), $dirs['path'] );
@@ -932,6 +933,11 @@ class InfiniteUploads {
             $data['filesize'] = filesize( $attached_file );
         }
 
+        // Normalize the 'file' key to a relative path to prevent full local paths from being stored.
+        if ( ! empty( $data['file'] ) ) {
+            $data['file'] = $this->normalize_attachment_file_path( $data['file'] );
+        }
+
         return $data;
     }
 
@@ -948,7 +954,148 @@ class InfiniteUploads {
             $data['filesize'] = '';
         }
 
+        // Normalize the 'file' key to a relative path.
+        // Plugins like Smush Pro read this to construct file URLs and paths.
+        if ( ! empty( $data['file'] ) ) {
+            $data['file'] = $this->normalize_attachment_file_path( $data['file'] );
+        }
+
         return $data;
+    }
+
+    /**
+     * Normalize an attachment file path to be relative to the uploads directory.
+     *
+     * When the upload_dir basedir is set to the iu:// stream wrapper, WordPress's
+     * _wp_relative_upload_path() cannot strip the local basedir from local filesystem paths.
+     * This causes plugins like Smush Pro to construct incorrect URLs by concatenating the
+     * cloud CDN URL with a full local filesystem path.
+     *
+     * @param string $file The file path to normalize.
+     *
+     * @return string The normalized relative file path.
+     */
+    private function normalize_attachment_file_path( $file ) {
+        if ( empty( $file ) ) {
+            return $file;
+        }
+
+        // If the path doesn't start with '/' and doesn't start with 'iu://', it's already relative.
+        if ( 0 !== strpos( $file, '/' ) && 0 !== strpos( $file, 'iu://' ) ) {
+            return $file;
+        }
+
+        // Handle iu:// stream wrapper paths.
+        $iu_basedir = 'iu://' . untrailingslashit( $this->bucket );
+        if ( 0 === strpos( $file, $iu_basedir ) ) {
+            $normalized = ltrim( substr( $file, strlen( $iu_basedir ) ), '/' );
+            if ( ! empty( $normalized ) ) {
+                return $normalized;
+            }
+        }
+
+        // Handle full local filesystem paths.
+        if ( 0 === strpos( $file, '/' ) ) {
+            $root_dirs     = $this->get_original_upload_dir_root();
+            $local_basedir = trailingslashit( $root_dirs['basedir'] );
+            if ( 0 === strpos( $file, $local_basedir ) ) {
+                return substr( $file, strlen( $local_basedir ) );
+            }
+        }
+
+        return $file;
+    }
+
+    /**
+     * Filter _wp_relative_upload_path to handle local filesystem paths when IU is active.
+     *
+     * When a full local path is passed to _wp_relative_upload_path() but the upload basedir
+     * is iu://, WordPress cannot strip the basedir. We strip the local basedir instead.
+     *
+     * @param string $new_path The relative path after WordPress processing.
+     * @param string $path     The original full path.
+     *
+     * @return string The properly relative upload path.
+     */
+    function filter_wp_relative_upload_path( $new_path, $path ) {
+        // If the path is already relative (doesn't start with / or stream wrapper), nothing to do.
+        if ( 0 !== strpos( $new_path, '/' ) ) {
+            return $new_path;
+        }
+
+        // Path still has a leading slash, meaning WordPress couldn't strip the basedir.
+        // This happens when a local path is passed while basedir is iu://
+        $root_dirs     = $this->get_original_upload_dir_root();
+        $local_basedir = trailingslashit( $root_dirs['basedir'] );
+        if ( 0 === strpos( $new_path, $local_basedir ) ) {
+            $new_path = substr( $new_path, strlen( $local_basedir ) );
+        }
+
+        return $new_path;
+    }
+
+    /**
+     * Filter get_attached_file to return local paths for excluded files.
+     *
+     * When file exclusion is enabled, excluded files reside on the local server,
+     * not on the cloud. This filter ensures get_attached_file() returns the local
+     * filesystem path instead of the iu:// stream wrapper path.
+     *
+     * @param string $file          The file path.
+     * @param int    $attachment_id The attachment ID.
+     *
+     * @return string The corrected file path.
+     */
+    function filter_get_attached_file( $file, $attachment_id ) {
+        if ( ! InfiniteUploadsHelper::is_file_exclusion_enabled() ) {
+            return $file;
+        }
+
+        if ( InfiniteUploadsHelper::is_path_excluded( $file ) ) {
+            return InfiniteUploadsHelper::get_local_file_path( $file );
+        }
+
+        return $file;
+    }
+
+    /**
+     * Filter Smush Pro media item sizes to use local paths for excluded files.
+     *
+     * Smush constructs file paths and URLs from wp_upload_dir() which always returns
+     * cloud values when IU is active. For excluded files that reside locally, we need
+     * to replace the size object with one using local dir and base_url.
+     *
+     * @param object $size       The Media_Item_Size object.
+     * @param string $key        The size key.
+     * @param array  $metadata   The size metadata.
+     * @param object $media_item The Media_Item object.
+     *
+     * @return object The corrected Media_Item_Size object.
+     */
+    function filter_smush_media_item_size( $size, $key, $metadata, $media_item ) {
+        // IF file exclusion is disabled, do not need to change the file path to local.
+        if ( ! InfiniteUploadsHelper::is_file_exclusion_enabled() ) {
+            return $size;
+        }
+
+        $root_dirs    = $this->get_original_upload_dir_root();
+        $relative_dir = $media_item->get_relative_file_dir();
+        $local_dir    = trailingslashit( $root_dirs['basedir'] ) . $relative_dir . '/';
+
+        // If file path is not excluded, do not need to change the file path to local.
+        if ( ! InfiniteUploadsHelper::is_path_excluded( $local_dir ) ) {
+            return $size;
+        }
+
+        $local_base_url = trailingslashit( $root_dirs['baseurl'] ) . $relative_dir . '/';
+
+        return new \Smush\Core\Media\Media_Item_Size(
+            $key,
+            $media_item->get_id(),
+            $local_dir,
+            $local_base_url,
+            $metadata
+        );
     }
 
     /**
@@ -1035,6 +1182,9 @@ class InfiniteUploads {
 
         //WP Migrate DB
         add_filter( 'wpmdb_upload_info', array( $this, 'wpmdb_upload_info' ) );
+
+        // Smush Pro: redirect excluded file sizes to local paths.
+        add_filter( 'wp_smush_media_item_size', [ $this, 'filter_smush_media_item_size' ], 10, 4 );
 
         //Handle WooCommerce CSV imports
         add_filter( 'woocommerce_product_csv_importer_check_import_file_path', '__return_false' );
@@ -1155,19 +1305,6 @@ function wc_iu_export_fix() {
 }
 
 
-// Disable Smush filter on Media Library.
-add_action( 'admin_init', '\ClikIT\InfiniteUploads\disable_smush_on_media_library' );
-
-function disable_smush_on_media_library() {
-    if ( class_exists( '\Smush\App\Media_Library' ) ) {
-        $wp_smush               = \WP_Smush::get_instance();
-        $media_library_instance = $wp_smush->library();
-
-        if ( $media_library_instance instanceof \Smush\App\Media_Library ) {
-            remove_filter( 'wp_prepare_attachment_for_js', array( $media_library_instance, 'smush_send_status' ), 99 );
-        }
-    }
-}
 
 /**
  * Fix Complainz plugin error.
@@ -1267,3 +1404,16 @@ function psx_wpdiscuz_init() {
 
 add_action( 'template_redirect', '\ClikIT\InfiniteUploads\psx_wpdiscuz_init' );
 
+// Disable Smush filter on Media Library.
+add_action( 'admin_init', '\ClikIT\InfiniteUploads\disable_smush_on_media_library' );
+
+function disable_smush_on_media_library() {
+    if ( class_exists( '\Smush\App\Media_Library' ) ) {
+        $wp_smush               = \WP_Smush::get_instance();
+        $media_library_instance = $wp_smush->library();
+
+        if ( $media_library_instance instanceof \Smush\App\Media_Library ) {
+            remove_filter( 'wp_prepare_attachment_for_js', array( $media_library_instance, 'smush_send_status' ), 99 );
+        }
+    }
+}
