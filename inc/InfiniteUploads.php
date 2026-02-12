@@ -1073,10 +1073,16 @@ class InfiniteUploads {
      * @return object The corrected Media_Item_Size object.
      */
     function filter_smush_media_item_size( $size, $key, $metadata, $media_item ) {
+        // IF file exclusion is disabled, do not need to change the file path to local.
+        if ( ! InfiniteUploadsHelper::is_file_exclusion_enabled() ) {
+            return $size;
+        }
+
         $root_dirs    = $this->get_original_upload_dir_root();
         $relative_dir = $media_item->get_relative_file_dir();
         $local_dir    = trailingslashit( $root_dirs['basedir'] ) . $relative_dir . '/';
 
+        // If file path is not excluded, do not need to change the file path to local.
         if ( ! InfiniteUploadsHelper::is_path_excluded( $local_dir ) ) {
             return $size;
         }
@@ -1178,9 +1184,7 @@ class InfiniteUploads {
         add_filter( 'wpmdb_upload_info', array( $this, 'wpmdb_upload_info' ) );
 
         // Smush Pro: redirect excluded file sizes to local paths.
-        if ( InfiniteUploadsHelper::is_file_exclusion_enabled() && class_exists( '\Smush\Core\Media\Media_Item_Size' )) {
-            add_filter( 'wp_smush_media_item_size', [ $this, 'filter_smush_media_item_size' ], 10, 4 );
-        }
+        add_filter( 'wp_smush_media_item_size', [ $this, 'filter_smush_media_item_size' ], 10, 4 );
 
         //Handle WooCommerce CSV imports
         add_filter( 'woocommerce_product_csv_importer_check_import_file_path', '__return_false' );
