@@ -2,7 +2,7 @@
 /*
  * Plugin Name: Infinite Uploads
  * Description: Infinitely scalable cloud storage and delivery for your videos and uploads made easy! Upload directly to cloud storage and manage your files right from the WordPress Media Library.
- * Version: 3.1.0
+ * Version: 3.1.2
  * Author: Infinite Uploads
  * Author URI: https://infiniteuploads.com/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin&utm_content=meta
  * Text Domain: infinite-uploads
@@ -18,18 +18,21 @@
  * Copyright 2021-2025 ClikIT, LLC
 */
 
-define( 'INFINITE_UPLOADS_VERSION', '3.1.0' );
+define( 'INFINITE_UPLOADS_VERSION', '3.1.2' );
+
+if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
+    require_once __DIR__ . '/vendor/autoload.php';
+}
+
+// Load action scheduler.
+require_once dirname( __FILE__ ) . '/libs/action-scheduler/action-scheduler.php';
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
     \WP_CLI::add_command( 'infinite-uploads', '\ClikIT\InfiniteUploads\InfiniteUploadsWPCLICommand' );
 }
 
 //require_once 'inc/class-infinite-uploads-wp-mail.php';
-
 register_activation_hook( __FILE__, 'infinite_uploads_install' );
-
-// Load action scheduler.
-require_once dirname( __FILE__ ) . '/libs/action-scheduler/action-scheduler.php';
 
 add_action( 'plugins_loaded', 'infinite_uploads_init' );
 
@@ -200,9 +203,6 @@ function infinite_uploads_enabled() {
 	return get_site_option( 'iup_enabled' );
 }
 
-if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
-    require_once __DIR__ . '/vendor/autoload.php';
-}
 /**
  * Autoload callback.
  *

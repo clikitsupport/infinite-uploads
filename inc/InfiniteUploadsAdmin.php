@@ -182,18 +182,25 @@ class InfiniteUploadsAdmin {
     }
 
     public function set_the_new_file_path( $uploaded, $file, $new_file, $type ) {
-        // error_log( 'Set New File Path Called for: >>>> ' . $new_file );
-
-        // Check if the file is excluded
-        if ( InfiniteUploadsHelper::is_path_excluded( $new_file ) ) {
-            $new_file = InfiniteUploadsHelper::get_local_file_path( $new_file );
-        } else {
-            $new_file = InfiniteUploadsHelper::get_cloud_file_path( $new_file );
+        // Only intercept excluded files to move them to the local path.
+        // Non-excluded files should fall through to WordPress's normal handling
+        // so the stream wrapper routes them to cloud as usual.
+        if ( ! InfiniteUploadsHelper::is_path_excluded( $new_file ) ) {
+            return $uploaded;
         }
 
-        error_log( '[set_the_new_file_path] New File Path To Move: >>>> ' . $new_file );
+        $new_file = InfiniteUploadsHelper::get_local_file_path( $new_file );
 
+        // Ensure the destination directory exists.
+        wp_mkdir_p( dirname( $new_file ) );
+
+        // Try move_uploaded_file first (works for standard HTTP POST uploads).
+        // Fall back to rename() for files not in PHP's upload tmp (e.g. Big File Uploads plugin chunks in bfu-temp).
         $move_new_file = @move_uploaded_file( $file['tmp_name'], $new_file );
+
+        if ( false === $move_new_file ) {
+            $move_new_file = @rename( $file['tmp_name'], $new_file );
+        }
 
         if ( false === $move_new_file ) {
             return wp_handle_upload_error(
@@ -2225,79 +2232,121 @@ class InfiniteUploadsAdmin {
             $root_dir = $dir;
         }
 
-        // Scan real filesystem.
-        foreach ( scandir( $dir ) as $file ) {
-            if ( $file === '.' || $file === '..' ) {
-                continue;
-            }
+        $preselected_map = array_flip( $preselected );
 
-            $path = $dir . DIRECTORY_SEPARATOR . $file;
+        // Compute relative prefix for this $dir relative to $root_dir.
+        $rel_prefix = '';
+        if ( $dir !== $root_dir ) {
+            $rel_prefix = ltrim( substr( $dir, strlen( $root_dir ) ), DIRECTORY_SEPARATOR );
+        }
+
+        // Track existing names at this level to avoid duplicates with virtual paths.
+        $existing_names = [];
+
+        // Scan real filesystem — single level only (no recursion).
+        try {
+            $iterator = new \FilesystemIterator( $dir, \FilesystemIterator::SKIP_DOTS );
+        } catch ( \UnexpectedValueException $e ) {
+            // Directory doesn't exist (could be a virtual-only path); continue to inject virtuals below.
+            $iterator = [];
+        }
+
+        foreach ( $iterator as $file_info ) {
+            $path   = $file_info->getPathname();
+            $is_dir = $file_info->isDir();
 
             $node = [
-                    "text"  => $file,
-                    "icon"  => is_dir( $path ) ? "jstree-folder" : "jstree-file",
+                    "text"  => $file_info->getFilename(),
+                    "icon"  => $is_dir ? "jstree-folder" : "jstree-file",
                     "data"  => [ "path" => $path ],
                     "state" => [
                             "opened"   => false,
-                            "selected" => in_array( $path, $preselected, true ),
+                            "selected" => isset( $preselected_map[ $path ] ),
                     ],
             ];
 
-            if ( is_dir( $path ) ) {
-                $node["children"] = $this->prepare_directory_tree( $path, $preselected, $virtual_paths, $root_dir );
-            }
+            if ( $is_dir ) {
+                // Lazy-load marker: jstree will fire a new AJAX request on expand.
+                $node["children"] = true;
 
-            $result[] = $node;
-        }
-
-        // Inject virtual directories ONLY at root level.
-        if ( $dir === $root_dir ) {
-            foreach ( $virtual_paths as $virtual ) {
-                $virtual           = trim( $virtual, DIRECTORY_SEPARATOR );
-                $full_virtual_path = $root_dir . DIRECTORY_SEPARATOR . $virtual;
-
-                // If it already exists on disk, do nothing.
-                if ( is_dir( $full_virtual_path ) ) {
-                    continue;
-                }
-
-                $parts = explode( DIRECTORY_SEPARATOR, $virtual );
-
-                $current_path = $dir;
-                $current      =& $result;
-
-                foreach ( $parts as $part ) {
-                    $current_path .= DIRECTORY_SEPARATOR . $part;
-
-                    $found = false;
-                    foreach ( $current as &$node ) {
-                        if ( $node['text'] === $part ) {
-                            $found = true;
-                            if ( ! isset( $node['children'] ) ) {
-                                $node['children'] = [];
-                            }
-                            $current =& $node['children'];
+                // If this directory is not itself selected but has excluded descendants,
+                // mark it as undetermined so the checkbox shows the partial-selection state
+                // even before the user opens the node (lazy-loaded children).
+                if ( ! isset( $preselected_map[ $path ] ) ) {
+                    $dir_prefix = $path . DIRECTORY_SEPARATOR;
+                    foreach ( $preselected as $excluded_path ) {
+                        if ( strpos( $excluded_path, $dir_prefix ) === 0 ) {
+                            $node["state"]["undetermined"] = true;
                             break;
                         }
                     }
+                }
+            }
 
-                    if ( ! $found ) {
-                        $new_node = [
-                                "text"     => $part,
-                                "icon"     => "jstree-folder",
-                                "data"     => [ "path" => $current_path ],
-                                "state"    => [
-                                        "opened"   => false,
-                                        "selected" => in_array( $current_path, $preselected, true ),
-                                ],
-                                "children" => [],
-                        ];
+            $existing_names[ $file_info->getFilename() ] = true;
+            $result[] = $node;
+        }
 
-                        $current[] = $new_node;
-                        $current   =& $current[ count( $current ) - 1 ]['children'];
+        // Inject virtual directory children at this level.
+        $injected_names = [];
+        foreach ( $virtual_paths as $virtual ) {
+            $virtual = trim( $virtual, DIRECTORY_SEPARATOR );
+            if ( $virtual === '' ) {
+                continue;
+            }
+
+            // For root level ($rel_prefix is ''), the virtual path itself is what we examine.
+            // For deeper levels, the virtual path must start with $rel_prefix/.
+            if ( $rel_prefix !== '' ) {
+                if ( strpos( $virtual, $rel_prefix . DIRECTORY_SEPARATOR ) !== 0 && $virtual !== $rel_prefix ) {
+                    continue;
+                }
+                $remaining = substr( $virtual, strlen( $rel_prefix ) + 1 );
+            } else {
+                $remaining = $virtual;
+            }
+
+            if ( $remaining === '' || $remaining === false ) {
+                continue;
+            }
+
+            // Take only the first path segment (direct child at this level).
+            $segments   = explode( DIRECTORY_SEPARATOR, $remaining );
+            $child_name = $segments[0];
+
+            // Skip if already exists on disk or already injected.
+            if ( isset( $existing_names[ $child_name ] ) || isset( $injected_names[ $child_name ] ) ) {
+                continue;
+            }
+
+            $child_path = $dir . DIRECTORY_SEPARATOR . $child_name;
+            $has_deeper = count( $segments ) > 1;
+
+            $is_path_dir = is_dir( $child_path );
+            $new_node = [
+                    "text"     => $child_name,
+                    "icon"     => $is_path_dir ? "jstree-folder" : "jstree-file",
+                    "data"     => [ "path" => $child_path ],
+                    "state"    => [
+                            "opened"   => false,
+                            "selected" => isset( $preselected_map[ $child_path ] ),
+                    ],
+                    "children" => $has_deeper ? true : false,
+            ];
+
+            // Mark virtual directories with excluded descendants as undetermined.
+            if ( $has_deeper && ! isset( $preselected_map[ $child_path ] ) ) {
+                $dir_prefix = $child_path . DIRECTORY_SEPARATOR;
+                foreach ( $preselected as $excluded_path ) {
+                    if ( strpos( $excluded_path, $dir_prefix ) === 0 ) {
+                        $new_node["state"]["undetermined"] = true;
+                        break;
                     }
                 }
             }
+
+            $injected_names[ $child_name ] = true;
+            $result[] = $new_node;
         }
 
         return $result;
@@ -2329,6 +2378,31 @@ class InfiniteUploadsAdmin {
         // Get the existing excluded files from options
         $upload_dir = $dir['basedir'];
 
+        // Determine which directory to scan (supports lazy loading of subdirectories).
+        $scan_dir = $upload_dir;
+        if ( ! empty( $_REQUEST['dir'] ) ) {
+            $requested_dir = sanitize_text_field( wp_unslash( $_REQUEST['dir'] ) );
+
+            // Security: reject path traversal attempts.
+            if ( strpos( $requested_dir, '..' ) !== false ) {
+                wp_send_json_error( 'Invalid directory path.' );
+            }
+
+            // Normalize and verify the path is within the upload basedir.
+            $requested_dir = realpath( $requested_dir );
+            if ( $requested_dir === false ) {
+                // Path doesn't exist on disk — could be a virtual-only directory.
+                // Reconstruct from the sanitized input for virtual path injection.
+                $requested_dir = sanitize_text_field( wp_unslash( $_REQUEST['dir'] ) );
+            }
+
+            if ( strpos( $requested_dir, $upload_dir ) !== 0 ) {
+                wp_send_json_error( 'Directory is outside the uploads folder.' );
+            }
+
+            $scan_dir = $requested_dir;
+        }
+
         $sub_dir       = $dir['subdir'];
         $virtual_paths = [ $sub_dir ];
 
@@ -2339,8 +2413,7 @@ class InfiniteUploadsAdmin {
             $virtual_paths = array_merge( $virtual_paths, $synced_files );
         }
 
-        $tree = $this->prepare_directory_tree( $upload_dir, $excluded_files, $virtual_paths );
-        //wp_send_json_success( $tree );
+        $tree = $this->prepare_directory_tree( $scan_dir, $excluded_files, $virtual_paths, $upload_dir );
 
         echo json_encode( $tree );
         die();

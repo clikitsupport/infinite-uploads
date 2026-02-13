@@ -11,8 +11,6 @@ class InfiniteUploadsHelper {
 	 * @return bool True if the path is excluded, false otherwise.
 	 */
 	public static function is_path_excluded( $path, $url = false ) {
-		error_log( '[INFINITE_UPLOADS >> is_path_excluded] Checking if path is excluded: ' . $path );
-
 		if ( $url ) {
 			$local_url  = self::get_local_file_url( $path );
 			$local_path = self::get_local_path_from_url( $local_url );
@@ -20,11 +18,7 @@ class InfiniteUploadsHelper {
 			$local_path = self::get_local_file_path( $path );
 		}
 
-		error_log( '[INFINITE_UPLOADS >> is_path_excluded] Checking if local path is excluded: ' . $local_path );
-
 		$excluded_files_array = self::get_excluded_paths();
-
-		//error_log( '[INFINITE_UPLOADS] Excluded paths: ' . print_r( $excluded_files_array, true ) );
 
 		if ( empty( $excluded_files_array ) ) {
 			return false;
@@ -32,8 +26,6 @@ class InfiniteUploadsHelper {
 
 		foreach ( $excluded_files_array as $excluded_file ) {
 			if ( stripos( $local_path, $excluded_file ) !== false ) {
-				error_log( '[INFINITE_UPLOADS >> is_path_excluded] Local Path Is Excluded: ' . $local_path );
-
 				return true;
 			}
 		}
