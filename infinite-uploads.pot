@@ -2,14 +2,14 @@
 # This file is distributed under the GPLv2.
 msgid ""
 msgstr ""
-"Project-Id-Version: Infinite Uploads 3.1.1\n"
+"Project-Id-Version: Infinite Uploads 3.1.2\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/infinite-uploads\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-02-11T06:20:25+00:00\n"
+"POT-Creation-Date: 2026-02-13T05:13:28+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.9.0\n"
 "X-Domain: infinite-uploads\n"
@@ -32,75 +32,75 @@ msgstr ""
 msgid "https://infiniteuploads.com/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin&utm_content=meta"
 msgstr ""
 
-#: inc/InfiniteUploads.php:445
+#: inc/InfiniteUploads.php:447
 msgid "Infinite Uploads is almost ready!"
 msgstr ""
 
-#: inc/InfiniteUploads.php:447
+#: inc/InfiniteUploads.php:449
 msgid "Create or connect your account to move your images, audio, and video to the cloud - with a click!"
 msgstr ""
 
-#: inc/InfiniteUploads.php:453
+#: inc/InfiniteUploads.php:455
 msgid "Finish Sync"
 msgstr ""
 
-#: inc/InfiniteUploads.php:453
+#: inc/InfiniteUploads.php:455
 #: inc/InfiniteUploadsAdmin.php:1906
 #: inc/templates/connect.php:54
 msgid "Connect"
 msgstr ""
 
-#: inc/InfiniteUploads.php:527
+#: inc/InfiniteUploads.php:529
 msgid "%s file totalling %s"
 msgid_plural "%s files totalling %s"
 msgstr[0] ""
 msgstr[1] ""
 
-#: inc/InfiniteUploads.php:532
+#: inc/InfiniteUploads.php:534
 msgid "%s / %s File"
 msgid_plural "%s / %s Files"
 msgstr[0] ""
 msgstr[1] ""
 
-#: inc/InfiniteUploads.php:542
+#: inc/InfiniteUploads.php:544
 msgid "Images"
 msgstr ""
 
-#: inc/InfiniteUploads.php:543
+#: inc/InfiniteUploads.php:545
 msgid "Audio"
 msgstr ""
 
-#: inc/InfiniteUploads.php:544
+#: inc/InfiniteUploads.php:546
 msgid "Video"
 msgstr ""
 
-#: inc/InfiniteUploads.php:545
+#: inc/InfiniteUploads.php:547
 msgid "Documents"
 msgstr ""
 
-#: inc/InfiniteUploads.php:546
+#: inc/InfiniteUploads.php:548
 msgid "Archives"
 msgstr ""
 
-#: inc/InfiniteUploads.php:547
+#: inc/InfiniteUploads.php:549
 msgid "Code"
 msgstr ""
 
-#: inc/InfiniteUploads.php:548
+#: inc/InfiniteUploads.php:550
 msgid "Other"
 msgstr ""
 
-#: inc/InfiniteUploads.php:808
+#: inc/InfiniteUploads.php:809
 msgid "Files can't be uploaded due to a billing issue with your Infinite Uploads account. <a href='%s'>Please resolve the issue</a> to resume uploading."
 msgstr ""
 
-#: inc/InfiniteUploads.php:813
-#: inc/InfiniteUploads.php:844
-#: inc/InfiniteUploads.php:863
+#: inc/InfiniteUploads.php:814
+#: inc/InfiniteUploads.php:845
+#: inc/InfiniteUploads.php:864
 msgid "Files can't be uploaded due to a billing issue with your Infinite Uploads account."
 msgstr ""
 
-#: inc/InfiniteUploads.php:831
+#: inc/InfiniteUploads.php:832
 msgid "Files can't be uploaded and your CDN is disabled due to a billing issue with your Infinite Uploads account. <a href='%s'>Please resolve the issue</a> to resume uploading. <a href='%s'>Already fixed?</a>"
 msgstr ""
 
@@ -128,9 +128,9 @@ msgstr ""
 #: inc/InfiniteUploadsAdmin.php:721
 #: inc/InfiniteUploadsAdmin.php:1113
 #: inc/InfiniteUploadsAdmin.php:1129
-#: inc/InfiniteUploadsAdmin.php:2930
-#: inc/InfiniteUploadsAdmin.php:3025
-#: inc/InfiniteUploadsAdmin.php:3034
+#: inc/InfiniteUploadsAdmin.php:2954
+#: inc/InfiniteUploadsAdmin.php:3049
+#: inc/InfiniteUploadsAdmin.php:3058
 #: inc/InfiniteUploadsWPCLICommand.php:300
 msgid "Error uploading %s. Retries exceeded."
 msgstr ""
@@ -140,15 +140,15 @@ msgstr ""
 #: inc/InfiniteUploadsAdmin.php:723
 #: inc/InfiniteUploadsAdmin.php:1114
 #: inc/InfiniteUploadsAdmin.php:1130
-#: inc/InfiniteUploadsAdmin.php:2932
-#: inc/InfiniteUploadsAdmin.php:3027
-#: inc/InfiniteUploadsAdmin.php:3036
+#: inc/InfiniteUploadsAdmin.php:2956
+#: inc/InfiniteUploadsAdmin.php:3051
+#: inc/InfiniteUploadsAdmin.php:3060
 msgid "Error uploading %s. Queued for retry."
 msgstr ""
 
 #: inc/InfiniteUploadsAdmin.php:622
 #: inc/InfiniteUploadsAdmin.php:1118
-#: inc/InfiniteUploadsAdmin.php:2935
+#: inc/InfiniteUploadsAdmin.php:2959
 msgid "Error uploading file. Queued for retry."
 msgstr ""
 
@@ -197,21 +197,21 @@ msgstr ""
 
 #: inc/InfiniteUploadsAdmin.php:1485
 #: inc/InfiniteUploadsAdmin.php:1850
-#: inc/InfiniteUploadsAdmin.php:2785
+#: inc/InfiniteUploadsAdmin.php:2809
 #: inc/InfiniteUploadsWPCLICommand.php:559
 msgid "Error downloading %s. Retries exceeded."
 msgstr ""
 
 #: inc/InfiniteUploadsAdmin.php:1487
 #: inc/InfiniteUploadsAdmin.php:1854
-#: inc/InfiniteUploadsAdmin.php:2787
+#: inc/InfiniteUploadsAdmin.php:2811
 #: inc/InfiniteUploadsWPCLICommand.php:561
 msgid "Error downloading %s. Queued for retry."
 msgstr ""
 
 #: inc/InfiniteUploadsAdmin.php:1490
 #: inc/InfiniteUploadsAdmin.php:1860
-#: inc/InfiniteUploadsAdmin.php:2790
+#: inc/InfiniteUploadsAdmin.php:2814
 msgid "Error downloading file. Queued for retry."
 msgstr ""
 

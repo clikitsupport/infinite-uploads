@@ -2,7 +2,7 @@
 
 Requires at least: 6.0
 Tested up to: 6.9.1
-Stable tag: 3.1.1
+Stable tag: 3.1.2
 Requires PHP: 8.0
 Contributors: bww
 Tags: cloud storage, media cloud, encoding, offload, video, streaming, s3, google cloud storage, spaces, storage, cdn, cloud sync
@@ -196,6 +196,13 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 8. Create a custom CDN URL, track storage, and free up space.
 
 == Changelog ==
+
+3.1.2
+----------------------------------------------------------------------
+
+- Fix: Compatibility issue with Smush Image Optimization and EWWW Image Optimizer WordPress plugins.
+- Update: UI improvements.
+* Translations: Updated .POT file for new translations.
 
 3.1.1
 ----------------------------------------------------------------------
