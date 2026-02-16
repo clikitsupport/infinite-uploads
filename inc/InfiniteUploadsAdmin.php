@@ -2175,6 +2175,10 @@ class InfiniteUploadsAdmin {
 
                 $file_exclusion_setting = InfiniteUploadsHelper::get_file_exclusion_setting();
 
+                // Get folder count for media folders toggle warning.
+                $iu_folders_table = $wpdb->prefix . 'infinite_uploads_media_folders';
+                $iu_folder_count  = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$iu_folders_table}`" );
+
                 require_once( dirname( __FILE__ ) . '/templates/header-columns.php' );
 
                 if ( ! infinite_uploads_enabled() ) {

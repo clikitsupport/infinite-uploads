@@ -791,6 +791,23 @@ jQuery(document).ready(function ($) {
 	$('#saveMediaFoldersSetting').on('click', function () {
 		var $btn = $(this);
 		var enabled = $('input[name="iu_media_folders_enabled"]:checked').val();
+		var folderCount = parseInt($btn.data('folder-count'), 10) || 0;
+
+		// Show confirmation if disabling while folders exist.
+		if (enabled === 'no' && folderCount > 0) {
+			var confirmed = confirm(
+				'You currently have ' + folderCount + ' folder(s) in use. ' +
+				'Disabling advanced features will hide the folder sidebar and all media will appear in the default WordPress view as uncategorized.\n\n' +
+				'Your folder structure will be preserved and can be restored by re-enabling this setting.\n\n' +
+				'Are you sure you want to disable?'
+			);
+			if (!confirmed) {
+				// Revert radio back to enabled.
+				$('input[name="iu_media_folders_enabled"][value="yes"]').prop('checked', true);
+				return;
+			}
+		}
+
 		$btn.prop('disabled', true);
 		$('#mediaFoldersSaveStatus').hide();
 

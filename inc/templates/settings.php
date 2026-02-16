@@ -95,9 +95,11 @@
                     <input type="radio" name="iu_media_folders_enabled" value="yes" <?php checked( $media_folders_setting, 'yes' ); ?> /><?php esc_html_e( 'No (features enabled)', 'infinite-uploads' ); ?>
                     <input type="radio" name="iu_media_folders_enabled" value="no" <?php checked( $media_folders_setting, 'no' ); ?> /><?php esc_html_e( 'Yes (features disabled)', 'infinite-uploads' ); ?>
                 </div>
+                <p class="text-muted mt-2 mb-0"><small><?php esc_html_e( 'When disabled, the folder sidebar, custom sorting, and all enhanced UI elements are hidden. Your existing folder structure is preserved but media files will appear in the default WordPress view as if they are uncategorized. Re-enabling will restore your folders and assignments.', 'infinite-uploads' ); ?></small></p>
                 <div class="row">
                     <div class="col text-left p-3">
-                        <button class="btn text-nowrap btn-primary btn-lg m-4" id="saveMediaFoldersSetting"><?php esc_html_e( 'Save Settings', 'infinite-uploads' ); ?></button>
+                        <button class="btn text-nowrap btn-primary btn-lg m-4" id="saveMediaFoldersSetting"
+                            data-folder-count="<?php echo esc_attr( $iu_folder_count ); ?>"><?php esc_html_e( 'Save Settings', 'infinite-uploads' ); ?></button>
                         <span id="mediaFoldersSaveStatus" style="display:none;" class="text-success ml-2"><?php esc_html_e( 'Saved! Please reload the Media Library page.', 'infinite-uploads' ); ?></span>
                     </div>
                 </div>
