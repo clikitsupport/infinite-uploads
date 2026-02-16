@@ -668,4 +668,103 @@ class MediaFolders {
 			[ '%d' ]
 		);
 	}
+
+	/**
+	 * Backup folder structure to site options for potential restore on reconnect.
+	 * Then delete all folder data from the database tables.
+	 */
+	public static function backup_and_cleanup() {
+		global $wpdb;
+
+		$folders_table       = $wpdb->prefix . 'infinite_uploads_media_folders';
+		$relationships_table = $wpdb->prefix . 'infinite_uploads_media_folder_relationships';
+
+		// Backup folders.
+		$folders = $wpdb->get_results( "SELECT * FROM `{$folders_table}`", ARRAY_A );
+		if ( ! empty( $folders ) ) {
+			update_site_option( 'iu_media_folders_backup', $folders );
+		}
+
+		// Backup relationships.
+		$relationships = $wpdb->get_results( "SELECT * FROM `{$relationships_table}`", ARRAY_A );
+		if ( ! empty( $relationships ) ) {
+			update_site_option( 'iu_media_folder_relationships_backup', $relationships );
+		}
+
+		// Store backup timestamp.
+		update_site_option( 'iu_media_folders_backup_time', time() );
+
+		// Delete all folder data.
+		$wpdb->query( "TRUNCATE TABLE `{$folders_table}`" );
+		$wpdb->query( "TRUNCATE TABLE `{$relationships_table}`" );
+
+		// Disable media folders feature.
+		InfiniteUploadsHelper::set_media_folders_setting( 'no' );
+	}
+
+	/**
+	 * Restore folder structure from backup after reconnect.
+	 *
+	 * @return bool True if restore succeeded, false if no backup found.
+	 */
+	public static function restore_from_backup() {
+		global $wpdb;
+
+		$folders       = get_site_option( 'iu_media_folders_backup', [] );
+		$relationships = get_site_option( 'iu_media_folder_relationships_backup', [] );
+
+		if ( empty( $folders ) ) {
+			return false;
+		}
+
+		$folders_table       = $wpdb->prefix . 'infinite_uploads_media_folders';
+		$relationships_table = $wpdb->prefix . 'infinite_uploads_media_folder_relationships';
+
+		// Only restore if tables are currently empty (avoid duplicates).
+		$existing = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$folders_table}`" );
+		if ( $existing > 0 ) {
+			self::delete_backup();
+			return false;
+		}
+
+		// Restore folders.
+		foreach ( $folders as $folder ) {
+			$wpdb->insert( $folders_table, $folder );
+		}
+
+		// Restore relationships — only for attachments that still exist.
+		if ( ! empty( $relationships ) ) {
+			foreach ( $relationships as $rel ) {
+				if ( get_post_type( $rel['attachment_id'] ) === 'attachment' ) {
+					$wpdb->insert( $relationships_table, $rel );
+				}
+			}
+		}
+
+		// Re-enable media folders feature.
+		InfiniteUploadsHelper::set_media_folders_setting( 'yes' );
+
+		// Clean up backup data.
+		self::delete_backup();
+
+		return true;
+	}
+
+	/**
+	 * Delete backup data from site options.
+	 */
+	public static function delete_backup() {
+		delete_site_option( 'iu_media_folders_backup' );
+		delete_site_option( 'iu_media_folder_relationships_backup' );
+		delete_site_option( 'iu_media_folders_backup_time' );
+	}
+
+	/**
+	 * Check if a folder backup exists.
+	 *
+	 * @return bool
+	 */
+	public static function has_backup() {
+		return (bool) get_site_option( 'iu_media_folders_backup', false );
+	}
 }

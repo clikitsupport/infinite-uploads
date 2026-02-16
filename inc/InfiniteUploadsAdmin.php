@@ -2071,6 +2071,10 @@ class InfiniteUploadsAdmin {
             if ( ! $result ) {
                 $this->auth_error = $this->api->api_error;
             } else {
+                // Restore folder structure from backup if available.
+                if ( MediaFolders::has_backup() ) {
+                    MediaFolders::restore_from_backup();
+                }
                 wp_safe_redirect( $this->settings_url() );
             }
         }

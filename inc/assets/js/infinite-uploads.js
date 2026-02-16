@@ -404,6 +404,23 @@ jQuery(document).ready(function ($) {
 			iupProcessingLoop = false;
 		});
 
+	// Disconnect confirmation when folders are in use.
+	$('#iup-disconnect-btn').on('click', function (e) {
+		var folderCount = parseInt($(this).data('folder-count'), 10) || 0;
+		if (folderCount > 0) {
+			var confirmed = confirm(
+				'Disconnecting will place your site in an unlicensed state. Your folder structure and media customizations (' + folderCount + ' folder(s)) will be removed, but no media files will be deleted.\n\n' +
+				'All items will remain safely available in the default WordPress Media Library. If you reconnect and license this site again, your folders may be restored.\n\n' +
+				'Are you sure you want to disconnect?'
+			);
+			if (!confirmed) {
+				e.preventDefault();
+				e.stopPropagation();
+				return false;
+			}
+		}
+	});
+
 	//Compare to live
 	$('#scan-remote-modal')
 		.on('show.bs.modal', function (e) {

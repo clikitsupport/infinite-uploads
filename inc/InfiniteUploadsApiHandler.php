@@ -529,6 +529,9 @@ class InfiniteUploadsApiHandler {
 			wp_cache_flush(); //unfortunately no other way to clean every post from cache.
 		}
 
+		// Backup and remove folder data (media files are untouched).
+		MediaFolders::backup_and_cleanup();
+
 		//logout and disable
 		$this->set_token( '' ); //logout
 		$this->iup_instance->toggle_cloud( false );

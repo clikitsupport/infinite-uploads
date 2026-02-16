@@ -168,9 +168,15 @@
 				<div class="row text-center mb-3">
 					<div class="col"><?php esc_html_e( 'We will download your files back to the uploads directory before disconnecting to prevent broken media on your site.', 'infinite-uploads' ); ?></div>
 				</div>
+				<?php if ( $iu_folder_count > 0 ) : ?>
+				<div class="alert alert-warning mt-2 mb-3" role="alert">
+					<strong><?php esc_html_e( 'Important:', 'infinite-uploads' ); ?></strong>
+					<?php esc_html_e( 'Disconnecting will place your site in an unlicensed state. Your folder structure and media customizations will be removed, but no media files will be deleted. All items will remain safely available in the default WordPress Media Library. If you reconnect and license this site again, your folders may be restored.', 'infinite-uploads' ); ?>
+				</div>
+				<?php endif; ?>
 				<div class="row justify-content-center">
 					<div class="col-xl-5 col-lg-6 col-md-7 text-center">
-						<button class="btn text-nowrap btn-info btn-lg btn-block" data-toggle="modal" data-target="#scan-remote-modal" data-next="download"><?php esc_html_e( 'Disconnect', 'infinite-uploads' ); ?></button>
+						<button class="btn text-nowrap btn-info btn-lg btn-block" id="iup-disconnect-btn" data-toggle="modal" data-target="#scan-remote-modal" data-next="download" data-folder-count="<?php echo esc_attr( $iu_folder_count ); ?>"><?php esc_html_e( 'Disconnect', 'infinite-uploads' ); ?></button>
 					</div>
 				</div>
 			</div>
