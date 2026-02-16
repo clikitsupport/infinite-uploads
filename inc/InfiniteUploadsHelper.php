@@ -271,6 +271,22 @@ class InfiniteUploadsHelper {
 		return apply_filters( 'infinite_uploads_bucket_url', 'https://' . $bucket . '.s3.amazonaws.com' . $path );
 	}
 
+	public static function is_media_folders_enabled() {
+		return get_site_option( 'iu_media_folders_enabled', 'yes' ) !== 'no';
+	}
+
+	public static function get_media_folders_setting() {
+		return get_site_option( 'iu_media_folders_enabled', 'yes' );
+	}
+
+	public static function set_media_folders_setting( $value ) {
+		if ( $value !== 'yes' && $value !== 'no' ) {
+			return false;
+		}
+
+		return update_site_option( 'iu_media_folders_enabled', $value );
+	}
+
 	public static function is_file_exclusion_enabled() {
 		$file_exclusion_setting = self::get_file_exclusion_setting();
 

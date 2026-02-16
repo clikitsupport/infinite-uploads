@@ -787,4 +787,34 @@ jQuery(document).ready(function ($) {
 		});
 	});
 
+	// Save media folders setting.
+	$('#saveMediaFoldersSetting').on('click', function () {
+		var $btn = $(this);
+		var enabled = $('input[name="iu_media_folders_enabled"]:checked').val();
+		$btn.prop('disabled', true);
+		$('#mediaFoldersSaveStatus').hide();
+
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'save_iu_media_folders_setting',
+				enabled: enabled,
+				nonce: iup_data.nonce.saveMediaFolders
+			},
+			success: function (response) {
+				$btn.prop('disabled', false);
+				if (response.success) {
+					$('#mediaFoldersSaveStatus').fadeIn();
+					setTimeout(function () {
+						$('#mediaFoldersSaveStatus').fadeOut();
+					}, 5000);
+				}
+			},
+			error: function () {
+				$btn.prop('disabled', false);
+			}
+		});
+	});
+
 });

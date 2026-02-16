@@ -83,6 +83,28 @@
 		</div>
         <div class="row justify-content-center mb-5">
             <div class="col-md-6 col-sm-12">
+                <h5><?php esc_html_e( 'Advanced Media Library', 'infinite-uploads' ); ?></h5>
+                <p class="lead"><?php esc_html_e( 'Enable folder management, custom sorting, search filters, and the enhanced sidebar in the WordPress Media Library.', 'infinite-uploads' ); ?></p>
+            </div>
+            <div class="col-md-6 col-sm-12">
+                <div class="row">
+                    <div class="col"><?php esc_html_e( 'Disable Advanced Media Library Features', 'infinite-uploads' ); ?></div>
+                </div>
+                <div class="">
+                    <?php $media_folders_setting = \ClikIT\InfiniteUploads\InfiniteUploadsHelper::get_media_folders_setting(); ?>
+                    <input type="radio" name="iu_media_folders_enabled" value="yes" <?php checked( $media_folders_setting, 'yes' ); ?> /><?php esc_html_e( 'No (features enabled)', 'infinite-uploads' ); ?>
+                    <input type="radio" name="iu_media_folders_enabled" value="no" <?php checked( $media_folders_setting, 'no' ); ?> /><?php esc_html_e( 'Yes (features disabled)', 'infinite-uploads' ); ?>
+                </div>
+                <div class="row">
+                    <div class="col text-left p-3">
+                        <button class="btn text-nowrap btn-primary btn-lg m-4" id="saveMediaFoldersSetting"><?php esc_html_e( 'Save Settings', 'infinite-uploads' ); ?></button>
+                        <span id="mediaFoldersSaveStatus" style="display:none;" class="text-success ml-2"><?php esc_html_e( 'Saved! Please reload the Media Library page.', 'infinite-uploads' ); ?></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row justify-content-center mb-5">
+            <div class="col-md-6 col-sm-12">
                 <h5><?php esc_html_e( 'Files to exclude', 'infinite-uploads' ); ?></h5>
                 <p class="lead"><?php esc_html_e( 'Specify files or directories to exclude from cloud sync. For example, exclude log files with ".log" or specific directories with "/directory-path/". One entry per line.', 'infinite-uploads' ); ?></p>
             </div>

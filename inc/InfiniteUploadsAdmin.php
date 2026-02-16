@@ -46,6 +46,7 @@ class InfiniteUploadsAdmin {
 
         add_action( 'wp_ajax_save_iu_excluded_files', [ $this, 'infinite_uploads_save_excluded_files' ] );
         add_action( 'wp_ajax_get_directory_tree', [ $this, 'get_direcotry_tree' ] );
+        add_action( 'wp_ajax_save_iu_media_folders_setting', [ $this, 'save_media_folders_setting' ] );
 
         // Handle it via Action Schedular.
         add_action( 'infinite-uploads-do-sync', [ $this, 'do_sync' ] );
@@ -2021,8 +2022,9 @@ class InfiniteUploadsAdmin {
                 'download'          => wp_create_nonce( 'iup_download' ),
                 'toggle'            => wp_create_nonce( 'iup_toggle' ),
                 'video'             => wp_create_nonce( 'iup_video' ),
-                'saveExcludedFiles' => wp_create_nonce( 'iu_excluded_files_nonce' ),
-                'getTree'           => wp_create_nonce( 'get_tree_nonce' ),
+                'saveExcludedFiles'    => wp_create_nonce( 'iu_excluded_files_nonce' ),
+                'getTree'              => wp_create_nonce( 'get_tree_nonce' ),
+                'saveMediaFolders'     => wp_create_nonce( 'iu_media_folders_nonce' ),
         ];
 
         $data['excludedFiles'] = get_site_option( 'iup_excluded_files', '' );
@@ -2497,6 +2499,24 @@ class InfiniteUploadsAdmin {
         update_site_option( 'iup_excluded_files', $excluded_files_array );
 
         InfiniteUploadsHelper::set_file_exclusion_setting( $current_file_exclusion_setting );
+
+        wp_send_json_success();
+    }
+
+    /**
+     * Save media folders enabled/disabled setting.
+     *
+     * @return void
+     */
+    public function save_media_folders_setting() {
+        check_ajax_referer( 'iu_media_folders_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( 'Insufficient permissions' );
+        }
+
+        $value = isset( $_POST['enabled'] ) ? sanitize_text_field( $_POST['enabled'] ) : 'yes';
+        InfiniteUploadsHelper::set_media_folders_setting( $value );
 
         wp_send_json_success();
     }
