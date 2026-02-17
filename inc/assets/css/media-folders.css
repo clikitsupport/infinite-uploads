@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Infinite Uploads - Media Folders Sidebar (FileBird-style)
+   Infinite Uploads - Media Folders Sidebar (Custom Tree)
    ========================================================================== */
 
 /* Layout wrapper for list mode */
@@ -54,13 +54,8 @@
 }
 
 .iu-sidebar-handle:hover::before {
-	background: #2271b1;
-	box-shadow: 1px 0 0 0 #2271b1;
-}
-
-.iu-sidebar-handle:hover::before {
-	background: #2271b1;
-	box-shadow: 1px 0 0 0 #2271b1;
+	background: #3253e9;
+	box-shadow: 1px 0 0 0 #3253e9;
 }
 
 /* Circular toggle button - flex item after handle */
@@ -88,9 +83,9 @@
 }
 
 .iu-sidebar-toggle:hover {
-	background: #2271b1;
+	background: #3253e9;
 	color: #fff;
-	box-shadow: 0 0 0 1px #2271b1, 0 2px 5px rgba(51, 51, 51, 0.1);
+	box-shadow: 0 0 0 1px #3253e9, 0 2px 5px rgba(51, 51, 51, 0.1);
 }
 
 .iu-sidebar-toggle svg {
@@ -106,7 +101,6 @@
 	width: 280px;
 	min-width: 280px;
 	background: #f0f0f1;
-	/*border: 1px solid #c3c4c7;*/
 	border-right: none;
 	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 	padding: 0;
@@ -181,7 +175,9 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 10px 12px;
+	padding: 15px;
+	background: #fff;
+	box-shadow: 0 5px 35px #00000008;
 	border-bottom: 1px solid #e2e4e7;
 }
 
@@ -195,28 +191,28 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 5px;
-	background: #2271b1;
+	background: #3253e9;
 	color: #fff;
-	border: 1px solid #2271b1;
+	border: 1px solid #3253e9;
 	border-radius: 4px;
 	cursor: pointer;
 	padding: 5px 12px;
 	font-size: 13px;
 	font-weight: 500;
 	line-height: 1.4;
-	transition: background-color 0.15s ease, border-color 0.15s ease;
+	transition: all .2s;
 	white-space: nowrap;
 }
 
 .iu-folder-add-btn:hover {
-	background: #135e96;
-	border-color: #135e96;
+	background: #3148cf;
+	border-color: #3148cf;
 	color: #fff;
 }
 
 .iu-folder-add-btn:active {
-	background: #0a4b78;
-	border-color: #0a4b78;
+	background: #2a3eb5;
+	border-color: #2a3eb5;
 }
 
 .iu-folder-add-btn .dashicons {
@@ -247,22 +243,21 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 3px;
-	background: #fff;
-	border: 1px solid #c3c4c7;
+	background: #f6f7f7;
+	border: none;
 	border-radius: 4px;
 	cursor: pointer;
 	padding: 3px 8px;
 	font-size: 14px;
-	color: #50575e;
+	color: #33302f;
 	line-height: 1.4;
-	transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+	transition: all .2s;
 }
 
 .iu-action-rename:hover:not(:disabled),
 .iu-action-delete:hover:not(:disabled) {
-	background: #f0f0f1;
-	color: #1d2327;
-	border-color: #8c8f94;
+	background: #3253e9;
+	color: #fff;
 }
 
 .iu-action-rename:disabled,
@@ -292,26 +287,24 @@
 	justify-content: center;
 	width: 28px;
 	height: 28px;
-	background: none;
-	border: 1px solid transparent;
+	background: #f6f7f7;
+	border: none;
 	border-radius: 4px;
 	cursor: pointer;
 	padding: 0;
-	color: #50575e;
-	transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+	color: #33302f;
+	transition: all .2s;
 }
 
 .iu-sort-btn:hover,
 .iu-action-more:hover {
-	background: #f0f0f1;
-	color: #1d2327;
-	border-color: #c3c4c7;
+	background: #3253e9;
+	color: #fff;
 }
 
 .iu-sort-btn.iu-active {
-	background: #e8f0fe;
-	color: #2271b1;
-	border-color: #2271b1;
+	background: #3253e9;
+	color: #fff;
 }
 
 .iu-sort-btn .dashicons,
@@ -392,28 +385,30 @@
 .iu-virtual-folder {
 	display: flex;
 	align-items: center;
-	padding: 6px 12px;
+	padding: 6px 16px;
 	cursor: pointer;
-	transition: background-color 0.1s ease;
+	transition: all .2s;
 	position: relative;
 	user-select: none;
+	border-radius: 3px;
+	margin: 0 16px;
 }
 
 .iu-virtual-folder:hover {
-	background: #f0f0f1;
+	background: #e3e3e3;
 }
 
 .iu-virtual-folder.iu-vf-selected {
-	background: #e8f0fe;
+	background: #e7e8ef;
 }
 
 .iu-virtual-folder.iu-vf-selected .iu-vf-name {
-	color: #2271b1;
+	color: #3253e9;
 	font-weight: 500;
 }
 
 .iu-virtual-folder.iu-vf-selected .iu-vf-icon {
-	color: #2271b1;
+	color: #3253e9;
 }
 
 .iu-vf-icon {
@@ -422,7 +417,7 @@
 	height: 20px;
 	line-height: 20px;
 	margin-right: 6px;
-	color: #a7aaad;
+	color: #8f8f8f;
 }
 
 .iu-vf-name {
@@ -434,11 +429,11 @@
 
 /* Virtual folder drop hover */
 .iu-virtual-folder.iu-drop-hover {
-	background: #e8f0fe;
+	background: #e7e8ef;
 }
 
 .iu-virtual-folder.iu-drop-hover .iu-vf-name {
-	color: #2271b1;
+	color: #3253e9;
 	font-weight: 600;
 }
 
@@ -448,26 +443,26 @@
 
 .iu-folders-search {
 	position: relative;
-	padding: 8px 12px;
+	padding: 8px 16px;
 	border-bottom: 1px solid #e2e4e7;
 }
 
 .iu-search-icon {
 	position: absolute;
-	left: 18px;
+	left: 22px;
 	top: 50%;
 	transform: translateY(-50%);
 	font-size: 14px;
 	width: 14px;
 	height: 14px;
-	color: #a7aaad;
+	color: #82878c;
 	pointer-events: none;
 }
 
 .iu-folder-search-input {
 	width: 100%;
 	padding: 6px 8px 6px 28px;
-	border: 1px solid #c3c4c7;
+	border: 1px solid #CDD0D4;
 	border-radius: 4px;
 	font-size: 13px;
 	line-height: 1.4;
@@ -478,13 +473,13 @@
 }
 
 .iu-folder-search-input:focus {
-	border-color: #2271b1;
-	box-shadow: 0 0 0 1px #2271b1;
+	border-color: #3253e9;
+	box-shadow: 0 0 0 1px #3253e9;
 	outline: none;
 }
 
 .iu-folder-search-input::placeholder {
-	color: #a7aaad;
+	color: #82878c;
 }
 
 /* ==========================================================================
@@ -505,6 +500,8 @@
 	border-radius: 10px;
 	box-sizing: border-box;
 	margin-left: auto;
+	white-space: nowrap;
+	flex-shrink: 0;
 }
 
 /* Badge inside virtual folder */
@@ -514,29 +511,12 @@
 }
 
 .iu-virtual-folder.iu-vf-selected .iu-count-badge {
-	color: #2271b1;
-	background: #d4e4f7;
-}
-
-/* Badge inside jstree anchor */
-#iu-folders-tree .jstree-anchor .iu-count-badge {
-	position: absolute;
-	right: 8px;
-	top: 50%;
-	transform: translateY(-50%);
-}
-
-#iu-folders-tree .jstree-clicked .iu-count-badge {
-	color: #2271b1;
-	background: #d4e4f7;
-}
-
-#iu-folders-tree .jstree-anchor:hover .iu-count-badge {
-	background: #e2e4e7;
+	color: #3253e9;
+	background: #d4d7f7;
 }
 
 /* ==========================================================================
-   jstree overrides
+   Custom Folder Tree
    ========================================================================== */
 
 #iu-folders-tree {
@@ -545,117 +525,234 @@
 	overflow-y: auto;
 }
 
-#iu-folders-tree .jstree-anchor {
+/* Tree node list resets */
+#iu-folders-tree ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+#iu-folders-tree > ul {
+	padding: 0 8px;
+}
+
+#iu-folders-tree .iu-node-children {
+	padding-left: 20px;
+}
+
+/* Node row */
+.iu-node-row {
+	display: flex;
+	align-items: center;
+	height: 36px;
+	padding: 0 8px;
+	cursor: pointer;
+	border-radius: 3px;
+	transition: background-color 0.15s ease;
+	user-select: none;
+	position: relative;
+}
+
+.iu-node-row:hover {
+	background: #e3e3e3;
+}
+
+/* Selected state */
+.iu-node-row.iu-selected {
+	background: #e7e8ef;
+}
+
+.iu-node-row.iu-selected .iu-node-text {
+	color: #3253e9;
+	font-weight: 500;
+}
+
+.iu-node-row.iu-selected .iu-node-icon {
+	color: #3253e9;
+}
+
+.iu-node-row.iu-selected .iu-count-badge {
+	color: #3253e9;
+	background: #d4d7f7;
+}
+
+.iu-node-row:hover .iu-count-badge {
+	background: #e2e4e7;
+}
+
+/* Toggle (chevron) */
+.iu-node-toggle {
+	width: 20px;
+	height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #8f8f8f;
+	flex-shrink: 0;
+	transition: transform 0.15s ease;
+	border-radius: 3px;
+}
+
+.iu-node-toggle:hover {
+	background: rgba(0, 0, 0, 0.06);
+}
+
+.iu-node-toggle svg {
+	width: 16px;
+	height: 16px;
+}
+
+.iu-node-toggle.iu-expanded {
+	transform: rotate(90deg);
+}
+
+/* Empty toggle placeholder (leaf nodes) */
+.iu-node-toggle.iu-leaf {
+	visibility: hidden;
+}
+
+/* Folder icon */
+.iu-node-icon {
+	font-size: 16px;
+	width: 20px;
+	height: 20px;
+	line-height: 20px;
+	margin-right: 4px;
+	color: #8f8f8f;
+	flex-shrink: 0;
+}
+
+/* Node text */
+.iu-node-text {
+	flex: 1;
 	font-size: 13px;
-	color: #50575e;
-	line-height: 28px;
-	height: 28px;
-	padding: 0 8px 0 4px;
+	color: #3253e9;
+	line-height: 36px;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	position: relative;
-	padding-right: 48px;
+	min-width: 0;
 }
 
-#iu-folders-tree .jstree-anchor:hover {
-	color: #1d2327;
-}
-
-#iu-folders-tree .jstree-clicked {
-	background: #e8f0fe !important;
-	color: #2271b1 !important;
-	border-radius: 0;
-}
-
-#iu-folders-tree .jstree-wholerow-clicked {
-	background: #e8f0fe !important;
-}
-
-#iu-folders-tree .jstree-wholerow-hovered {
-	background: #f0f0f1 !important;
-}
-
-/* Folder icon styling */
-#iu-folders-tree .jstree-icon.dashicons {
-	font-size: 16px;
-	width: 20px;
-	height: 28px;
-	line-height: 28px;
-	margin-right: 2px;
-	color: #a7aaad;
-}
-
-#iu-folders-tree .jstree-clicked > .jstree-icon.dashicons {
-	color: #2271b1;
-}
-
-#iu-folders-tree .jstree-anchor:hover > .jstree-icon.dashicons {
-	color: #50575e;
-}
-
-/* Tree connecting lines */
-#iu-folders-tree .jstree-icon.jstree-ocl {
-	color: #c3c4c7;
-	margin-top: 4px;
+/* Count badge inside tree node */
+.iu-node-row .iu-count-badge {
+	margin-left: 6px;
 }
 
 /* ==========================================================================
-   Cut indicator
+   Cut Indicator
    ========================================================================== */
 
-#iu-folders-tree .iu-cut > .jstree-anchor {
+.iu-tree-node.iu-cut > .iu-node-row {
 	opacity: 0.5;
 	font-style: italic;
 }
 
 /* ==========================================================================
-   jstree search highlight
+   Search match highlight
    ========================================================================== */
 
-#iu-folders-tree .jstree-search {
-	color: #1d2327 !important;
-	font-weight: 600 !important;
-	font-style: normal !important;
+.iu-tree-node.iu-search-match > .iu-node-row .iu-node-text {
+	color: #1d2327;
+	font-weight: 600;
+}
+
+/* Hidden nodes during search */
+.iu-tree-node.iu-search-hidden {
+	display: none;
 }
 
 /* ==========================================================================
-   Context menu styling
+   Inline Rename Input
    ========================================================================== */
 
-.jstree-contextmenu .jstree-anchor {
-	font-size: 13px !important;
+.iu-node-row .iu-rename-input {
+	flex: 1;
+	font-size: 13px;
+	line-height: 1.4;
+	padding: 2px 6px;
+	border: 1px solid #3253e9;
+	border-radius: 3px;
+	outline: none;
+	box-shadow: 0 0 0 1px #3253e9;
+	min-width: 0;
+	background: #fff;
+	color: #1d2327;
 }
 
-.jstree-contextmenu .dashicons {
+/* ==========================================================================
+   Drop Hover (media drag onto tree nodes)
+   ========================================================================== */
+
+.iu-node-row.iu-drop-hover {
+	background: #e7e8ef;
+}
+
+.iu-node-row.iu-drop-hover .iu-node-text {
+	color: #3253e9;
+	font-weight: 600;
+}
+
+/* Folder DnD: being dragged */
+.iu-tree-node.iu-dragging > .iu-node-row {
+	opacity: 0.4;
+}
+
+/* ==========================================================================
+   Context Menu
+   ========================================================================== */
+
+.iu-context-menu {
+	position: fixed;
+	z-index: 100001;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 3px 8px rgba(0, 0, 0, 0.16);
+	padding: 4px 0;
+	min-width: 160px;
+}
+
+.iu-context-menu-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	padding: 6px 12px;
+	border: none;
+	background: none;
+	cursor: pointer;
+	font-size: 13px;
+	color: #50575e;
+	line-height: 1.4;
+	text-align: left;
+	box-sizing: border-box;
+}
+
+.iu-context-menu-item:hover {
+	background: #f0f0f1;
+	color: #1d2327;
+}
+
+.iu-context-menu-item .dashicons {
 	font-size: 16px;
 	width: 16px;
 	height: 16px;
-	margin-right: 6px;
-	vertical-align: middle;
+	color: #787c82;
 }
 
-.vakata-context {
-	z-index: 100001 !important;
-	box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16) !important;
-	border: 1px solid #c3c4c7 !important;
-	border-radius: 4px !important;
-	padding: 4px 0 !important;
-	min-width: 160px !important;
+.iu-context-menu-item.iu-danger {
+	color: #d63638;
 }
 
-.vakata-context li > a {
-	padding: 4px 12px !important;
-	line-height: 22px !important;
+.iu-context-menu-item.iu-danger .dashicons {
+	color: #d63638;
 }
 
-.vakata-context li > a:hover {
-	background: #f0f0f1 !important;
-	box-shadow: none !important;
-}
-
-.vakata-context .vakata-context-separator {
-	margin: 4px 0 !important;
+.iu-context-menu-separator {
+	height: 1px;
+	background: #e2e4e7;
+	margin: 4px 0;
 }
 
 /* ==========================================================================
@@ -673,12 +770,12 @@ body.iu-resizing * {
 }
 
 body.iu-resizing .iu-sidebar-handle::before {
-	background: #2271b1;
-	box-shadow: 1px 0 0 0 #2271b1;
+	background: #3253e9;
+	box-shadow: 1px 0 0 0 #3253e9;
 }
 
 /* ==========================================================================
-   Drag-and-Drop
+   Drag-and-Drop (media items)
    ========================================================================== */
 
 .iu-drag-helper {
@@ -716,7 +813,7 @@ body.iu-resizing .iu-sidebar-handle::before {
 	position: absolute;
 	top: -6px;
 	right: -6px;
-	background: #2271b1;
+	background: #3253e9;
 	color: #fff;
 	font-size: 10px;
 	font-weight: 600;
@@ -737,33 +834,8 @@ body.iu-resizing .iu-sidebar-handle::before {
 
 /* Drop target highlighting on sidebar */
 #iu-media-folders-sidebar.iu-drop-active {
-	border-color: #2271b1;
-	box-shadow: 0 0 0 1px #2271b1;
-}
-
-/* Drop target highlighting on jstree nodes */
-#iu-folders-tree .iu-drop-hover > .jstree-wholerow {
-	background: #e8f0fe !important;
-}
-
-#iu-folders-tree .iu-drop-hover > .jstree-anchor {
-	color: #2271b1 !important;
-	font-weight: 600;
-}
-
-/* jstree DND marker */
-#jstree-marker {
-	z-index: 100002 !important;
-}
-
-#jstree-dnd {
-	z-index: 100002 !important;
-	background: #fff;
-	border: 1px solid #c3c4c7;
-	border-radius: 4px;
-	padding: 4px 8px;
-	font-size: 12px;
-	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+	border-color: #3253e9;
+	box-shadow: 0 0 0 1px #3253e9;
 }
 
 /* ==========================================================================

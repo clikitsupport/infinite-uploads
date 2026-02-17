@@ -69,32 +69,26 @@ class MediaFolders {
 
 		$plugin_url = plugins_url( '', dirname( __FILE__ ) );
 
-		// jstree (already bundled).
-		wp_enqueue_style(
-			'iu-jstree',
-			$plugin_url . '/inc/assets/jstree/themes/default/style.min.css',
-			[],
-			INFINITE_UPLOADS_VERSION
-		);
+		// Tailwind CSS (CDN).
 		wp_enqueue_script(
-			'iu-jstree',
-			$plugin_url . '/inc/assets/jstree/jstree.min.js',
-			[ 'jquery' ],
-			INFINITE_UPLOADS_VERSION,
-			true
+			'iu-tailwind',
+			'https://cdn.tailwindcss.com',
+			[],
+			null,
+			false
 		);
 
 		// Media folders.
 		wp_enqueue_style(
 			'iu-media-folders',
 			$plugin_url . '/inc/assets/css/media-folders.css',
-			[ 'iu-jstree' ],
+			[],
 			INFINITE_UPLOADS_VERSION
 		);
 		wp_enqueue_script(
 			'iu-media-folders',
 			$plugin_url . '/inc/assets/js/media-folders.js',
-			[ 'jquery', 'iu-jstree' ],
+			[ 'jquery' ],
 			INFINITE_UPLOADS_VERSION,
 			true
 		);

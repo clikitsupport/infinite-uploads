@@ -1,16 +1,15 @@
 /**
  * Infinite Uploads - Media Folders
  *
- * Adds a jstree sidebar to the WordPress Media Library for organizing
- * media into folders via a custom taxonomy. Uses native HTML5 Drag and
- * Drop API for moving media into folders.
+ * Custom folder tree sidebar for the WordPress Media Library.
+ * Replaces jstree with plain jQuery + HTML for a lighter footprint.
+ * Uses native HTML5 Drag and Drop API for moving media into folders.
  */
 (function ($) {
 	'use strict';
 
 	var IU_Folders = {
 		currentFolder: null,
-		tree: null,
 		isListMode: iuMediaFolders.is_list_mode,
 		dragIds: [],
 		sortMode: localStorage.getItem('iu_folders_sort') || 'custom',
@@ -19,9 +18,26 @@
 		uncategorizedCount: 0,
 		folderCounts: {},
 
+		// Custom tree state
+		folders: [],
+		expandedNodes: null, // Set, loaded from localStorage
+		selectedNode: null,
+
+		// SVG icons
+		chevronSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd"/></svg>',
+		folderSvg: '<span class="dashicons dashicons-open-folder iu-node-icon"></span>',
+
 		init: function () {
+			// Load expanded nodes from localStorage
+			try {
+				var stored = JSON.parse(localStorage.getItem('iu_folders_expanded') || '[]');
+				this.expandedNodes = new Set(stored);
+			} catch (e) {
+				this.expandedNodes = new Set();
+			}
+
 			this.injectSidebar();
-			this.initTree();
+			this.loadAndRenderTree();
 			this.initSearch();
 			this.initResize();
 			this.bindEvents();
@@ -64,9 +80,6 @@
 								'<span>' + iuMediaFolders.delete + '</span>' +
 							'</button>' +
 							'<div class="iu-actions-right">' +
-								// '<button type="button" class="iu-sort-btn" title="' + iuMediaFolders.sort_az + '">' +
-								// 	'<span class="dashicons dashicons-sort"></span>' +
-								// '</button>' +
 								'<div class="iu-more-dropdown">' +
 									'<button type="button" class="iu-action-more" title="' + iuMediaFolders.more + '">' +
 										'<span class="dashicons dashicons-ellipsis"></span>' +
@@ -98,10 +111,10 @@
 							'</div>' +
 						'</div>' +
 						// Search input
-						// '<div class="iu-folders-search">' +
-						// 	'<span class="dashicons dashicons-open-folder iu-search-icon"></span>' +
-						// 	'<input type="text" class="iu-folder-search-input" placeholder="' + iuMediaFolders.search_folders + '" />' +
-						// '</div>' +
+						'<div class="iu-folders-search">' +
+							'<span class="dashicons dashicons-search iu-search-icon"></span>' +
+							'<input type="text" class="iu-folder-search-input" placeholder="' + iuMediaFolders.search_folders + '" />' +
+						'</div>' +
 						// Folder tree (user folders only)
 						'<div id="iu-folders-tree"></div>' +
 					'</div>' +
@@ -114,8 +127,6 @@
 			if (this.isListMode) {
 				var $wrap = $('.wrap');
 				if ($wrap.length) {
-					// Wrap ALL children of .wrap (including h1, Add New button, etc.)
-					// inside .iu-media-content so the sidebar sits alongside everything.
 					$wrap.children().wrapAll('<div class="iu-media-content" style="min-height: 558.734px;"></div>');
 					$wrap.find('.iu-media-content').first().before(sidebarHtml);
 					$wrap.find('#iu-media-folders-wrap, .iu-media-content').wrapAll('<div class="iu-media-wrapper"></div>');
@@ -129,84 +140,11 @@
 			}
 		},
 
-		/**
-		 * Initialize the jstree instance (user folders only).
-		 */
-		initTree: function () {
-			var self = this;
+		// -----------------------------------------------------------------
+		// Tree: load data and render
+		// -----------------------------------------------------------------
 
-			$('#iu-folders-tree').jstree({
-				core: {
-					data: function (node, callback) {
-						self.loadFolders(callback);
-					},
-					check_callback: function (operation) {
-						if (operation === 'move_node') {
-							return true;
-						}
-						return true;
-					},
-					themes: {
-						dots: true,
-						icons: true,
-						responsive: false,
-					},
-					multiple: false,
-				},
-				plugins: ['dnd', 'contextmenu', 'search'],
-				dnd: {
-					is_draggable: function () {
-						return true;
-					},
-					check_while_dragging: true,
-				},
-				contextmenu: {
-					items: function (node) {
-						return self.getContextMenu(node);
-					},
-				},
-				search: {
-					show_only_matches: true,
-					show_only_matches_children: true,
-					search_callback: function (str, node) {
-						var folderName = (node.data && node.data.folder_name) || node.text || '';
-						return folderName.toLowerCase().indexOf(str.toLowerCase()) !== -1;
-					},
-				},
-			});
-
-			this.tree = $('#iu-folders-tree').jstree(true);
-
-			// When a jstree node is selected, deselect virtual folders.
-			$('#iu-folders-tree').on('select_node.jstree', function (e, data) {
-				self.deselectVirtualFolders();
-				self.updateToolbarButtons(data.node);
-				self.onFolderSelect(data.node.id);
-			});
-
-			$('#iu-folders-tree').on('move_node.jstree', function (e, data) {
-				self.onFolderMove(data);
-			});
-
-			$('#iu-folders-tree').on('rename_node.jstree', function (e, data) {
-				self.onFolderRename(data);
-			});
-
-			// Re-render count badges when tree redraws or nodes open.
-			$('#iu-folders-tree').on('redraw.jstree open_node.jstree', function () {
-				self.renderCountBadges();
-			});
-
-			// When tree is ready, update sort button and restore selection.
-			$('#iu-folders-tree').on('ready.jstree', function () {
-				self.updateSortButton();
-			});
-		},
-
-		/**
-		 * Load folders from the server (user folders only, no virtual nodes).
-		 */
-		loadFolders: function (callback) {
+		loadAndRenderTree: function (callback) {
 			var self = this;
 
 			$.post(iuMediaFolders.ajax_url, {
@@ -215,23 +153,557 @@
 				sort: self.sortMode,
 			}, function (response) {
 				if (response.success) {
-					var folders = response.data.folders || [];
+					self.folders = response.data.folders || [];
 					self.totalCount = response.data.total_count || 0;
 					self.uncategorizedCount = response.data.uncategorized_count || 0;
 					self.folderCounts = response.data.counts || {};
-
-					// Update virtual folder badges.
 					self.updateVirtualCounts();
+					self.buildTree();
 
-					// Only user folders go into jstree.
-					for (var i = 0; i < folders.length; i++) {
-						folders[i].icon = 'dashicons dashicons-open-folder';
+					if (typeof callback === 'function') {
+						callback();
 					}
-
-					callback(folders);
 				}
 			}, 'json');
 		},
+
+		/**
+		 * Convert flat folder array to nested tree and render HTML.
+		 */
+		buildTree: function () {
+			var self = this;
+			var $tree = $('#iu-folders-tree');
+			$tree.empty();
+
+			if (!this.folders.length) {
+				return;
+			}
+
+			// Build parent→children map from flat array
+			var childrenMap = {};
+			var roots = [];
+
+			for (var i = 0; i < this.folders.length; i++) {
+				var f = this.folders[i];
+				var parentKey = f.parent; // '#' or 'folder_X'
+				if (parentKey === '#') {
+					roots.push(f);
+				} else {
+					if (!childrenMap[parentKey]) childrenMap[parentKey] = [];
+					childrenMap[parentKey].push(f);
+				}
+			}
+
+			var $ul = $('<ul></ul>');
+			for (var r = 0; r < roots.length; r++) {
+				$ul.append(self.renderNode(roots[r], childrenMap));
+			}
+
+			$tree.append($ul);
+
+			// Re-apply selection
+			if (this.selectedNode) {
+				$tree.find('.iu-tree-node[data-id="' + this.selectedNode + '"] > .iu-node-row').first().addClass('iu-selected');
+			}
+		},
+
+		/**
+		 * Recursively render a single tree node.
+		 */
+		renderNode: function (folder, childrenMap) {
+			var self = this;
+			var nodeId = folder.id; // e.g. 'folder_5'
+			var children = childrenMap[nodeId] || [];
+			var hasChildren = children.length > 0;
+			var isExpanded = this.expandedNodes.has(nodeId);
+			var folderId = folder.data ? folder.data.folder_id : parseInt(nodeId.replace('folder_', ''), 10);
+			var count = this.folderCounts[folderId] || 0;
+
+			var $li = $('<li class="iu-tree-node" data-id="' + nodeId + '"></li>');
+
+			// Node row
+			var $row = $(
+				'<div class="iu-node-row" draggable="true">' +
+					'<span class="iu-node-toggle ' + (hasChildren ? (isExpanded ? 'iu-expanded' : '') : 'iu-leaf') + '">' +
+						self.chevronSvg +
+					'</span>' +
+					self.folderSvg +
+					'<span class="iu-node-text">' + self.escHtml(folder.text) + '</span>' +
+					'<span class="iu-count-badge">' + count + '</span>' +
+				'</div>'
+			);
+			$li.append($row);
+
+			// Children
+			if (hasChildren) {
+				var $childUl = $('<ul class="iu-node-children' + (isExpanded ? '' : ' hidden') + '"></ul>');
+				for (var c = 0; c < children.length; c++) {
+					$childUl.append(self.renderNode(children[c], childrenMap));
+				}
+				$li.append($childUl);
+			}
+
+			return $li;
+		},
+
+		escHtml: function (str) {
+			var div = document.createElement('div');
+			div.appendChild(document.createTextNode(str));
+			return div.innerHTML;
+		},
+
+		// -----------------------------------------------------------------
+		// Tree: expand / collapse
+		// -----------------------------------------------------------------
+
+		toggleNode: function (nodeId) {
+			var $node = $('#iu-folders-tree .iu-tree-node[data-id="' + nodeId + '"]');
+			var $toggle = $node.children('.iu-node-row').find('.iu-node-toggle');
+			var $children = $node.children('.iu-node-children');
+
+			if (!$children.length) return;
+
+			if ($children.hasClass('hidden')) {
+				$children.removeClass('hidden');
+				$toggle.addClass('iu-expanded');
+				this.expandedNodes.add(nodeId);
+			} else {
+				$children.addClass('hidden');
+				$toggle.removeClass('iu-expanded');
+				this.expandedNodes.delete(nodeId);
+			}
+
+			this.persistExpanded();
+		},
+
+		expandAll: function () {
+			var self = this;
+			$('#iu-folders-tree .iu-node-children').removeClass('hidden');
+			$('#iu-folders-tree .iu-node-toggle').not('.iu-leaf').addClass('iu-expanded');
+			$('#iu-folders-tree .iu-tree-node').each(function () {
+				self.expandedNodes.add($(this).data('id'));
+			});
+			this.persistExpanded();
+		},
+
+		collapseAll: function () {
+			$('#iu-folders-tree .iu-node-children').addClass('hidden');
+			$('#iu-folders-tree .iu-node-toggle').removeClass('iu-expanded');
+			this.expandedNodes.clear();
+			this.persistExpanded();
+		},
+
+		persistExpanded: function () {
+			localStorage.setItem('iu_folders_expanded', JSON.stringify(Array.from(this.expandedNodes)));
+		},
+
+		// -----------------------------------------------------------------
+		// Tree: selection
+		// -----------------------------------------------------------------
+
+		selectNode: function (nodeId) {
+			$('#iu-folders-tree .iu-node-row.iu-selected').removeClass('iu-selected');
+			var $node = $('#iu-folders-tree .iu-tree-node[data-id="' + nodeId + '"]');
+			$node.children('.iu-node-row').addClass('iu-selected');
+			this.selectedNode = nodeId;
+			this.deselectVirtualFolders();
+			this.updateToolbarButtons(nodeId);
+			this.onFolderSelect(nodeId);
+		},
+
+		deselectTree: function () {
+			$('#iu-folders-tree .iu-node-row.iu-selected').removeClass('iu-selected');
+			this.selectedNode = null;
+		},
+
+		// -----------------------------------------------------------------
+		// Tree: inline rename
+		// -----------------------------------------------------------------
+
+		startRename: function (nodeId) {
+			var self = this;
+			var $node = $('#iu-folders-tree .iu-tree-node[data-id="' + nodeId + '"]');
+			var $row = $node.children('.iu-node-row');
+			var $text = $row.find('.iu-node-text');
+			var currentName = $text.text().trim();
+
+			// Replace text with input
+			$text.replaceWith(
+				'<input type="text" class="iu-rename-input" value="' + self.escHtml(currentName) + '" data-original="' + self.escHtml(currentName) + '" />'
+			);
+
+			var $input = $row.find('.iu-rename-input');
+			$input.focus().select();
+
+			$input.on('keydown', function (e) {
+				if (e.key === 'Enter') {
+					e.preventDefault();
+					self.finishRename(nodeId, $(this).val().trim(), currentName);
+				} else if (e.key === 'Escape') {
+					e.preventDefault();
+					self.cancelRename($row, currentName);
+				}
+			});
+
+			$input.on('blur', function () {
+				// Delay to allow Enter to fire first
+				var val = $(this).val().trim();
+				setTimeout(function () {
+					if ($row.find('.iu-rename-input').length) {
+						self.finishRename(nodeId, val, currentName);
+					}
+				}, 100);
+			});
+		},
+
+		finishRename: function (nodeId, newName, oldName) {
+			var self = this;
+			var $node = $('#iu-folders-tree .iu-tree-node[data-id="' + nodeId + '"]');
+			var $row = $node.children('.iu-node-row');
+
+			if (!newName || newName === oldName) {
+				self.cancelRename($row, oldName);
+				return;
+			}
+
+			// Replace input with text immediately
+			$row.find('.iu-rename-input').replaceWith(
+				'<span class="iu-node-text">' + self.escHtml(newName) + '</span>'
+			);
+
+			var termId = parseInt(nodeId.replace('folder_', ''), 10);
+
+			$.post(iuMediaFolders.ajax_url, {
+				action: 'iu_rename_folder',
+				nonce: iuMediaFolders.nonce,
+				term_id: termId,
+				name: newName,
+			}, function (response) {
+				if (!response.success) {
+					// Revert on failure
+					$row.find('.iu-node-text').text(oldName);
+					alert(response.data);
+				}
+			}, 'json');
+		},
+
+		cancelRename: function ($row, originalName) {
+			$row.find('.iu-rename-input').replaceWith(
+				'<span class="iu-node-text">' + this.escHtml(originalName) + '</span>'
+			);
+		},
+
+		// -----------------------------------------------------------------
+		// Tree: create folder
+		// -----------------------------------------------------------------
+
+		startCreate: function (parentId) {
+			var self = this;
+			// parentId: '#' for root, or 'folder_X' for subfolder
+
+			// If a parent folder, expand it first
+			if (parentId !== '#') {
+				var $parent = $('#iu-folders-tree .iu-tree-node[data-id="' + parentId + '"]');
+				var $children = $parent.children('.iu-node-children');
+
+				if (!$children.length) {
+					// Create children container
+					$children = $('<ul class="iu-node-children"></ul>');
+					$parent.append($children);
+					// Update toggle to show chevron
+					var $toggle = $parent.children('.iu-node-row').find('.iu-node-toggle');
+					$toggle.removeClass('iu-leaf').addClass('iu-expanded');
+				} else {
+					$children.removeClass('hidden');
+					$parent.children('.iu-node-row').find('.iu-node-toggle').addClass('iu-expanded');
+				}
+				this.expandedNodes.add(parentId);
+				this.persistExpanded();
+			}
+
+			// Create temp node
+			var tempId = 'iu_temp_' + Date.now();
+			var $tempLi = $(
+				'<li class="iu-tree-node" data-id="' + tempId + '">' +
+					'<div class="iu-node-row">' +
+						'<span class="iu-node-toggle iu-leaf">' + self.chevronSvg + '</span>' +
+						self.folderSvg +
+						'<input type="text" class="iu-rename-input" value="' + self.escHtml(iuMediaFolders.new_folder) + '" />' +
+						'<span class="iu-count-badge">0</span>' +
+					'</div>' +
+				'</li>'
+			);
+
+			// Append to correct parent
+			if (parentId === '#') {
+				var $rootUl = $('#iu-folders-tree > ul');
+				if (!$rootUl.length) {
+					$rootUl = $('<ul></ul>');
+					$('#iu-folders-tree').append($rootUl);
+				}
+				$rootUl.append($tempLi);
+			} else {
+				$parent.children('.iu-node-children').append($tempLi);
+			}
+
+			var $input = $tempLi.find('.iu-rename-input');
+			$input.focus().select();
+
+			$input.on('keydown', function (e) {
+				if (e.key === 'Enter') {
+					e.preventDefault();
+					self.finishCreate(tempId, $(this).val().trim(), parentId);
+				} else if (e.key === 'Escape') {
+					e.preventDefault();
+					$tempLi.remove();
+					self.cleanEmptyParent(parentId);
+				}
+			});
+
+			$input.on('blur', function () {
+				var val = $(this).val().trim();
+				setTimeout(function () {
+					if ($('#iu-folders-tree .iu-tree-node[data-id="' + tempId + '"]').length) {
+						if (val) {
+							self.finishCreate(tempId, val, parentId);
+						} else {
+							$tempLi.remove();
+							self.cleanEmptyParent(parentId);
+						}
+					}
+				}, 100);
+			});
+		},
+
+		finishCreate: function (tempId, name, parentId) {
+			var self = this;
+			var $tempNode = $('#iu-folders-tree .iu-tree-node[data-id="' + tempId + '"]');
+
+			if (!name) {
+				$tempNode.remove();
+				self.cleanEmptyParent(parentId);
+				return;
+			}
+
+			var parentFolderId = 0;
+			if (parentId !== '#') {
+				parentFolderId = parseInt(parentId.replace('folder_', ''), 10);
+			}
+
+			// Replace input with text
+			$tempNode.find('.iu-rename-input').replaceWith(
+				'<span class="iu-node-text">' + self.escHtml(name) + '</span>'
+			);
+
+			$.post(iuMediaFolders.ajax_url, {
+				action: 'iu_create_folder',
+				nonce: iuMediaFolders.nonce,
+				name: name,
+				parent: parentFolderId,
+			}, function (response) {
+				if (response.success) {
+					var newId = response.data.id; // 'folder_X'
+					$tempNode.attr('data-id', newId);
+
+					// Add to local data
+					self.folders.push({
+						id: newId,
+						text: response.data.text,
+						parent: parentId === '#' ? '#' : parentId,
+						data: response.data.data,
+					});
+
+					// Make row draggable
+					$tempNode.children('.iu-node-row').attr('draggable', 'true');
+				} else {
+					$tempNode.remove();
+					self.cleanEmptyParent(parentId);
+					alert(response.data);
+				}
+			}, 'json');
+		},
+
+		cleanEmptyParent: function (parentId) {
+			if (parentId === '#') return;
+			var $parent = $('#iu-folders-tree .iu-tree-node[data-id="' + parentId + '"]');
+			var $children = $parent.children('.iu-node-children');
+			if ($children.length && $children.children().length === 0) {
+				$children.remove();
+				$parent.children('.iu-node-row').find('.iu-node-toggle').addClass('iu-leaf').removeClass('iu-expanded');
+				this.expandedNodes.delete(parentId);
+				this.persistExpanded();
+			}
+		},
+
+		// -----------------------------------------------------------------
+		// Tree: delete folder
+		// -----------------------------------------------------------------
+
+		deleteFolder: function (nodeId) {
+			var self = this;
+			var termId = parseInt(nodeId.replace('folder_', ''), 10);
+
+			$.post(iuMediaFolders.ajax_url, {
+				action: 'iu_delete_folder',
+				nonce: iuMediaFolders.nonce,
+				term_id: termId,
+			}, function (response) {
+				if (response.success) {
+					var $node = $('#iu-folders-tree .iu-tree-node[data-id="' + nodeId + '"]');
+					var $parentLi = $node.parent('.iu-node-children').closest('.iu-tree-node');
+					var parentId = $parentLi.data('id') || '#';
+
+					// Move child folders up to parent
+					var $children = $node.children('.iu-node-children').children();
+					if ($children.length) {
+						$node.before($children);
+					}
+
+					$node.remove();
+					self.cleanEmptyParent(parentId);
+
+					// Remove from local data
+					self.folders = self.folders.filter(function (f) { return f.id !== nodeId; });
+
+					if (self.selectedNode === nodeId) {
+						self.selectVirtualFolder('all');
+						self.onFolderSelect('all');
+					}
+				} else {
+					alert(response.data);
+				}
+			}, 'json');
+		},
+
+		// -----------------------------------------------------------------
+		// Tree: refresh (re-fetch and rebuild)
+		// -----------------------------------------------------------------
+
+		refreshTree: function (callback) {
+			this.loadAndRenderTree(callback);
+		},
+
+		// -----------------------------------------------------------------
+		// Tree: search/filter
+		// -----------------------------------------------------------------
+
+		searchFolders: function (query) {
+			if (!query) {
+				$('#iu-folders-tree .iu-tree-node').removeClass('iu-search-hidden iu-search-match');
+				return;
+			}
+
+			var lowerQuery = query.toLowerCase();
+
+			// First, hide everything
+			$('#iu-folders-tree .iu-tree-node').addClass('iu-search-hidden').removeClass('iu-search-match');
+
+			// Show matches and their ancestors
+			$('#iu-folders-tree .iu-tree-node').each(function () {
+				var $node = $(this);
+				var text = $node.children('.iu-node-row').find('.iu-node-text').text();
+				if (text.toLowerCase().indexOf(lowerQuery) !== -1) {
+					$node.removeClass('iu-search-hidden').addClass('iu-search-match');
+					// Show all ancestors
+					$node.parents('.iu-tree-node').removeClass('iu-search-hidden');
+					// Expand ancestors
+					$node.parents('.iu-node-children').removeClass('hidden');
+					$node.parents('.iu-tree-node').children('.iu-node-row').find('.iu-node-toggle').not('.iu-leaf').addClass('iu-expanded');
+					// Show all children of matching node
+					$node.find('.iu-tree-node').removeClass('iu-search-hidden');
+				}
+			});
+		},
+
+		// -----------------------------------------------------------------
+		// Context menu
+		// -----------------------------------------------------------------
+
+		showContextMenu: function (e, nodeId) {
+			var self = this;
+			e.preventDefault();
+			e.stopPropagation();
+
+			// Remove existing menu
+			$('.iu-context-menu').remove();
+
+			var items = '';
+			items += '<button class="iu-context-menu-item" data-action="create"><span class="dashicons dashicons-plus-alt2"></span>' + iuMediaFolders.new_subfolder + '</button>';
+			items += '<button class="iu-context-menu-item" data-action="rename"><span class="dashicons dashicons-edit"></span>' + iuMediaFolders.rename + '</button>';
+			items += '<button class="iu-context-menu-item" data-action="cut"><span class="dashicons dashicons-clipboard"></span>' + iuMediaFolders.cut + '</button>';
+
+			if (self.cutNode && self.cutNode !== nodeId) {
+				items += '<button class="iu-context-menu-item" data-action="paste"><span class="dashicons dashicons-clipboard"></span>' + iuMediaFolders.paste + '</button>';
+			}
+
+			items += '<div class="iu-context-menu-separator"></div>';
+			items += '<button class="iu-context-menu-item iu-danger" data-action="delete"><span class="dashicons dashicons-trash"></span>' + iuMediaFolders.delete + '</button>';
+
+			var $menu = $('<div class="iu-context-menu" data-node="' + nodeId + '">' + items + '</div>');
+			$('body').append($menu);
+
+			// Position
+			var menuWidth = $menu.outerWidth();
+			var menuHeight = $menu.outerHeight();
+			var left = e.pageX;
+			var top = e.pageY;
+
+			if (left + menuWidth > $(window).width()) {
+				left = $(window).width() - menuWidth - 5;
+			}
+			if (top + menuHeight > $(window).scrollTop() + $(window).height()) {
+				top = e.pageY - menuHeight;
+			}
+
+			$menu.css({ left: left, top: top });
+		},
+
+		closeContextMenu: function () {
+			$('.iu-context-menu').remove();
+		},
+
+		// -----------------------------------------------------------------
+		// Cut / Paste
+		// -----------------------------------------------------------------
+
+		cutFolder: function (nodeId) {
+			$('#iu-folders-tree .iu-cut').removeClass('iu-cut');
+			this.cutNode = nodeId;
+			$('#iu-folders-tree .iu-tree-node[data-id="' + nodeId + '"]').addClass('iu-cut');
+		},
+
+		pasteFolder: function (targetNodeId) {
+			var self = this;
+			if (!this.cutNode) return;
+
+			var termId = parseInt(this.cutNode.replace('folder_', ''), 10);
+			var newParent = 0;
+
+			if (targetNodeId && targetNodeId.indexOf('folder_') === 0) {
+				newParent = parseInt(targetNodeId.replace('folder_', ''), 10);
+			}
+
+			$.post(iuMediaFolders.ajax_url, {
+				action: 'iu_move_folder',
+				nonce: iuMediaFolders.nonce,
+				term_id: termId,
+				parent: newParent,
+			}, function (response) {
+				$('#iu-folders-tree .iu-cut').removeClass('iu-cut');
+				self.cutNode = null;
+				if (response.success) {
+					self.refreshTree();
+				} else {
+					alert(response.data);
+				}
+			}, 'json');
+		},
+
+		// -----------------------------------------------------------------
+		// Folder DnD (drag folder to reparent)
+		// -----------------------------------------------------------------
+
+		folderDragNodeId: null,
 
 		// -----------------------------------------------------------------
 		// Virtual folder management
@@ -244,10 +716,7 @@
 		selectVirtualFolder: function (folder) {
 			this.deselectVirtualFolders();
 			$('.iu-virtual-folder[data-folder="' + folder + '"]').addClass('iu-vf-selected');
-			// Deselect jstree nodes.
-			if (this.tree) {
-				this.tree.deselect_all(true);
-			}
+			this.deselectTree();
 			this.updateToolbarButtons(null);
 			this.currentFolder = folder;
 		},
@@ -261,47 +730,29 @@
 		// Toolbar buttons (Rename / Delete)
 		// -----------------------------------------------------------------
 
-		getSelectedUserFolder: function () {
-			if (!this.tree) return null;
-			var sel = this.tree.get_selected(true);
-			if (sel.length && sel[0].id.indexOf('folder_') === 0) {
-				return sel[0];
-			}
-			return null;
-		},
-
-		updateToolbarButtons: function (node) {
-			var isUserFolder = node && node.id && node.id.indexOf('folder_') === 0;
+		updateToolbarButtons: function (nodeId) {
+			var isUserFolder = nodeId && typeof nodeId === 'string' && nodeId.indexOf('folder_') === 0;
 			$('.iu-action-rename').prop('disabled', !isUserFolder);
 			$('.iu-action-delete').prop('disabled', !isUserFolder);
 		},
 
-		/**
-		 * Render count badges on jstree nodes via DOM injection.
-		 */
+		// -----------------------------------------------------------------
+		// Count badges
+		// -----------------------------------------------------------------
+
 		renderCountBadges: function () {
 			var self = this;
 
-			$('#iu-folders-tree .jstree-anchor').each(function () {
-				var $anchor = $(this);
-				var nodeId = $anchor.closest('.jstree-node').attr('id');
-
-				// Remove existing badge.
-				$anchor.find('.iu-count-badge').remove();
-
-				var folderId = parseInt(nodeId.replace('folder_', ''), 10);
+			$('#iu-folders-tree .iu-tree-node').each(function () {
+				var nodeId = $(this).data('id');
+				var folderId = parseInt(String(nodeId).replace('folder_', ''), 10);
 				var count = self.folderCounts[folderId] || 0;
-
-				$anchor.append('<span class="iu-count-badge">' + count + '</span>');
+				$(this).children('.iu-node-row').find('.iu-count-badge').text(count);
 			});
 
-			// Also update virtual folder counts.
 			self.updateVirtualCounts();
 		},
 
-		/**
-		 * Update counts from an AJAX response without full tree refresh.
-		 */
 		updateCountsFromResponse: function (data) {
 			if (data.counts) {
 				this.folderCounts = data.counts;
@@ -327,11 +778,7 @@
 				var val = $(this).val();
 				clearTimeout(searchTimeout);
 				searchTimeout = setTimeout(function () {
-					if (val.length > 0) {
-						self.tree.search(val);
-					} else {
-						self.tree.clear_search();
-					}
+					self.searchFolders(val);
 				}, 250);
 			});
 		},
@@ -348,7 +795,7 @@
 			}
 			localStorage.setItem('iu_folders_sort', this.sortMode);
 			this.updateSortButton();
-			this.tree.refresh();
+			this.refreshTree();
 		},
 
 		updateSortButton: function () {
@@ -360,55 +807,6 @@
 			} else {
 				$btn.attr('title', iuMediaFolders.sort_az).removeClass('iu-active');
 			}
-		},
-
-		// -----------------------------------------------------------------
-		// Expand / Collapse All
-		// -----------------------------------------------------------------
-
-		expandAll: function () {
-			this.tree.open_all();
-		},
-
-		collapseAll: function () {
-			this.tree.close_all();
-		},
-
-		// -----------------------------------------------------------------
-		// Cut / Paste
-		// -----------------------------------------------------------------
-
-		cutFolder: function (node) {
-			$('#iu-folders-tree .iu-cut').removeClass('iu-cut');
-			this.cutNode = node;
-			$('#' + node.id).addClass('iu-cut');
-		},
-
-		pasteFolder: function (targetNode) {
-			var self = this;
-			if (!this.cutNode) return;
-
-			var termId = parseInt(this.cutNode.id.replace('folder_', ''), 10);
-			var newParent = 0;
-
-			if (targetNode && targetNode.id && targetNode.id.indexOf('folder_') === 0) {
-				newParent = parseInt(targetNode.id.replace('folder_', ''), 10);
-			}
-
-			$.post(iuMediaFolders.ajax_url, {
-				action: 'iu_move_folder',
-				nonce: iuMediaFolders.nonce,
-				term_id: termId,
-				parent: newParent,
-			}, function (response) {
-				$('#iu-folders-tree .iu-cut').removeClass('iu-cut');
-				self.cutNode = null;
-				if (response.success) {
-					self.tree.refresh();
-				} else {
-					alert(response.data);
-				}
-			}, 'json');
 		},
 
 		// -----------------------------------------------------------------
@@ -504,15 +902,16 @@
 		},
 
 		// -----------------------------------------------------------------
-		// Folder tree operations (move / rename / create / delete)
+		// Folder move (DnD reparent via tree)
 		// -----------------------------------------------------------------
 
-		onFolderMove: function (data) {
-			var termId = parseInt(data.node.id.replace('folder_', ''), 10);
+		onFolderMove: function (nodeId, newParentId) {
+			var self = this;
+			var termId = parseInt(nodeId.replace('folder_', ''), 10);
 			var newParent = 0;
 
-			if (data.parent && data.parent !== '#') {
-				newParent = parseInt(data.parent.replace('folder_', ''), 10);
+			if (newParentId && newParentId !== '#') {
+				newParent = parseInt(newParentId.replace('folder_', ''), 10);
 			}
 
 			$.post(iuMediaFolders.ajax_url, {
@@ -521,149 +920,10 @@
 				term_id: termId,
 				parent: newParent,
 			}, function (response) {
-				if (!response.success) {
-					$('#iu-folders-tree').jstree(true).refresh();
-				}
-			}, 'json');
-		},
-
-		onFolderRename: function (data) {
-			var nodeId = data.node.id;
-
-			// New temp node (jstree assigns IDs starting with 'j').
-			if (nodeId.indexOf('j') === 0) {
-				this.createFolder(data.node, data.text);
-				return;
-			}
-
-			var termId = parseInt(nodeId.replace('folder_', ''), 10);
-			var name = data.text.trim();
-
-			if (!name) {
-				this.tree.refresh();
-				return;
-			}
-
-			$.post(iuMediaFolders.ajax_url, {
-				action: 'iu_rename_folder',
-				nonce: iuMediaFolders.nonce,
-				term_id: termId,
-				name: name,
-			}, function (response) {
-				if (!response.success) {
-					$('#iu-folders-tree').jstree(true).refresh();
-				}
-			}, 'json');
-		},
-
-		createFolder: function (node, name) {
-			var self = this;
-			var parentId = node.parent;
-			var parent = 0;
-
-			if (parentId && parentId !== '#') {
-				parent = parseInt(parentId.replace('folder_', ''), 10);
-			}
-
-			$.post(iuMediaFolders.ajax_url, {
-				action: 'iu_create_folder',
-				nonce: iuMediaFolders.nonce,
-				name: name,
-				parent: parent,
-			}, function (response) {
 				if (response.success) {
-					self.tree.set_id(node, response.data.id);
-					self.tree.set_text(node, response.data.text);
-					self.tree.set_icon(node, 'dashicons dashicons-open-folder');
-
-					var nodeObj = self.tree.get_node(response.data.id);
-					if (nodeObj && response.data.data) {
-						nodeObj.data = response.data.data;
-					}
-
-					self.renderCountBadges();
+					self.refreshTree();
 				} else {
-					self.tree.delete_node(node);
-					alert(response.data);
-				}
-			}, 'json');
-		},
-
-		getContextMenu: function (node) {
-			var self = this;
-			var items = {};
-
-			items.create = {
-				label: iuMediaFolders.new_subfolder,
-				icon: 'dashicons dashicons-plus-alt2',
-				action: function () { self.addNewFolder(node.id); },
-			};
-			items.rename = {
-				label: iuMediaFolders.rename,
-				icon: 'dashicons dashicons-edit',
-				action: function () {
-					self.tree.edit(node, node.text.trim());
-				},
-			};
-			items.cut = {
-				label: iuMediaFolders.cut,
-				icon: 'dashicons dashicons-clipboard',
-				action: function () { self.cutFolder(node); },
-			};
-			if (self.cutNode && self.cutNode.id !== node.id) {
-				items.paste = {
-					label: iuMediaFolders.paste,
-					icon: 'dashicons dashicons-clipboard',
-					action: function () { self.pasteFolder(node); },
-				};
-			}
-			items.separator = { separator_before: false, separator_after: true, label: '' };
-			items.remove = {
-				label: iuMediaFolders.delete,
-				icon: 'dashicons dashicons-trash',
-				action: function () {
-					if (confirm(iuMediaFolders.confirm_delete)) {
-						self.deleteFolder(node);
-					}
-				},
-			};
-			return items;
-		},
-
-		addNewFolder: function (parentId) {
-			var self = this;
-			var parent = parentId === '#' ? '#' : parentId;
-
-			if (parent !== '#') {
-				this.tree.open_node(parent);
-			}
-
-			var newNode = this.tree.create_node(parent, {
-				text: iuMediaFolders.new_folder,
-				icon: 'dashicons dashicons-open-folder',
-			});
-
-			if (newNode) {
-				setTimeout(function () { self.tree.edit(newNode); }, 100);
-			}
-		},
-
-		deleteFolder: function (node) {
-			var self = this;
-			var termId = parseInt(node.id.replace('folder_', ''), 10);
-
-			$.post(iuMediaFolders.ajax_url, {
-				action: 'iu_delete_folder',
-				nonce: iuMediaFolders.nonce,
-				term_id: termId,
-			}, function (response) {
-				if (response.success) {
-					self.tree.delete_node(node);
-					if (self.currentFolder === node.id) {
-						self.selectVirtualFolder('all');
-						self.onFolderSelect('all');
-					}
-				} else {
+					self.refreshTree();
 					alert(response.data);
 				}
 			}, 'json');
@@ -710,15 +970,37 @@
 			var urlParams = new URLSearchParams(window.location.search);
 			var currentFolderParam = urlParams.get('iu_folder');
 
-			$('#iu-folders-tree').on('ready.jstree', function () {
-				if (currentFolderParam === 'uncategorized') {
-					self.selectVirtualFolder('uncategorized');
-				} else if (currentFolderParam && currentFolderParam !== '') {
-					self.tree.select_node('folder_' + currentFolderParam);
-				} else {
-					self.selectVirtualFolder('all');
+			// Wait for tree to load then restore selection
+			var checkReady = setInterval(function () {
+				if ($('#iu-folders-tree .iu-tree-node').length || !self.folders.length) {
+					clearInterval(checkReady);
+
+					if (currentFolderParam === 'uncategorized') {
+						self.selectVirtualFolder('uncategorized');
+					} else if (currentFolderParam && currentFolderParam !== '') {
+						// Select the folder node without triggering navigation
+						var nodeId = 'folder_' + currentFolderParam;
+						$('#iu-folders-tree .iu-node-row.iu-selected').removeClass('iu-selected');
+						var $node = $('#iu-folders-tree .iu-tree-node[data-id="' + nodeId + '"]');
+						$node.children('.iu-node-row').addClass('iu-selected');
+						self.selectedNode = nodeId;
+						self.deselectVirtualFolders();
+						self.updateToolbarButtons(nodeId);
+						self.currentFolder = nodeId;
+
+						// Expand parent nodes
+						$node.parents('.iu-tree-node').each(function () {
+							var pid = $(this).data('id');
+							$(this).children('.iu-node-children').removeClass('hidden');
+							$(this).children('.iu-node-row').find('.iu-node-toggle').not('.iu-leaf').addClass('iu-expanded');
+							self.expandedNodes.add(pid);
+						});
+						self.persistExpanded();
+					} else {
+						self.selectVirtualFolder('all');
+					}
 				}
-			});
+			}, 100);
 
 			setTimeout(function () { self.markDraggable(); }, 300);
 		},
@@ -749,24 +1031,22 @@
 			// --- New folder button ---
 			$(document).on('click', '.iu-folder-add-btn', function (e) {
 				e.preventDefault();
-				self.addNewFolder('#');
+				self.startCreate('#');
 			});
 
 			// --- Toolbar Rename ---
 			$(document).on('click', '.iu-action-rename', function (e) {
 				e.preventDefault();
-				var node = self.getSelectedUserFolder();
-				if (node) {
-					self.tree.edit(node, node.text.trim());
+				if (self.selectedNode) {
+					self.startRename(self.selectedNode);
 				}
 			});
 
 			// --- Toolbar Delete ---
 			$(document).on('click', '.iu-action-delete', function (e) {
 				e.preventDefault();
-				var node = self.getSelectedUserFolder();
-				if (node && confirm(iuMediaFolders.confirm_delete)) {
-					self.deleteFolder(node);
+				if (self.selectedNode && confirm(iuMediaFolders.confirm_delete)) {
+					self.deleteFolder(self.selectedNode);
 				}
 			});
 
@@ -813,6 +1093,76 @@
 				self.onFolderSelect(folder);
 			});
 
+			// --- Tree node click (select) ---
+			$(document).on('click', '#iu-folders-tree .iu-node-row', function (e) {
+				// Don't select if clicking on rename input
+				if ($(e.target).hasClass('iu-rename-input')) return;
+
+				var $node = $(this).closest('.iu-tree-node');
+				var nodeId = $node.data('id');
+
+				// If clicking on toggle, just toggle expand/collapse
+				if ($(e.target).closest('.iu-node-toggle').length) {
+					self.toggleNode(nodeId);
+					return;
+				}
+
+				self.selectNode(nodeId);
+			});
+
+			// --- Tree node right-click (context menu) ---
+			$(document).on('contextmenu', '#iu-folders-tree .iu-node-row', function (e) {
+				var nodeId = $(this).closest('.iu-tree-node').data('id');
+				if (nodeId && String(nodeId).indexOf('folder_') === 0) {
+					self.showContextMenu(e, nodeId);
+				}
+			});
+
+			// --- Context menu item click ---
+			$(document).on('click', '.iu-context-menu-item', function (e) {
+				e.preventDefault();
+				var action = $(this).data('action');
+				var nodeId = $(this).closest('.iu-context-menu').data('node');
+				self.closeContextMenu();
+
+				switch (action) {
+					case 'create':
+						self.startCreate(nodeId);
+						break;
+					case 'rename':
+						self.startRename(nodeId);
+						break;
+					case 'cut':
+						self.cutFolder(nodeId);
+						break;
+					case 'paste':
+						self.pasteFolder(nodeId);
+						break;
+					case 'delete':
+						if (confirm(iuMediaFolders.confirm_delete)) {
+							self.deleteFolder(nodeId);
+						}
+						break;
+				}
+			});
+
+			// --- Close context menu on outside click / Escape / scroll ---
+			$(document).on('click', function (e) {
+				if (!$(e.target).closest('.iu-context-menu').length) {
+					self.closeContextMenu();
+				}
+			});
+
+			$(document).on('keydown', function (e) {
+				if (e.key === 'Escape') {
+					self.closeContextMenu();
+				}
+			});
+
+			$('#iu-media-folders-sidebar').on('scroll', function () {
+				self.closeContextMenu();
+			});
+
 			// --- Virtual folder drag-drop targets ---
 			$(document)
 				.on('dragover', '.iu-virtual-folder', function (e) {
@@ -830,6 +1180,17 @@
 					e.preventDefault();
 					e.stopPropagation();
 					$(this).removeClass('iu-drop-hover');
+
+					// If this is a folder being dragged, handle reparent to root
+					if (self.folderDragNodeId) {
+						var folder = $(this).data('folder');
+						if (folder === 'all') {
+							self.onFolderMove(self.folderDragNodeId, '#');
+						}
+						self.folderDragNodeId = null;
+						return;
+					}
+
 					var folder = $(this).data('folder');
 					var ids = self.dragIds.length ? self.dragIds : [];
 					if (!ids.length) {
@@ -846,6 +1207,9 @@
 
 			// --- Native dragstart on media items (delegated) ---
 			$(document).on('dragstart', '.attachment[draggable], #the-list tr[draggable]', function (e) {
+				// Don't handle if this is a folder row drag
+				if ($(e.target).closest('.iu-node-row').length) return;
+
 				var ids = self.collectDragIds($(this));
 				if (!ids.length) {
 					e.preventDefault();
@@ -873,30 +1237,40 @@
 				$('.iu-virtual-folder.iu-drop-hover').removeClass('iu-drop-hover');
 			});
 
-			// --- Drop targets: jstree anchor rows (delegated) ---
+			// --- Drop targets: custom tree node rows (delegated) ---
 			$('#iu-folders-tree')
-				.on('dragover', '.jstree-anchor', function (e) {
+				.on('dragover', '.iu-node-row', function (e) {
 					e.preventDefault();
 					e.originalEvent.dataTransfer.dropEffect = 'move';
-					$(this).closest('.jstree-node').addClass('iu-drop-hover');
+					$(this).addClass('iu-drop-hover');
 				})
-				.on('dragleave', '.jstree-anchor', function (e) {
+				.on('dragleave', '.iu-node-row', function (e) {
 					var related = e.originalEvent.relatedTarget;
-					var node = $(this).closest('.jstree-node')[0];
-					if (!node || !node.contains(related)) {
-						$(this).closest('.jstree-node').removeClass('iu-drop-hover');
+					if (!this.contains(related)) {
+						$(this).removeClass('iu-drop-hover');
 					}
 				})
-				.on('drop', '.jstree-anchor', function (e) {
+				.on('drop', '.iu-node-row', function (e) {
 					e.preventDefault();
 					e.stopPropagation();
 
-					var $node = $(this).closest('.jstree-node');
-					$node.removeClass('iu-drop-hover');
+					var $row = $(this);
+					$row.removeClass('iu-drop-hover');
 
-					var folderId = $node.attr('id');
+					var $node = $row.closest('.iu-tree-node');
+					var targetNodeId = $node.data('id');
+
+					// If a folder is being dragged (reparent)
+					if (self.folderDragNodeId) {
+						if (self.folderDragNodeId !== targetNodeId) {
+							self.onFolderMove(self.folderDragNodeId, targetNodeId);
+						}
+						self.folderDragNodeId = null;
+						return;
+					}
+
+					// Media drag
 					var ids = self.dragIds.length ? self.dragIds : [];
-
 					if (!ids.length) {
 						try {
 							ids = JSON.parse(e.originalEvent.dataTransfer.getData('text/plain'));
@@ -905,10 +1279,38 @@
 						}
 					}
 
-					if (ids.length && folderId) {
-						self.moveMedia(ids, folderId);
+					if (ids.length && targetNodeId) {
+						self.moveMedia(ids, targetNodeId);
 					}
 				});
+
+			// --- Folder node drag (reparent via DnD) ---
+			$(document).on('dragstart', '#iu-folders-tree .iu-node-row[draggable]', function (e) {
+				var $node = $(this).closest('.iu-tree-node');
+				var nodeId = $node.data('id');
+
+				if (!nodeId || String(nodeId).indexOf('folder_') !== 0) {
+					e.preventDefault();
+					return;
+				}
+
+				// Prevent media drag handler from firing
+				e.stopPropagation();
+
+				self.folderDragNodeId = nodeId;
+				self.dragIds = []; // Clear media drag IDs
+
+				e.originalEvent.dataTransfer.effectAllowed = 'move';
+				e.originalEvent.dataTransfer.setData('text/plain', 'folder:' + nodeId);
+
+				$node.addClass('iu-dragging');
+			});
+
+			$(document).on('dragend', '#iu-folders-tree .iu-node-row[draggable]', function () {
+				self.folderDragNodeId = null;
+				$('#iu-folders-tree .iu-dragging').removeClass('iu-dragging');
+				$('#iu-folders-tree .iu-drop-hover').removeClass('iu-drop-hover');
+			});
 		},
 
 		collectDragIds: function ($el) {
