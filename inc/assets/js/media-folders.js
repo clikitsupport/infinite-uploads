@@ -1284,6 +1284,27 @@
 					}
 				});
 
+			// --- Drop on tree container empty space (reparent folder to root) ---
+			$('#iu-folders-tree')
+				.on('dragover', function (e) {
+					// Only accept if a folder is being dragged
+					if (self.folderDragNodeId) {
+						e.preventDefault();
+						e.originalEvent.dataTransfer.dropEffect = 'move';
+					}
+				})
+				.on('drop', function (e) {
+					// Only handle if drop landed on the container itself, not on a node row
+					if ($(e.target).closest('.iu-node-row').length) return;
+
+					if (self.folderDragNodeId) {
+						e.preventDefault();
+						e.stopPropagation();
+						self.onFolderMove(self.folderDragNodeId, '#');
+						self.folderDragNodeId = null;
+					}
+				});
+
 			// --- Folder node drag (reparent via DnD) ---
 			$(document).on('dragstart', '#iu-folders-tree .iu-node-row[draggable]', function (e) {
 				var $node = $(this).closest('.iu-tree-node');
