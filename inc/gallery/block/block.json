@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 2,
+  "name": "infinite-uploads/gallery",
+  "version": "1.0.0",
+  "title": "IU Media Folder Gallery",
+  "category": "media",
+  "icon": "format-gallery",
+  "description": "Display images from an Infinite Uploads media folder as a gallery.",
+  "textdomain": "infinite-uploads",
+  "attributes": {
+    "folderId": {
+      "type": "number",
+      "default": 0
+    },
+    "folderName": {
+      "type": "string",
+      "default": ""
+    },
+    "columns": {
+      "type": "number",
+      "default": 3
+    },
+    "imageSize": {
+      "type": "string",
+      "default": "medium"
+    },
+    "linkTo": {
+      "type": "string",
+      "default": "none"
+    },
+    "orderby": {
+      "type": "string",
+      "default": "date"
+    },
+    "order": {
+      "type": "string",
+      "default": "DESC"
+    },
+    "lightbox": {
+      "type": "boolean",
+      "default": false
+    },
+    "caption": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "supports": {
+    "html": false,
+    "align": ["wide", "full"]
+  },
+  "editorScript": "file:../../../build/gallery-block.js",
+  "editorStyle": "file:../../../build/gallery-block.css",
+  "style": "file:../../../build/style-gallery-block.css"
+}

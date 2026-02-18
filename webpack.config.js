@@ -37,6 +37,7 @@ module.exports = {
 		    path.resolve(process.cwd(), 'inc/video/admin', 'index.js'),
 		    path.resolve(process.cwd(), 'inc/assets/css', 'admin.css'),
 	    ],
+	    'gallery-block': path.resolve(process.cwd(), 'inc/gallery/block', 'index.js'),
     },
 
   },

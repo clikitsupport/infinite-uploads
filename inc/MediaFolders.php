@@ -616,7 +616,7 @@ class MediaFolders {
 	 *
 	 * @return int[]|null Array of attachment IDs, or null for "show all".
 	 */
-	private function get_attachment_ids_for_folder( $folder ) {
+	public function get_attachment_ids_for_folder( $folder ) {
 		global $wpdb;
 
 		if ( $folder === 'uncategorized' ) {

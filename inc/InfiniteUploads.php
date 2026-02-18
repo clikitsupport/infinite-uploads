@@ -107,6 +107,7 @@ class InfiniteUploads {
         // Initialize media folders (works independently of cloud sync).
         if ( InfiniteUploadsHelper::is_media_folders_enabled() ) {
             MediaFolders::get_instance();
+            MediaFoldersGallery::get_instance();
         }
         //Add cloud permissions if present
         $api_data = $this->api->get_site_data();
