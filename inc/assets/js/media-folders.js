@@ -58,6 +58,9 @@
 
 			var sidebarStyle = savedWidth ? ' style="width:' + savedWidth + 'px;min-width:' + savedWidth + 'px"' : '';
 
+			// Save for deferred injection into dynamically opened media frames.
+			this._sidebarHtml = null;
+
 			var sidebarHtml =
 				'<div id="iu-media-folders-wrap" class="' + (collapsed ? 'iu-collapsed' : '') + '">' +
 					'<div id="iu-media-folders-sidebar"' + sidebarStyle + '>' +
@@ -136,8 +139,46 @@
 				if ($mediaFrame.length) {
 					$mediaFrame.addClass('iu-has-folders');
 					$mediaFrame.prepend(sidebarHtml);
+				} else {
+					// No media frame at page load (e.g., WooCommerce product page).
+					// Save the HTML for deferred injection via watchForMediaFrame().
+					this._sidebarHtml = sidebarHtml;
 				}
 			}
+		},
+
+		/**
+		 * Inject the folder sidebar into a dynamically opened wp.media frame.
+		 * Called by the MutationObserver in hookGridMode() when the frame appears.
+		 */
+		injectIntoFrame: function ($frame, draggableObserver) {
+			var self = this;
+
+			if (!this._sidebarHtml || !$frame.length) {
+				return;
+			}
+
+			$frame.addClass('iu-has-folders');
+			$frame.prepend(this._sidebarHtml);
+			this._sidebarHtml = null; // prevent double-injection
+
+			// If folder data is already loaded, render the tree immediately.
+			// Otherwise loadAndRenderTree() (already in-flight or completed) will
+			// call buildTree() which will now find #iu-folders-tree in the DOM.
+			if (this.folders.length) {
+				this.buildTree();
+				this.renderCountBadges();
+			}
+
+			// Default selection: All Files
+			this.selectVirtualFolder('all');
+
+			// Start observing the frame for new attachments (for draggable marking).
+			if (draggableObserver) {
+				draggableObserver.observe($frame[0], { childList: true, subtree: true });
+			}
+
+			setTimeout(function () { self.markDraggable(); }, 300);
 		},
 
 		// -----------------------------------------------------------------
@@ -953,14 +994,47 @@
 			self.markDraggable();
 
 			var debounce = null;
-			var observer = new MutationObserver(function () {
+			var draggableObserver = new MutationObserver(function () {
 				clearTimeout(debounce);
 				debounce = setTimeout(function () { self.markDraggable(); }, 200);
 			});
 
 			var frame = document.querySelector('.media-frame');
 			if (frame) {
-				observer.observe(frame, { childList: true, subtree: true });
+				// Frame exists at page load (standard media library grid mode).
+				draggableObserver.observe(frame, { childList: true, subtree: true });
+			} else if (self._sidebarHtml) {
+				// No frame yet — watch the body for it to be dynamically added
+				// (e.g., WooCommerce "Add product gallery images" modal).
+				var frameObserver = new MutationObserver(function (mutations) {
+					// Stop if we already injected the sidebar.
+					if (!self._sidebarHtml) {
+						frameObserver.disconnect();
+						return;
+					}
+
+					for (var m = 0; m < mutations.length; m++) {
+						var added = mutations[m].addedNodes;
+						for (var n = 0; n < added.length; n++) {
+							var node = added[n];
+							if (node.nodeType !== 1) continue;
+
+							// The node itself or a descendant might be .media-frame.
+							var $frame = $(node).hasClass('media-frame')
+								? $(node)
+								: $(node).find('.media-frame').first();
+
+							if ($frame.length && !$frame.hasClass('iu-has-folders')) {
+								alert('e');
+								frameObserver.disconnect();
+								self.injectIntoFrame($frame, draggableObserver);
+								return;
+							}
+						}
+					}
+				});
+
+				frameObserver.observe(document.body, { childList: true, subtree: true });
 			}
 		},
 

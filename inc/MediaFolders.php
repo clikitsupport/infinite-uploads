@@ -69,14 +69,17 @@ class MediaFolders {
 
 		$plugin_url = plugins_url( '', dirname( __FILE__ ) );
 
-		// Tailwind CSS (CDN).
-		wp_enqueue_script(
-			'iu-tailwind',
-			'https://cdn.tailwindcss.com',
-			[],
-			null,
-			false
-		);
+		// Tailwind CSS (CDN) - skip on WooCommerce product pages to avoid style conflicts.
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || $screen->post_type !== 'product' ) {
+			wp_enqueue_script(
+				'iu-tailwind',
+				'https://cdn.tailwindcss.com',
+				[],
+				null,
+				false
+			);
+		}
 
 		// Media folders.
 		wp_enqueue_style(
