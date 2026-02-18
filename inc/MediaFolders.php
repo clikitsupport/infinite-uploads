@@ -91,7 +91,7 @@ class MediaFolders {
 		wp_enqueue_script(
 			'iu-media-folders',
 			$plugin_url . '/inc/assets/js/media-folders.js',
-			[ 'jquery' ],
+			[ 'jquery', 'media-views' ],
 			INFINITE_UPLOADS_VERSION,
 			true
 		);
@@ -115,7 +115,14 @@ class MediaFolders {
 			'collapse_all'   => __( 'Collapse All', 'infinite-uploads' ),
 			'folders_title'  => __( 'Folders', 'infinite-uploads' ),
 			'more'           => __( 'More', 'infinite-uploads' ),
-			'is_list_mode'   => ( isset( $_GET['mode'] ) && $_GET['mode'] === 'list' ) || ( ! isset( $_GET['mode'] ) && get_user_option( 'media_library_mode' ) === 'list' ),
+			// is_list_mode is only meaningful on upload.php; never on post.php/post-new.php.
+			'is_list_mode'   => $hook === 'upload.php' && (
+				( isset( $_GET['mode'] ) && $_GET['mode'] === 'list' ) ||
+				( ! isset( $_GET['mode'] ) && get_user_option( 'media_library_mode' ) === 'list' )
+			),
+			// is_upload_page lets JS know whether to expect an already-rendered
+			// .media-frame in the DOM (upload.php grid) or always defer injection.
+			'is_upload_page' => $hook === 'upload.php',
 		] );
 	}
 
