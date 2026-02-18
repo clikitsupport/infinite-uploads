@@ -5,14 +5,17 @@
 /* Layout wrapper for list mode */
 .iu-media-wrapper {
 	display: flex;
+	width: 100%;
 	gap: 0;
 	align-items: flex-start;
 	min-height: calc(100vh - 32px);
+	box-sizing: border-box;
 }
 
 .iu-media-wrapper .iu-media-content {
-	flex: 1;
+	flex: 1 1 0%;
 	min-width: 0;
+	width: 0; /* forces flex shrink/grow to control the width */
 }
 
 /* Sidebar wrap (sidebar + resize + toggle) */
@@ -120,6 +123,10 @@
 	border-width: 0;
 	opacity: 0;
 	padding: 0;
+}
+
+#iu-media-folders-wrap.iu-collapsed {
+	margin-right: 0;
 }
 
 #iu-media-folders-wrap.iu-collapsed .iu-sidebar-handle {
