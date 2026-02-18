@@ -1010,21 +1010,26 @@
 				draggableObserver.observe(existingFrame, { childList: true, subtree: true });
 			}
 
-			// For any dynamically-opened modal (WooCommerce gallery, Gutenberg Insert
-			// Image, ACF, etc.) extend AttachmentsBrowser to inject the sidebar the
-			// moment createToolbar() is called — the same technique FileBird PRO uses.
-			// On upload.php _sidebarHtml is null so this is a no-op.
+			// For modals opened dynamically (WooCommerce gallery, ACF, Gutenberg Insert Image, etc.)
+			// extend AttachmentsBrowser so the sidebar is injected when the frame opens.
+			// On upload.php _sidebarHtml is null (already injected), so this is a no-op.
 			if (self._sidebarHtml) {
 				self._extendAttachmentsBrowser(draggableObserver);
 			}
 		},
 
 		/**
-		 * Extend wp.media.view.AttachmentsBrowser so our sidebar is injected into
-		 * every wp.media() frame that opens after page load.
+		 * Extend wp.media.view.AttachmentsBrowser so the folder sidebar is injected
+		 * into every dynamically-opened wp.media() modal (WooCommerce, ACF, etc.).
 		 *
-		 * Injects into .media-frame-content (not .media-frame) so the modal's own
-		 * position:absolute children (.media-frame-toolbar, etc.) are unaffected.
+		 * Mirrors FileBird PRO's exact technique:
+		 *  - Hook createToolbar() lifecycle
+		 *  - Check controller.options.modal to confirm we're in a modal
+		 *  - 50 ms delay for DOM stability
+		 *  - Prepend sidebar into .media-frame-menu (the 200 px left panel WP already
+		 *    reserves) and call removeClass('hide-menu') so WordPress's own CSS makes
+		 *    .media-frame-content start at left:200px automatically — no extra layout
+		 *    hacks needed.
 		 */
 		_extendAttachmentsBrowser: function (draggableObserver) {
 			var self = this;
@@ -1048,27 +1053,41 @@
 						return; // Already injected or not needed.
 					}
 
-					// .media-frame-content is position:absolute (fills the modal frame)
-					// and is guaranteed to exist since AttachmentsBrowser lives inside it.
-					var $fc = $(this.controller.el).find('.media-frame-content').first();
-					if (!$fc.length || $fc.hasClass('iu-has-folders')) {
+					// Only handle modal frames (WooCommerce, ACF, etc.).
+					// Non-modal (upload.php) is already handled by injectSidebar().
+					var controller = this.controller;
+					if (!controller.options || !controller.options.modal) {
 						return;
 					}
 
-					$fc.addClass('iu-has-folders');
-					$fc.prepend(self._sidebarHtml);
-					self._sidebarHtml = null;
+					var $frame = $(controller.el);
 
-					if (self.folders.length) {
-						self.buildTree();
-						self.renderCountBadges();
-					}
-					self.selectVirtualFolder('all');
+					// 50 ms delay matches FileBird PRO — ensures the menu DOM is stable.
+					setTimeout(function () {
+						if (!self._sidebarHtml) return;
+						if ($frame.find('#iu-media-folders-wrap').length) return;
 
-					if (draggableObserver) {
-						draggableObserver.observe(this.controller.el, { childList: true, subtree: true });
-					}
-					setTimeout(function () { self.markDraggable(); }, 300);
+						var $menu = $frame.find('.media-frame-menu');
+						if (!$menu.length) return;
+
+						// Inject into .media-frame-menu — WordPress already sizes this
+						// panel at 200px and offsets .media-frame-content to left:200px.
+						// Removing hide-menu makes it visible with no extra CSS needed.
+						$menu.prepend(self._sidebarHtml);
+						$frame.removeClass('hide-menu').addClass('iu-has-menu-sidebar');
+						self._sidebarHtml = null;
+
+						if (self.folders.length) {
+							self.buildTree();
+							self.renderCountBadges();
+						}
+						self.selectVirtualFolder('all');
+
+						if (draggableObserver) {
+							draggableObserver.observe(controller.el, { childList: true, subtree: true });
+						}
+						setTimeout(function () { self.markDraggable(); }, 300);
+					}, 50);
 				},
 			});
 		},
