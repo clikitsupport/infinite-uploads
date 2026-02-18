@@ -127,7 +127,7 @@
 			if (this.isListMode) {
 				var $wrap = $('.wrap');
 				if ($wrap.length) {
-					$wrap.children().wrapAll('<div class="iu-media-content" style="min-height: 558.734px;"></div>');
+					$wrap.children().wrapAll('<div class="iu-media-content"></div>');
 					$wrap.find('.iu-media-content').first().before(sidebarHtml);
 					$wrap.find('#iu-media-folders-wrap, .iu-media-content').wrapAll('<div class="iu-media-wrapper"></div>');
 				}

@@ -4,9 +4,9 @@
 
 /* Layout wrapper for list mode */
 .iu-media-wrapper {
-	display: inline-flex;
+	display: flex;
 	gap: 0;
-	align-items: stretch;
+	align-items: flex-start;
 	min-height: calc(100vh - 32px);
 }
 
@@ -914,4 +914,12 @@ body.iu-resizing .iu-sidebar-handle::before {
 	.iu-sidebar-handle {
 		display: none;
 	}
+}
+
+/* ==========================================================================
+ *    Fix: Tailwind CSS .fixed utility conflicts with WordPress table .fixed class.
+*    Tailwind sets .fixed { position: fixed } which breaks the WP media list table.
+   ========================================================================== */
+.wp-list-table.fixed {
+	    position: static !important;
 }
