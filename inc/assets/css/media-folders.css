@@ -175,13 +175,20 @@
 }
 
 /* Modal mode: sidebar injected into .media-frame-menu (FileBird PRO approach).
-   WordPress's own CSS already gives .media-frame-menu { width: 200px } and
-   .media-frame-content { left: 200px } — so removing hide-menu is all we need
-   to make the layout work. We only need to reset the sidebar's own positioning.
+   We widen the menu column from WordPress's default 200px to 240px and push
+   .media-frame-content over to match.
    ========================================================================== */
 
 .media-frame.iu-has-menu-sidebar .media-frame-menu {
 	overflow: hidden;
+	width: 240px !important;
+}
+
+.media-frame.iu-has-menu-sidebar .media-frame-content,
+.media-frame.iu-has-menu-sidebar .media-frame-toolbar,
+.media-frame-router,
+.media-frame-title {
+	left: 240px !important;
 }
 
 /* Reset position/size so sidebar fills the 200px menu column naturally. */

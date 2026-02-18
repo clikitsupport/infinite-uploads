@@ -1075,6 +1075,11 @@
 						// Removing hide-menu makes it visible with no extra CSS needed.
 						$menu.prepend(self._sidebarHtml);
 						$frame.removeClass('hide-menu').addClass('iu-has-menu-sidebar');
+						// Always open expanded in modal context regardless of localStorage.
+						$frame.find('#iu-media-folders-wrap').removeClass('iu-collapsed');
+
+						// Hide not required headings.
+						$('.media-frame-menu-heading').hide();
 						self._sidebarHtml = null;
 
 						if (self.folders.length) {
