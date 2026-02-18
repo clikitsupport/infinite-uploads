@@ -1025,7 +1025,6 @@
 								: $(node).find('.media-frame').first();
 
 							if ($frame.length && !$frame.hasClass('iu-has-folders')) {
-								alert('e');
 								frameObserver.disconnect();
 								self.injectIntoFrame($frame, draggableObserver);
 								return;
@@ -1516,8 +1515,8 @@
 
 	// Initialize when DOM is ready.
 	$(document).ready(function () {
-		if ($('body').hasClass('upload-php')) {
 			IU_Folders.init();
+		if ($('body').hasClass('upload-php')) {
 		}
 	});
 })(jQuery);
