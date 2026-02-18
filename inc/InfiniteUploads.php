@@ -1330,7 +1330,7 @@ function infinite_uploads_complainz_fix() {
                 copy( $tmpfile, $zip_file_name );
             }
             try {
-                $phar = new PharData( $zip_file_name );
+                $phar = new \PharData( $zip_file_name );
                 $phar->extractTo( $upload_dir );
             } catch ( Exception $e ) {
             }
