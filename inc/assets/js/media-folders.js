@@ -135,13 +135,16 @@
 					$wrap.find('#iu-media-folders-wrap, .iu-media-content').wrapAll('<div class="iu-media-wrapper"></div>');
 				}
 			} else {
-				var $mediaFrame = $('.media-frame');
+				// On upload.php the media grid frame is already in the DOM — inject
+				// directly.  On post.php / post-new.php an unrelated .media-frame may
+				// exist (block editor, featured image, etc.); we must NOT inject there.
+				// Instead always defer and let _extendAttachmentsBrowser() inject into
+				// whichever modal the user actually opens (WooCommerce gallery, etc.).
+				var $mediaFrame = iuMediaFolders.is_upload_page ? $('.media-frame') : $([]);
 				if ($mediaFrame.length) {
 					$mediaFrame.addClass('iu-has-folders');
 					$mediaFrame.prepend(sidebarHtml);
 				} else {
-					// No media frame at page load (e.g., WooCommerce product page).
-					// Save the HTML for deferred injection via watchForMediaFrame().
 					this._sidebarHtml = sidebarHtml;
 				}
 			}
@@ -978,7 +981,7 @@
 			var self = this;
 
 			// Patch wp.media.model.Query to pass iu_folder param.
-			if (typeof wp !== 'undefined' && wp.media && wp.media.model) {
+			if (typeof wp !== 'undefined' && wp.media && wp.media.model && wp.media.model.Query) {
 				var origSync = wp.media.model.Query.prototype.sync;
 				wp.media.model.Query.prototype.sync = function (method, model, options) {
 					var folder = this.props.get('iu_folder');
@@ -999,42 +1002,75 @@
 				debounce = setTimeout(function () { self.markDraggable(); }, 200);
 			});
 
-			var frame = document.querySelector('.media-frame');
-			if (frame) {
-				// Frame exists at page load (standard media library grid mode).
-				draggableObserver.observe(frame, { childList: true, subtree: true });
-			} else if (self._sidebarHtml) {
-				// No frame yet — watch the body for it to be dynamically added
-				// (e.g., WooCommerce "Add product gallery images" modal).
-				var frameObserver = new MutationObserver(function (mutations) {
-					// Stop if we already injected the sidebar.
+			// On upload.php the sidebar is already in the existing frame; observe for DnD.
+			var existingFrame = iuMediaFolders.is_upload_page
+				? document.querySelector('.media-frame')
+				: null;
+			if (existingFrame) {
+				draggableObserver.observe(existingFrame, { childList: true, subtree: true });
+			}
+
+			// For any dynamically-opened modal (WooCommerce gallery, Gutenberg Insert
+			// Image, ACF, etc.) extend AttachmentsBrowser to inject the sidebar the
+			// moment createToolbar() is called — the same technique FileBird PRO uses.
+			// On upload.php _sidebarHtml is null so this is a no-op.
+			if (self._sidebarHtml) {
+				self._extendAttachmentsBrowser(draggableObserver);
+			}
+		},
+
+		/**
+		 * Extend wp.media.view.AttachmentsBrowser so our sidebar is injected into
+		 * every wp.media() frame that opens after page load.
+		 *
+		 * Injects into .media-frame-content (not .media-frame) so the modal's own
+		 * position:absolute children (.media-frame-toolbar, etc.) are unaffected.
+		 */
+		_extendAttachmentsBrowser: function (draggableObserver) {
+			var self = this;
+
+			if (
+				typeof wp === 'undefined' ||
+				!wp.media ||
+				!wp.media.view ||
+				!wp.media.view.AttachmentsBrowser
+			) {
+				return;
+			}
+
+			var OrigBrowser = wp.media.view.AttachmentsBrowser;
+
+			wp.media.view.AttachmentsBrowser = OrigBrowser.extend({
+				createToolbar: function () {
+					OrigBrowser.prototype.createToolbar.apply(this, arguments);
+
 					if (!self._sidebarHtml) {
-						frameObserver.disconnect();
+						return; // Already injected or not needed.
+					}
+
+					// .media-frame-content is position:absolute (fills the modal frame)
+					// and is guaranteed to exist since AttachmentsBrowser lives inside it.
+					var $fc = $(this.controller.el).find('.media-frame-content').first();
+					if (!$fc.length || $fc.hasClass('iu-has-folders')) {
 						return;
 					}
 
-					for (var m = 0; m < mutations.length; m++) {
-						var added = mutations[m].addedNodes;
-						for (var n = 0; n < added.length; n++) {
-							var node = added[n];
-							if (node.nodeType !== 1) continue;
+					$fc.addClass('iu-has-folders');
+					$fc.prepend(self._sidebarHtml);
+					self._sidebarHtml = null;
 
-							// The node itself or a descendant might be .media-frame.
-							var $frame = $(node).hasClass('media-frame')
-								? $(node)
-								: $(node).find('.media-frame').first();
-
-							if ($frame.length && !$frame.hasClass('iu-has-folders')) {
-								frameObserver.disconnect();
-								self.injectIntoFrame($frame, draggableObserver);
-								return;
-							}
-						}
+					if (self.folders.length) {
+						self.buildTree();
+						self.renderCountBadges();
 					}
-				});
+					self.selectVirtualFolder('all');
 
-				frameObserver.observe(document.body, { childList: true, subtree: true });
-			}
+					if (draggableObserver) {
+						draggableObserver.observe(this.controller.el, { childList: true, subtree: true });
+					}
+					setTimeout(function () { self.markDraggable(); }, 300);
+				},
+			});
 		},
 
 		hookListMode: function () {
