@@ -175,10 +175,11 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 15px;
+	padding: 10px;
 	background: #fff;
 	box-shadow: 0 5px 35px #00000008;
 	border-bottom: 1px solid #e2e4e7;
+	margin-bottom: 15px;
 }
 
 .iu-folders-title {
