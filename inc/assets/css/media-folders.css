@@ -459,9 +459,9 @@
 	pointer-events: none;
 }
 
-.iu-folder-search-input {
+input.iu-folder-search-input {
 	width: 100%;
-	padding: 6px 8px 6px 28px;
+	padding: 6px 25px 6px 28px;
 	border: 1px solid #CDD0D4;
 	border-radius: 4px;
 	font-size: 13px;
@@ -470,6 +470,7 @@
 	color: #1d2327;
 	box-sizing: border-box;
 	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+	/*padding: 3px 25px;*/
 }
 
 .iu-folder-search-input:focus {
