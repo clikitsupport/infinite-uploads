@@ -608,7 +608,8 @@ input.iu-folder-search-input {
 }
 
 .iu-node-row:hover {
-	background: #e3e3e3;
+	background: #e7e8ef;
+	color: #3253e9;
 }
 
 /* Selected state */
@@ -680,7 +681,7 @@ input.iu-folder-search-input {
 .iu-node-text {
 	flex: 1;
 	font-size: 13px;
-	color: #3253e9;
+	/*color: #3253e9;*/
 	line-height: 36px;
 	white-space: nowrap;
 	overflow: hidden;
