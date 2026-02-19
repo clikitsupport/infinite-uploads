@@ -261,10 +261,11 @@ class MediaFoldersGallery {
 	public function init_integrations() {
 		$integrations_dir = __DIR__ . '/gallery/integrations/';
 
-		// Elementor
-		if ( did_action( 'elementor/loaded' ) ) {
+		// Elementor — load inside elementor/widgets/register so Widget_Base is available.
+		add_action( 'elementor/widgets/register', function( $widgets_manager ) use ( $integrations_dir ) {
 			require_once $integrations_dir . 'Elementor.php';
-		}
+			$widgets_manager->register( new IU_Gallery_Elementor_Widget() );
+		} );
 
 		// Divi
 		if ( class_exists( 'ET_Builder_Element' ) ) {

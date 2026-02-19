@@ -6,6 +6,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+if ( ! class_exists( '\Elementor\Widget_Base' ) ) {
+	return;
+}
+
 /**
  * Elementor widget for IU Media Folder Gallery.
  */
@@ -144,7 +148,3 @@ class IU_Gallery_Elementor_Widget extends \Elementor\Widget_Base {
 	}
 }
 
-// Register the widget.
-add_action( 'elementor/widgets/register', function ( $widgets_manager ) {
-	$widgets_manager->register( new IU_Gallery_Elementor_Widget() );
-} );
