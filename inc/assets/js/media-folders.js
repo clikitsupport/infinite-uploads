@@ -42,7 +42,7 @@
 			this.initResize();
 			this.bindEvents();
 
-			if (!this.isListMode) {
+			if ( !this.isListMode) {
 				this.hookGridMode();
 			} else {
 				this.hookListMode();
@@ -63,72 +63,72 @@
 
 			var sidebarHtml =
 				'<div id="iu-media-folders-wrap" class="' + (collapsed ? 'iu-collapsed' : '') + '">' +
-					'<div id="iu-media-folders-sidebar"' + sidebarStyle + '>' +
-						// Row 1: Title + New Folder button
-						'<div class="iu-folders-header">' +
-							'<span class="iu-folders-title">' + iuMediaFolders.folders_title + '</span>' +
-							'<button type="button" class="iu-folder-add-btn" title="' + iuMediaFolders.new_folder + '">' +
-								'<span class="dashicons dashicons-open-folder"></span>' +
-								'<span class="iu-btn-label">' + iuMediaFolders.new_folder + '</span>' +
-							'</button>' +
-						'</div>' +
-						// Row 2: Rename, Delete, Sort, More
-						'<div class="iu-folders-actions">' +
-							'<button type="button" class="iu-action-rename" disabled title="' + iuMediaFolders.rename + '">' +
-								'<span class="dashicons dashicons-edit"></span>' +
-								'<span>' + iuMediaFolders.rename + '</span>' +
-							'</button>' +
-							'<button type="button" class="iu-action-delete" disabled title="' + iuMediaFolders.delete + '">' +
-								'<span class="dashicons dashicons-trash"></span>' +
-								'<span>' + iuMediaFolders.delete + '</span>' +
-							'</button>' +
-							'<div class="iu-actions-right">' +
-								'<button type="button" class="iu-sort-btn" title="' + iuMediaFolders.sort_az + '">' +
-									'<span class="dashicons dashicons-sort"></span>' +
-								'</button>' +
+				'<div id="iu-media-folders-sidebar"' + sidebarStyle + '>' +
+				// Row 1: Title + New Folder button
+				'<div class="iu-folders-header">' +
+				'<span class="iu-folders-title">' + iuMediaFolders.folders_title + '</span>' +
+				'<button type="button" class="iu-folder-add-btn" title="' + iuMediaFolders.new_folder + '">' +
+				'<span class="dashicons dashicons-open-folder"></span>' +
+				'<span class="iu-btn-label">' + iuMediaFolders.new_folder + '</span>' +
+				'</button>' +
+				'</div>' +
+				// Row 2: Rename, Delete, Sort, More
+				'<div class="iu-folders-actions">' +
+				'<button type="button" class="iu-action-rename" disabled title="' + iuMediaFolders.rename + '">' +
+				'<span class="dashicons dashicons-edit"></span>' +
+				'<span>' + iuMediaFolders.rename + '</span>' +
+				'</button>' +
+				'<button type="button" class="iu-action-delete" disabled title="' + iuMediaFolders.delete + '">' +
+				'<span class="dashicons dashicons-trash"></span>' +
+				'<span>' + iuMediaFolders.delete + '</span>' +
+				'</button>' +
+				'<div class="iu-actions-right">' +
+				'<button type="button" class="iu-sort-btn" title="' + iuMediaFolders.sort_az + '">' +
+				'<span class="dashicons dashicons-sort"></span>' +
+				'</button>' +
 
-								'<div class="iu-more-dropdown">' +
-									'<button type="button" class="iu-action-more" title="' + iuMediaFolders.more + '">' +
-										'<span class="dashicons dashicons-ellipsis"></span>' +
-									'</button>' +
-									'<div class="iu-more-menu">' +
-										'<button type="button" class="iu-more-item iu-expand-all-btn">' +
-											'<span class="dashicons dashicons-arrow-down-alt2"></span>' +
-											iuMediaFolders.expand_all +
-										'</button>' +
-										'<button type="button" class="iu-more-item iu-collapse-all-btn">' +
-											'<span class="dashicons dashicons-arrow-up-alt2"></span>' +
-											iuMediaFolders.collapse_all +
-										'</button>' +
-									'</div>' +
-								'</div>' +
-							'</div>' +
-						'</div>' +
-						// Virtual folders: All Files + Uncategorized
-						'<div class="iu-virtual-folders">' +
-							'<div class="iu-virtual-folder iu-vf-selected" data-folder="all">' +
-								'<span class="dashicons dashicons-open-folder iu-vf-icon"></span>' +
-								'<span class="iu-vf-name">' + iuMediaFolders.all_label + '</span>' +
-								'<span class="iu-count-badge" data-count="all">0</span>' +
-							'</div>' +
-							'<div class="iu-virtual-folder" data-folder="uncategorized">' +
-								'<span class="dashicons dashicons-portfolio iu-vf-icon"></span>' +
-								'<span class="iu-vf-name">' + iuMediaFolders.uncat_label + '</span>' +
-								'<span class="iu-count-badge" data-count="uncategorized">0</span>' +
-							'</div>' +
-						'</div>' +
-						// Search input
-						'<div class="iu-folders-search">' +
-							'<span class="dashicons dashicons-search iu-search-icon"></span>' +
-							'<input type="text" class="iu-folder-search-input" placeholder="' + iuMediaFolders.search_folders + '" />' +
-						'</div>' +
-						// Folder tree (user folders only)
-						'<div id="iu-folders-tree"></div>' +
-					'</div>' +
-					'<div class="iu-sidebar-handle"></div>' +
-					'<span class="iu-sidebar-toggle" title="Toggle folders">' +
-						'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M10.5 17a1 1 0 0 1-.71-.29 1 1 0 0 1 0-1.42L13.1 12 9.92 8.69a1 1 0 0 1 0-1.41 1 1 0 0 1 1.42 0l3.86 4a1 1 0 0 1 0 1.4l-4 4a1 1 0 0 1-.7.32z"></path></svg>' +
-					'</span>' +
+				'<div class="iu-more-dropdown">' +
+				'<button type="button" class="iu-action-more" title="' + iuMediaFolders.more + '">' +
+				'<span class="dashicons dashicons-ellipsis"></span>' +
+				'</button>' +
+				'<div class="iu-more-menu">' +
+				'<button type="button" class="iu-more-item iu-expand-all-btn">' +
+				'<span class="dashicons dashicons-arrow-down-alt2"></span>' +
+				iuMediaFolders.expand_all +
+				'</button>' +
+				'<button type="button" class="iu-more-item iu-collapse-all-btn">' +
+				'<span class="dashicons dashicons-arrow-up-alt2"></span>' +
+				iuMediaFolders.collapse_all +
+				'</button>' +
+				'</div>' +
+				'</div>' +
+				'</div>' +
+				'</div>' +
+				// Virtual folders: All Files + Uncategorized
+				'<div class="iu-virtual-folders">' +
+				'<div class="iu-virtual-folder iu-vf-selected" data-folder="all">' +
+				'<span class="dashicons dashicons-open-folder iu-vf-icon"></span>' +
+				'<span class="iu-vf-name">' + iuMediaFolders.all_label + '</span>' +
+				'<span class="iu-count-badge" data-count="all">0</span>' +
+				'</div>' +
+				'<div class="iu-virtual-folder" data-folder="uncategorized">' +
+				'<span class="dashicons dashicons-portfolio iu-vf-icon"></span>' +
+				'<span class="iu-vf-name">' + iuMediaFolders.uncat_label + '</span>' +
+				'<span class="iu-count-badge" data-count="uncategorized">0</span>' +
+				'</div>' +
+				'</div>' +
+				// Search input
+				'<div class="iu-folders-search">' +
+				'<span class="dashicons dashicons-search iu-search-icon"></span>' +
+				'<input type="text" class="iu-folder-search-input" placeholder="' + iuMediaFolders.search_folders + '" />' +
+				'</div>' +
+				// Folder tree (user folders only)
+				'<div id="iu-folders-tree"></div>' +
+				'</div>' +
+				'<div class="iu-sidebar-handle"></div>' +
+				'<span class="iu-sidebar-toggle" title="Toggle folders">' +
+				'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M10.5 17a1 1 0 0 1-.71-.29 1 1 0 0 1 0-1.42L13.1 12 9.92 8.69a1 1 0 0 1 0-1.41 1 1 0 0 1 1.42 0l3.86 4a1 1 0 0 1 0 1.4l-4 4a1 1 0 0 1-.7.32z"></path></svg>' +
+				'</span>' +
 				'</div>';
 
 			if (this.isListMode) {
@@ -161,7 +161,7 @@
 		injectIntoFrame: function ($frame, draggableObserver) {
 			var self = this;
 
-			if (!this._sidebarHtml || !$frame.length) {
+			if ( !this._sidebarHtml || !$frame.length) {
 				return;
 			}
 
@@ -182,10 +182,12 @@
 
 			// Start observing the frame for new attachments (for draggable marking).
 			if (draggableObserver) {
-				draggableObserver.observe($frame[0], { childList: true, subtree: true });
+				draggableObserver.observe($frame[0], {childList: true, subtree: true});
 			}
 
-			setTimeout(function () { self.markDraggable(); }, 300);
+			setTimeout(function () {
+				self.markDraggable();
+			}, 300);
 		},
 
 		// -----------------------------------------------------------------
@@ -223,7 +225,7 @@
 			var $tree = $('#iu-folders-tree');
 			$tree.empty();
 
-			if (!this.folders.length) {
+			if ( !this.folders.length) {
 				return;
 			}
 
@@ -237,7 +239,7 @@
 				if (parentKey === '#') {
 					roots.push(f);
 				} else {
-					if (!childrenMap[parentKey]) childrenMap[parentKey] = [];
+					if ( !childrenMap[parentKey]) childrenMap[parentKey] = [];
 					childrenMap[parentKey].push(f);
 				}
 			}
@@ -272,12 +274,12 @@
 			// Node row
 			var $row = $(
 				'<div class="iu-node-row" draggable="true">' +
-					'<span class="iu-node-toggle ' + (hasChildren ? (isExpanded ? 'iu-expanded' : '') : 'iu-leaf') + '">' +
-						self.chevronSvg +
-					'</span>' +
-					self.folderSvg +
-					'<span class="iu-node-text">' + self.escHtml(folder.text) + '</span>' +
-					'<span class="iu-count-badge">' + count + '</span>' +
+				'<span class="iu-node-toggle ' + (hasChildren ? (isExpanded ? 'iu-expanded' : '') : 'iu-leaf') + '">' +
+				self.chevronSvg +
+				'</span>' +
+				self.folderSvg +
+				'<span class="iu-node-text">' + self.escHtml(folder.text) + '</span>' +
+				'<span class="iu-count-badge">' + count + '</span>' +
 				'</div>'
 			);
 			$li.append($row);
@@ -309,7 +311,7 @@
 			var $toggle = $node.children('.iu-node-row').find('.iu-node-toggle');
 			var $children = $node.children('.iu-node-children');
 
-			if (!$children.length) return;
+			if ( !$children.length) return;
 
 			if ($children.hasClass('hidden')) {
 				$children.removeClass('hidden');
@@ -409,7 +411,7 @@
 			var $node = $('#iu-folders-tree .iu-tree-node[data-id="' + nodeId + '"]');
 			var $row = $node.children('.iu-node-row');
 
-			if (!newName || newName === oldName) {
+			if ( !newName || newName === oldName) {
 				self.cancelRename($row, oldName);
 				return;
 			}
@@ -427,7 +429,7 @@
 				term_id: termId,
 				name: newName,
 			}, function (response) {
-				if (!response.success) {
+				if ( !response.success) {
 					// Revert on failure
 					$row.find('.iu-node-text').text(oldName);
 					alert(response.data);
@@ -454,7 +456,7 @@
 				var $parent = $('#iu-folders-tree .iu-tree-node[data-id="' + parentId + '"]');
 				var $children = $parent.children('.iu-node-children');
 
-				if (!$children.length) {
+				if ( !$children.length) {
 					// Create children container
 					$children = $('<ul class="iu-node-children"></ul>');
 					$parent.append($children);
@@ -473,19 +475,19 @@
 			var tempId = 'iu_temp_' + Date.now();
 			var $tempLi = $(
 				'<li class="iu-tree-node" data-id="' + tempId + '">' +
-					'<div class="iu-node-row">' +
-						'<span class="iu-node-toggle iu-leaf">' + self.chevronSvg + '</span>' +
-						self.folderSvg +
-						'<input type="text" class="iu-rename-input" value="' + self.escHtml(iuMediaFolders.new_folder) + '" />' +
-						'<span class="iu-count-badge">0</span>' +
-					'</div>' +
+				'<div class="iu-node-row">' +
+				'<span class="iu-node-toggle iu-leaf">' + self.chevronSvg + '</span>' +
+				self.folderSvg +
+				'<input type="text" class="iu-rename-input" value="' + self.escHtml(iuMediaFolders.new_folder) + '" />' +
+				'<span class="iu-count-badge">0</span>' +
+				'</div>' +
 				'</li>'
 			);
 
 			// Append to correct parent
 			if (parentId === '#') {
 				var $rootUl = $('#iu-folders-tree > ul');
-				if (!$rootUl.length) {
+				if ( !$rootUl.length) {
 					$rootUl = $('<ul></ul>');
 					$('#iu-folders-tree').append($rootUl);
 				}
@@ -527,7 +529,7 @@
 			var self = this;
 			var $tempNode = $('#iu-folders-tree .iu-tree-node[data-id="' + tempId + '"]');
 
-			if (!name) {
+			if ( !name) {
 				$tempNode.remove();
 				self.cleanEmptyParent(parentId);
 				return;
@@ -611,7 +613,9 @@
 					self.cleanEmptyParent(parentId);
 
 					// Remove from local data
-					self.folders = self.folders.filter(function (f) { return f.id !== nodeId; });
+					self.folders = self.folders.filter(function (f) {
+						return f.id !== nodeId;
+					});
 
 					if (self.selectedNode === nodeId) {
 						self.selectVirtualFolder('all');
@@ -636,7 +640,7 @@
 		// -----------------------------------------------------------------
 
 		searchFolders: function (query) {
-			if (!query) {
+			if ( !query) {
 				$('#iu-folders-tree .iu-tree-node').removeClass('iu-search-hidden iu-search-match');
 				return;
 			}
@@ -703,7 +707,7 @@
 				top = e.pageY - menuHeight;
 			}
 
-			$menu.css({ left: left, top: top });
+			$menu.css({left: left, top: top});
 		},
 
 		closeContextMenu: function () {
@@ -722,7 +726,7 @@
 
 		pasteFolder: function (targetNodeId) {
 			var self = this;
-			if (!this.cutNode) return;
+			if ( !this.cutNode) return;
 
 			var termId = parseInt(this.cutNode.replace('folder_', ''), 10);
 			var newParent = 0;
@@ -875,14 +879,14 @@
 			});
 
 			$(document).on('mousemove', function (e) {
-				if (!isResizing) return;
+				if ( !isResizing) return;
 				var newWidth = startWidth + (e.clientX - startX);
 				newWidth = Math.max(180, Math.min(500, newWidth));
-				$('#iu-media-folders-sidebar').css({ width: newWidth, minWidth: newWidth });
+				$('#iu-media-folders-sidebar').css({width: newWidth, minWidth: newWidth});
 			});
 
 			$(document).on('mouseup', function () {
-				if (!isResizing) return;
+				if ( !isResizing) return;
 				isResizing = false;
 				$('body').removeClass('iu-resizing');
 				var finalWidth = $('#iu-media-folders-sidebar').outerWidth();
@@ -909,7 +913,7 @@
 			var currentValue = url.searchParams.get('iu_folder');
 
 			if (folderId === 'all') {
-				if (!currentValue) return;
+				if ( !currentValue) return;
 				url.searchParams.delete('iu_folder');
 			} else if (folderId === 'uncategorized') {
 				if (currentValue === 'uncategorized') return;
@@ -930,10 +934,10 @@
 			}
 
 			var collection = wp.media.frame && wp.media.frame.content && wp.media.frame.content.get();
-			if (!collection) return;
+			if ( !collection) return;
 
 			var browserCollection = collection.collection || (collection.options && collection.options.collection);
-			if (!browserCollection) return;
+			if ( !browserCollection) return;
 
 			var props = browserCollection.props;
 
@@ -1003,7 +1007,9 @@
 			var debounce = null;
 			var draggableObserver = new MutationObserver(function () {
 				clearTimeout(debounce);
-				debounce = setTimeout(function () { self.markDraggable(); }, 200);
+				debounce = setTimeout(function () {
+					self.markDraggable();
+				}, 200);
 			});
 
 			// On upload.php the sidebar is already in the existing frame; observe for DnD.
@@ -1011,7 +1017,7 @@
 				? document.querySelector('.media-frame')
 				: null;
 			if (existingFrame) {
-				draggableObserver.observe(existingFrame, { childList: true, subtree: true });
+				draggableObserver.observe(existingFrame, {childList: true, subtree: true});
 			}
 
 			// For modals opened dynamically (WooCommerce gallery, ACF, Gutenberg Insert Image, etc.)
@@ -1026,7 +1032,6 @@
 		 * Extend wp.media.view.AttachmentsBrowser so the folder sidebar is injected
 		 * into every dynamically-opened wp.media() modal (WooCommerce, ACF, etc.).
 		 *
-		 * Mirrors FileBird PRO's exact technique:
 		 *  - Hook createToolbar() lifecycle
 		 *  - Check controller.options.modal to confirm we're in a modal
 		 *  - 50 ms delay for DOM stability
@@ -1053,26 +1058,26 @@
 				createToolbar: function () {
 					OrigBrowser.prototype.createToolbar.apply(this, arguments);
 
-					if (!self._sidebarHtml) {
+					if ( !self._sidebarHtml) {
 						return; // Already injected or not needed.
 					}
 
 					// Only handle modal frames (WooCommerce, ACF, etc.).
 					// Non-modal (upload.php) is already handled by injectSidebar().
 					var controller = this.controller;
-					if (!controller.options || !controller.options.modal) {
+					if ( !controller.options || !controller.options.modal) {
 						return;
 					}
 
 					var $frame = $(controller.el);
 
-					// 50 ms delay matches FileBird PRO — ensures the menu DOM is stable.
+					// 50 ms delay — ensures the menu DOM is stable.
 					setTimeout(function () {
-						if (!self._sidebarHtml) return;
+						if ( !self._sidebarHtml) return;
 						if ($frame.find('#iu-media-folders-wrap').length) return;
 
 						var $menu = $frame.find('.media-frame-menu');
-						if (!$menu.length) return;
+						if ( !$menu.length) return;
 
 						// Inject into .media-frame-menu — WordPress already sizes this
 						// panel at 200px and offsets .media-frame-content to left:200px.
@@ -1093,9 +1098,11 @@
 						self.selectVirtualFolder('all');
 
 						if (draggableObserver) {
-							draggableObserver.observe(controller.el, { childList: true, subtree: true });
+							draggableObserver.observe(controller.el, {childList: true, subtree: true});
 						}
-						setTimeout(function () { self.markDraggable(); }, 300);
+						setTimeout(function () {
+							self.markDraggable();
+						}, 300);
 					}, 50);
 				},
 			});
@@ -1139,7 +1146,9 @@
 				}
 			}, 100);
 
-			setTimeout(function () { self.markDraggable(); }, 300);
+			setTimeout(function () {
+				self.markDraggable();
+			}, 300);
 		},
 
 		markDraggable: function () {
@@ -1203,7 +1212,7 @@
 
 			// Close more dropdown on outside click.
 			$(document).on('click', function (e) {
-				if (!$(e.target).closest('.iu-more-dropdown').length) {
+				if ( !$(e.target).closest('.iu-more-dropdown').length) {
 					$('.iu-more-menu').removeClass('iu-open');
 				}
 			});
@@ -1285,7 +1294,7 @@
 
 			// --- Close context menu on outside click / Escape / scroll ---
 			$(document).on('click', function (e) {
-				if (!$(e.target).closest('.iu-context-menu').length) {
+				if ( !$(e.target).closest('.iu-context-menu').length) {
 					self.closeContextMenu();
 				}
 			});
@@ -1309,7 +1318,7 @@
 				})
 				.on('dragleave', '.iu-virtual-folder', function (e) {
 					var related = e.originalEvent.relatedTarget;
-					if (!this.contains(related)) {
+					if ( !this.contains(related)) {
 						$(this).removeClass('iu-drop-hover');
 					}
 				})
@@ -1330,7 +1339,7 @@
 
 					var folder = $(this).data('folder');
 					var ids = self.dragIds.length ? self.dragIds : [];
-					if (!ids.length) {
+					if ( !ids.length) {
 						try {
 							ids = JSON.parse(e.originalEvent.dataTransfer.getData('text/plain'));
 						} catch (err) {
@@ -1348,7 +1357,7 @@
 				if ($(e.target).closest('.iu-node-row').length) return;
 
 				var ids = self.collectDragIds($(this));
-				if (!ids.length) {
+				if ( !ids.length) {
 					e.preventDefault();
 					return;
 				}
@@ -1361,7 +1370,9 @@
 				var ghost = self.buildDragGhost($(this), ids.length);
 				document.body.appendChild(ghost);
 				e.originalEvent.dataTransfer.setDragImage(ghost, 28, 28);
-				setTimeout(function () { document.body.removeChild(ghost); }, 0);
+				setTimeout(function () {
+					document.body.removeChild(ghost);
+				}, 0);
 
 				$('#iu-media-folders-wrap').removeClass('iu-collapsed');
 				$('#iu-media-folders-sidebar').addClass('iu-drop-active');
@@ -1383,7 +1394,7 @@
 				})
 				.on('dragleave', '.iu-node-row', function (e) {
 					var related = e.originalEvent.relatedTarget;
-					if (!this.contains(related)) {
+					if ( !this.contains(related)) {
 						$(this).removeClass('iu-drop-hover');
 					}
 				})
@@ -1408,7 +1419,7 @@
 
 					// Media drag
 					var ids = self.dragIds.length ? self.dragIds : [];
-					if (!ids.length) {
+					if ( !ids.length) {
 						try {
 							ids = JSON.parse(e.originalEvent.dataTransfer.getData('text/plain'));
 						} catch (err) {
@@ -1447,7 +1458,7 @@
 				var $node = $(this).closest('.iu-tree-node');
 				var nodeId = $node.data('id');
 
-				if (!nodeId || String(nodeId).indexOf('folder_') !== 0) {
+				if ( !nodeId || String(nodeId).indexOf('folder_') !== 0) {
 					e.preventDefault();
 					return;
 				}
@@ -1478,7 +1489,7 @@
 				$('#the-list input[name="media[]"]:checked').each(function () {
 					ids.push(parseInt($(this).val(), 10));
 				});
-				if (!ids.length) {
+				if ( !ids.length) {
 					var rowId = $el.attr('id');
 					if (rowId) {
 						ids.push(parseInt(rowId.replace('post-', ''), 10));
@@ -1486,7 +1497,7 @@
 				}
 			} else {
 				ids = this.getSelectedAttachments();
-				if (!ids.length) {
+				if ( !ids.length) {
 					var dataId = $el.data('id');
 					if (dataId) {
 						ids.push(parseInt(dataId, 10));
@@ -1532,12 +1543,15 @@
 				try {
 					var sel = wp.media.frame.state().get('selection');
 					if (sel && sel.length) {
-						sel.each(function (m) { ids.push(m.get('id')); });
+						sel.each(function (m) {
+							ids.push(m.get('id'));
+						});
 					}
-				} catch (err) { /* no selection */ }
+				} catch (err) { /* no selection */
+				}
 			}
 
-			if (!ids.length) {
+			if ( !ids.length) {
 				$('.attachment.selected, .attachment[aria-checked="true"]').each(function () {
 					var id = $(this).data('id');
 					if (id) ids.push(id);
@@ -1579,7 +1593,7 @@
 
 	// Initialize when DOM is ready.
 	$(document).ready(function () {
-			IU_Folders.init();
+		IU_Folders.init();
 		if ($('body').hasClass('upload-php')) {
 		}
 	});

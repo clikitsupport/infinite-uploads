@@ -174,7 +174,7 @@
 	min-width: 0;
 }
 
-/* Modal mode: sidebar injected into .media-frame-menu (FileBird PRO approach).
+/* Modal mode: sidebar injected into .media-frame-menu.
    We widen the menu column from WordPress's default 200px to 240px and push
    .media-frame-content over to match.
    ========================================================================== */
