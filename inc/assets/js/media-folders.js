@@ -135,14 +135,6 @@
 				'<span class="iu-count-badge" data-count="uncategorized">0</span>' +
 				'</div>' +
 				'</div>' +
-				// Upload to folder selector
-				'<div class="iu-upload-folder-wrap">' +
-				'<span class="dashicons dashicons-upload iu-upload-folder-icon"></span>' +
-				'<label class="iu-upload-folder-label">' + iuMediaFolders.choose_folder + '</label>' +
-				'<select class="iu-upload-folder-select">' +
-				'<option value="">' + iuMediaFolders.upload_folder_none + '</option>' +
-				'</select>' +
-				'</div>' +
 				// Search input
 				'<div class="iu-folders-search">' +
 				'<span class="dashicons dashicons-search iu-search-icon"></span>' +
@@ -1676,9 +1668,15 @@
 				$('.wrap').find('h1, h2').first().after(html);
 			}
 
-			// Restore persisted selection
+			// Restore persisted selection and sync to server so PHP hook is ready.
 			if (self.uploadTargetFolder) {
 				$('.iu-upload-folder-select').val(self.uploadTargetFolder);
+				var folderId = parseInt(self.uploadTargetFolder.replace('folder_', ''), 10);
+				$.post(iuMediaFolders.ajax_url, {
+					action: 'iu_set_upload_folder',
+					nonce: iuMediaFolders.nonce,
+					folder_id: folderId || 0,
+				});
 			}
 		},
 
@@ -1689,14 +1687,24 @@
 		hookUploader: function () {
 			var self = this;
 
-			// Bind dropdown change (works even when bindEvents() is not called, e.g. media-new.php)
+			// Bind dropdown change — persist to localStorage AND server meta (for PHP add_attachment hook).
 			$(document).on('change', '.iu-upload-folder-select', function () {
-				self.uploadTargetFolder = $(this).val() || null;
-				if (self.uploadTargetFolder) {
-					localStorage.setItem('iu_upload_folder', self.uploadTargetFolder);
+				var val = $(this).val() || '';
+				self.uploadTargetFolder = val || null;
+
+				if (val) {
+					localStorage.setItem('iu_upload_folder', val);
 				} else {
 					localStorage.removeItem('iu_upload_folder');
 				}
+
+				// Strip 'folder_' prefix to get the integer ID for PHP.
+				var folderId = val ? parseInt(val.replace('folder_', ''), 10) : 0;
+				$.post(iuMediaFolders.ajax_url, {
+					action: 'iu_set_upload_folder',
+					nonce: iuMediaFolders.nonce,
+					folder_id: folderId,
+				});
 			});
 
 			var bindQueue = function () {

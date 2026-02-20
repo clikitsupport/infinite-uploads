@@ -26,6 +26,10 @@ class MediaFolders {
 		add_action( 'wp_ajax_iu_move_media', [ $this, 'ajax_move_media' ] );
 		add_action( 'wp_ajax_iu_sort_folders', [ $this, 'ajax_sort_folders' ] );
 		add_action( 'wp_ajax_iu_get_folder_counts', [ $this, 'ajax_get_folder_counts' ] );
+		add_action( 'wp_ajax_iu_set_upload_folder', [ $this, 'ajax_set_upload_folder' ] );
+
+		// Assign newly uploaded attachments to the user's selected folder.
+		add_action( 'add_attachment', [ $this, 'on_add_attachment' ] );
 
 		// Filter media library queries.
 		add_action( 'pre_get_posts', [ $this, 'filter_media_query' ] );
@@ -69,9 +73,9 @@ class MediaFolders {
 
 		$plugin_url = plugins_url( '', dirname( __FILE__ ) );
 
-		// Tailwind CSS (CDN) - skip on WooCommerce product pages to avoid style conflicts.
+		// Tailwind CSS (CDN) - skip on WooCommerce product pages and media-new.php to avoid style conflicts.
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( ! $screen || $screen->post_type !== 'product' ) {
+		if ( ! $screen || ( $screen->post_type !== 'product' && $hook !== 'media-new.php' ) ) {
 			wp_enqueue_script(
 				'iu-tailwind',
 				'https://cdn.tailwindcss.com',
@@ -459,6 +463,62 @@ class MediaFolders {
 		}
 
 		wp_send_json_success( $this->get_folder_counts() );
+	}
+
+	// -----------------------------------------------------------------
+	// AJAX: Save the user's preferred upload folder
+	// -----------------------------------------------------------------
+
+	public function ajax_set_upload_folder() {
+		check_ajax_referer( 'iu_media_folders', 'nonce' );
+
+		if ( ! current_user_can( 'upload_files' ) ) {
+			wp_send_json_error( 'Permission denied.' );
+		}
+
+		$folder_id = absint( $_POST['folder_id'] ?? 0 );
+
+		if ( $folder_id > 0 ) {
+			update_user_meta( get_current_user_id(), 'iu_upload_folder', $folder_id );
+		} else {
+			delete_user_meta( get_current_user_id(), 'iu_upload_folder' );
+		}
+
+		wp_send_json_success();
+	}
+
+	// -----------------------------------------------------------------
+	// Auto-assign newly uploaded attachments to the selected folder
+	// -----------------------------------------------------------------
+
+	public function on_add_attachment( $attachment_id ) {
+		if ( ! is_admin() ) {
+			return;
+		}
+
+		$folder_id = (int) get_user_meta( get_current_user_id(), 'iu_upload_folder', true );
+		if ( $folder_id <= 0 ) {
+			return;
+		}
+
+		global $wpdb;
+
+		// Remove any existing folder assignment for this attachment.
+		$wpdb->delete(
+			$this->relationships_table(),
+			[ 'attachment_id' => $attachment_id ],
+			[ '%d' ]
+		);
+
+		// Assign to the selected folder.
+		$wpdb->replace(
+			$this->relationships_table(),
+			[
+				'folder_id'     => $folder_id,
+				'attachment_id' => $attachment_id,
+			],
+			[ '%d', '%d' ]
+		);
 	}
 
 	// -----------------------------------------------------------------
