@@ -347,6 +347,7 @@
 	padding: 0;
 	color: #33302f;
 	transition: all .2s;
+	margin-righ: 7px;
 }
 
 .iu-sort-btn:hover,

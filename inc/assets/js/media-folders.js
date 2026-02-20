@@ -83,6 +83,10 @@
 								'<span>' + iuMediaFolders.delete + '</span>' +
 							'</button>' +
 							'<div class="iu-actions-right">' +
+								'<button type="button" class="iu-sort-btn" title="' + iuMediaFolders.sort_az + '">' +
+									'<span class="dashicons dashicons-sort"></span>' +
+								'</button>' +
+
 								'<div class="iu-more-dropdown">' +
 									'<button type="button" class="iu-action-more" title="' + iuMediaFolders.more + '">' +
 										'<span class="dashicons dashicons-ellipsis"></span>' +
