@@ -63,7 +63,7 @@ class MediaFolders {
 	 * Enqueue assets only on media library pages.
 	 */
 	public function enqueue_assets( $hook ) {
-		if ( ! in_array( $hook, [ 'upload.php', 'post.php', 'post-new.php' ], true ) ) {
+		if ( ! in_array( $hook, [ 'upload.php', 'post.php', 'post-new.php', 'media-new.php' ], true ) ) {
 			return;
 		}
 
@@ -97,32 +97,35 @@ class MediaFolders {
 		);
 
 		wp_localize_script( 'iu-media-folders', 'iuMediaFolders', [
-			'ajax_url'       => admin_url( 'admin-ajax.php' ),
-			'nonce'          => wp_create_nonce( 'iu_media_folders' ),
-			'all_label'      => __( 'All Files', 'infinite-uploads' ),
-			'uncat_label'    => __( 'Uncategorized', 'infinite-uploads' ),
-			'new_folder'     => __( 'New Folder', 'infinite-uploads' ),
-			'new_subfolder'  => __( 'New Subfolder', 'infinite-uploads' ),
-			'rename'         => __( 'Rename', 'infinite-uploads' ),
-			'cut'            => __( 'Cut', 'infinite-uploads' ),
-			'paste'          => __( 'Paste', 'infinite-uploads' ),
-			'delete'         => __( 'Delete', 'infinite-uploads' ),
-			'confirm_delete' => __( 'Delete this folder? Media files inside will be moved to Uncategorized.', 'infinite-uploads' ),
-			'search_folders' => __( 'Enter folder name…', 'infinite-uploads' ),
-			'sort_az'        => __( 'Sort A-Z', 'infinite-uploads' ),
-			'sort_za'        => __( 'Sort Z-A', 'infinite-uploads' ),
-			'expand_all'     => __( 'Expand All', 'infinite-uploads' ),
-			'collapse_all'   => __( 'Collapse All', 'infinite-uploads' ),
-			'folders_title'  => __( 'Folders', 'infinite-uploads' ),
-			'more'           => __( 'More', 'infinite-uploads' ),
+			'ajax_url'           => admin_url( 'admin-ajax.php' ),
+			'nonce'              => wp_create_nonce( 'iu_media_folders' ),
+			'all_label'          => __( 'All Files', 'infinite-uploads' ),
+			'uncat_label'        => __( 'Uncategorized', 'infinite-uploads' ),
+			'new_folder'         => __( 'New Folder', 'infinite-uploads' ),
+			'new_subfolder'      => __( 'New Subfolder', 'infinite-uploads' ),
+			'rename'             => __( 'Rename', 'infinite-uploads' ),
+			'cut'                => __( 'Cut', 'infinite-uploads' ),
+			'paste'              => __( 'Paste', 'infinite-uploads' ),
+			'delete'             => __( 'Delete', 'infinite-uploads' ),
+			'confirm_delete'     => __( 'Delete this folder? Media files inside will be moved to Uncategorized.', 'infinite-uploads' ),
+			'search_folders'     => __( 'Enter folder name…', 'infinite-uploads' ),
+			'sort_az'            => __( 'Sort A-Z', 'infinite-uploads' ),
+			'sort_za'            => __( 'Sort Z-A', 'infinite-uploads' ),
+			'expand_all'         => __( 'Expand All', 'infinite-uploads' ),
+			'collapse_all'       => __( 'Collapse All', 'infinite-uploads' ),
+			'folders_title'      => __( 'Folders', 'infinite-uploads' ),
+			'more'               => __( 'More', 'infinite-uploads' ),
+			'choose_folder'      => __( 'Upload to folder:', 'infinite-uploads' ),
+			'upload_folder_none' => __( 'No folder (Uncategorized)', 'infinite-uploads' ),
 			// is_list_mode is only meaningful on upload.php; never on post.php/post-new.php.
-			'is_list_mode'   => $hook === 'upload.php' && (
+			'is_list_mode'       => $hook === 'upload.php' && (
 				( isset( $_GET['mode'] ) && $_GET['mode'] === 'list' ) ||
 				( ! isset( $_GET['mode'] ) && get_user_option( 'media_library_mode' ) === 'list' )
 			),
 			// is_upload_page lets JS know whether to expect an already-rendered
 			// .media-frame in the DOM (upload.php grid) or always defer injection.
-			'is_upload_page' => $hook === 'upload.php',
+			'is_upload_page'     => $hook === 'upload.php',
+			'is_media_new_page'  => $hook === 'media-new.php',
 		] );
 	}
 

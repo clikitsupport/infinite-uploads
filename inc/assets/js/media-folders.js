@@ -23,17 +23,34 @@
 		expandedNodes: null, // Set, loaded from localStorage
 		selectedNode: null,
 
+		// Upload folder target (null = no folder selected)
+		uploadTargetFolder: null,
+
 		// SVG icons
 		chevronSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd"/></svg>',
 		folderSvg: '<span class="dashicons dashicons-open-folder iu-node-icon"></span>',
 
 		init: function () {
+			var self = this;
+
 			// Load expanded nodes from localStorage
 			try {
 				var stored = JSON.parse(localStorage.getItem('iu_folders_expanded') || '[]');
 				this.expandedNodes = new Set(stored);
 			} catch (e) {
 				this.expandedNodes = new Set();
+			}
+
+			// Restore persisted upload target folder
+			this.uploadTargetFolder = localStorage.getItem('iu_upload_folder') || null;
+
+			// Upload New Media page: just show folder selector + hook uploader, no sidebar.
+			if (iuMediaFolders.is_media_new_page) {
+				this.hookUploader();
+				this.loadAndRenderTree(function () {
+					self.injectUploadFolderSelector();
+				});
+				return;
 			}
 
 			this.injectSidebar();
@@ -44,6 +61,7 @@
 
 			if ( !this.isListMode) {
 				this.hookGridMode();
+				this.hookUploader();
 			} else {
 				this.hookListMode();
 			}
@@ -116,6 +134,14 @@
 				'<span class="iu-vf-name">' + iuMediaFolders.uncat_label + '</span>' +
 				'<span class="iu-count-badge" data-count="uncategorized">0</span>' +
 				'</div>' +
+				'</div>' +
+				// Upload to folder selector
+				'<div class="iu-upload-folder-wrap">' +
+				'<span class="dashicons dashicons-upload iu-upload-folder-icon"></span>' +
+				'<label class="iu-upload-folder-label">' + iuMediaFolders.choose_folder + '</label>' +
+				'<select class="iu-upload-folder-select">' +
+				'<option value="">' + iuMediaFolders.upload_folder_none + '</option>' +
+				'</select>' +
 				'</div>' +
 				// Search input
 				'<div class="iu-folders-search">' +
@@ -209,6 +235,7 @@
 					self.folderCounts = response.data.counts || {};
 					self.updateVirtualCounts();
 					self.buildTree();
+					self.updateUploadFolderDropdown();
 
 					if (typeof callback === 'function') {
 						callback();
@@ -1559,6 +1586,152 @@
 			}
 
 			return ids;
+		},
+
+		// -----------------------------------------------------------------
+		// Upload folder selector
+		// -----------------------------------------------------------------
+
+		/**
+		 * Build <option> HTML for the upload folder <select>.
+		 * Returns a flat, indented list reflecting the folder hierarchy.
+		 */
+		buildFolderOptions: function () {
+			var self = this;
+			var options = '<option value="">' + self.escHtml(iuMediaFolders.upload_folder_none) + '</option>';
+
+			var childrenMap = {};
+			var roots = [];
+
+			for (var i = 0; i < this.folders.length; i++) {
+				var f = this.folders[i];
+				if (f.parent === '#') {
+					roots.push(f);
+				} else {
+					if ( !childrenMap[f.parent]) childrenMap[f.parent] = [];
+					childrenMap[f.parent].push(f);
+				}
+			}
+
+			function addOptions(arr, depth) {
+				for (var j = 0; j < arr.length; j++) {
+					var folder = arr[j];
+					var prefix = depth > 0 ? new Array(depth + 1).join('— ') : '';
+					options += '<option value="' + folder.id + '">' + prefix + self.escHtml(folder.text) + '</option>';
+					if (childrenMap[folder.id]) {
+						addOptions(childrenMap[folder.id], depth + 1);
+					}
+				}
+			}
+
+			addOptions(roots, 0);
+			return options;
+		},
+
+		/**
+		 * Re-populate the upload folder <select> after tree data is refreshed.
+		 * Preserves the previously selected value where possible.
+		 */
+		updateUploadFolderDropdown: function () {
+			var $select = $('.iu-upload-folder-select');
+			if ( !$select.length) return;
+
+			var prevVal = $select.val() || this.uploadTargetFolder || '';
+			$select.html(this.buildFolderOptions());
+
+			// Restore previous selection if the folder still exists
+			if (prevVal) {
+				$select.val(prevVal);
+				if ($select.val() !== prevVal) {
+					// Folder no longer exists — reset
+					this.uploadTargetFolder = null;
+					localStorage.removeItem('iu_upload_folder');
+				}
+			}
+		},
+
+		/**
+		 * Inject the standalone upload folder selector bar on media-new.php.
+		 * Called after folders have been loaded (tree data is ready).
+		 */
+		injectUploadFolderSelector: function () {
+			if ($('.iu-upload-folder-bar').length) return; // already injected
+
+			var self = this;
+			var html =
+				'<div class="iu-upload-folder-bar">' +
+				'<span class="dashicons dashicons-open-folder"></span>' +
+				'<label for="iu-upload-folder-select-bar" class="iu-upload-folder-bar-label">' +
+				iuMediaFolders.choose_folder +
+				'</label>' +
+				'<select id="iu-upload-folder-select-bar" class="iu-upload-folder-select">' +
+				this.buildFolderOptions() +
+				'</select>' +
+				'</div>';
+
+			var $target = $('#plupload-upload-ui, .upload-ui').first();
+			if ($target.length) {
+				$target.before(html);
+			} else {
+				$('.wrap').find('h1, h2').first().after(html);
+			}
+
+			// Restore persisted selection
+			if (self.uploadTargetFolder) {
+				$('.iu-upload-folder-select').val(self.uploadTargetFolder);
+			}
+		},
+
+		/**
+		 * Hook into wp.Uploader.queue to auto-assign newly uploaded files
+		 * to the selected folder.
+		 */
+		hookUploader: function () {
+			var self = this;
+
+			// Bind dropdown change (works even when bindEvents() is not called, e.g. media-new.php)
+			$(document).on('change', '.iu-upload-folder-select', function () {
+				self.uploadTargetFolder = $(this).val() || null;
+				if (self.uploadTargetFolder) {
+					localStorage.setItem('iu_upload_folder', self.uploadTargetFolder);
+				} else {
+					localStorage.removeItem('iu_upload_folder');
+				}
+			});
+
+			var bindQueue = function () {
+				if (typeof wp === 'undefined' || !wp.Uploader || !wp.Uploader.queue) return;
+
+				// Guard against double-binding
+				if (wp.Uploader.queue._iuBound) return;
+				wp.Uploader.queue._iuBound = true;
+
+				wp.Uploader.queue.on('add', function (attachment) {
+					var folderId = self.uploadTargetFolder;
+					if ( !folderId || folderId === '') return;
+
+					var doMove = function () {
+						var id = attachment.get('id');
+						if (id) {
+							self.moveMedia([id], folderId);
+						}
+					};
+
+					if (attachment.get('id')) {
+						doMove();
+					} else {
+						attachment.once('change:id', doMove);
+					}
+				});
+			};
+
+			// Try immediately (queue already exists on most pages).
+			bindQueue();
+
+			// Also try on ready (queue might not exist yet on media-new.php).
+			$(document).ready(function () {
+				bindQueue();
+			});
 		},
 
 		moveMedia: function (attachmentIds, folderId) {

@@ -492,6 +492,93 @@
 }
 
 /* ==========================================================================
+   Upload to Folder selector (sidebar)
+   ========================================================================== */
+
+.iu-upload-folder-wrap {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 7px 16px;
+	border-bottom: 1px solid #e2e4e7;
+	flex-wrap: nowrap;
+}
+
+.iu-upload-folder-icon {
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
+	color: #82878c;
+	flex-shrink: 0;
+}
+
+.iu-upload-folder-label {
+	font-size: 12px;
+	color: #50575e;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.iu-upload-folder-select {
+	flex: 1;
+	min-width: 0;
+	font-size: 12px;
+	padding: 3px 6px;
+	border: 1px solid #c3c4c7;
+	border-radius: 3px;
+	background: #fff;
+	color: #1d2327;
+	cursor: pointer;
+	line-height: 1.4;
+	max-width: 100%;
+}
+
+.iu-upload-folder-select:focus {
+	border-color: #3253e9;
+	box-shadow: 0 0 0 1px #3253e9;
+	outline: none;
+}
+
+/* ==========================================================================
+   Upload to Folder bar (media-new.php standalone)
+   ========================================================================== */
+
+.iu-upload-folder-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 10px 16px;
+	margin-bottom: 16px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.iu-upload-folder-bar .dashicons {
+	font-size: 18px;
+	width: 18px;
+	height: 18px;
+	color: #3253e9;
+	flex-shrink: 0;
+}
+
+.iu-upload-folder-bar-label {
+	font-size: 13px;
+	font-weight: 500;
+	color: #1d2327;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.iu-upload-folder-bar .iu-upload-folder-select {
+	min-width: 200px;
+	max-width: 400px;
+	font-size: 13px;
+	padding: 5px 8px;
+}
+
+/* ==========================================================================
    Search Input
    ========================================================================== */
 
