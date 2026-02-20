@@ -492,6 +492,41 @@
 }
 
 /* ==========================================================================
+   Folder column in the media list table
+   ========================================================================== */
+
+.column-iu_folder {
+	width: 130px;
+}
+
+.iu-folder-col-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	color: #2271b1;
+	text-decoration: none;
+	font-size: 13px;
+}
+
+.iu-folder-col-link:hover {
+	color: #135e96;
+	text-decoration: underline;
+}
+
+.iu-folder-col-link .dashicons {
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
+	line-height: 14px;
+	color: #8f8f8f;
+	flex-shrink: 0;
+}
+
+.iu-folder-col-empty {
+	color: #999;
+}
+
+/* ==========================================================================
    Upload to Folder bar (media-new.php)
    ========================================================================== */
 

@@ -39,6 +39,10 @@ class MediaFolders {
 
 		// Clean up relationships when an attachment is deleted.
 		add_action( 'delete_attachment', [ $this, 'on_delete_attachment' ] );
+
+		// Folder column in the media list table (list mode).
+		add_filter( 'manage_upload_columns', [ $this, 'add_folder_column' ] );
+		add_action( 'manage_media_custom_column', [ $this, 'render_folder_column' ], 10, 2 );
 	}
 
 	/**
@@ -554,6 +558,107 @@ class MediaFolders {
 		}
 
 		wp_send_json_success( [ 'sorted' => count( $order ) ] );
+	}
+
+	// -----------------------------------------------------------------
+	// Media list table: Folder column
+	// -----------------------------------------------------------------
+
+	/**
+	 * Cache of attachment_id → folder row; populated once per page request.
+	 *
+	 * @var array|null
+	 */
+	private $folder_cache = null;
+
+	/**
+	 * Add "Folder" column to the media list table.
+	 *
+	 * WordPress automatically adds the column to Screen Options so users
+	 * can show/hide it via the standard Show/hide columns panel.
+	 *
+	 * @param array $columns
+	 *
+	 * @return array
+	 */
+	public function add_folder_column( $columns ) {
+		$new = [];
+
+		foreach ( $columns as $key => $label ) {
+			$new[ $key ] = $label;
+			if ( $key === 'title' ) {
+				$new['iu_folder'] = __( 'Folder', 'infinite-uploads' );
+			}
+		}
+
+		return $new;
+	}
+
+	/**
+	 * Render the folder column content for each attachment row.
+	 *
+	 * @param string $column_name
+	 * @param int    $post_id
+	 */
+	public function render_folder_column( $column_name, $post_id ) {
+		if ( $column_name !== 'iu_folder' ) {
+			return;
+		}
+
+		$folder = $this->get_folder_for_attachment( $post_id );
+
+		if ( $folder ) {
+			$url = add_query_arg( 'iu_folder', $folder->id, admin_url( 'upload.php' ) );
+			printf(
+				'<a href="%s" class="iu-folder-col-link"><span class="dashicons dashicons-open-folder"></span>%s</a>',
+				esc_url( $url ),
+				esc_html( $folder->name )
+			);
+		} else {
+			echo '<span class="iu-folder-col-empty">—</span>';
+		}
+	}
+
+	/**
+	 * Get the folder for a single attachment, using a per-request batch cache.
+	 *
+	 * On first call we load folder data for every attachment currently on the
+	 * page in a single query, so we never issue more than one DB query total
+	 * regardless of how many rows the table has.
+	 *
+	 * @param int $attachment_id
+	 *
+	 * @return object|null  Row with properties `id` and `name`, or null.
+	 */
+	private function get_folder_for_attachment( $attachment_id ) {
+		if ( $this->folder_cache === null ) {
+			global $wp_query, $wpdb;
+
+			$ids = ! empty( $wp_query->posts )
+				? array_column( (array) $wp_query->posts, 'ID' )
+				: [];
+
+			$this->folder_cache = [];
+
+			if ( ! empty( $ids ) ) {
+				$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+
+				// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+				$results = $wpdb->get_results( $wpdb->prepare(
+					"SELECT r.attachment_id, f.id, f.name
+					 FROM {$this->folders_table()} f
+					 INNER JOIN {$this->relationships_table()} r ON r.folder_id = f.id
+					 WHERE r.attachment_id IN ($placeholders)",
+					...$ids
+				) );
+
+				foreach ( $results as $row ) {
+					$this->folder_cache[ (int) $row->attachment_id ] = $row;
+				}
+			}
+		}
+
+		return $this->folder_cache[ (int) $attachment_id ] ?? null;
 	}
 
 	// -----------------------------------------------------------------
