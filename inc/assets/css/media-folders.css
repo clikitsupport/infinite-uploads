@@ -126,7 +126,8 @@
 }
 
 #iu-media-folders-wrap.iu-collapsed {
-	margin-right: 0;
+	margin-left: 10px;
+	margin-right: 10px;
 }
 
 #iu-media-folders-wrap.iu-collapsed .iu-sidebar-handle {
@@ -144,10 +145,15 @@
 	display: flex !important;
 }
 
+.media-frame-tab-panel {
+	width: 100%;
+}
+
 .media-frame.iu-has-folders #iu-media-folders-wrap {
 	position: relative;
 	top: 0;
 	max-height: 100%;
+	margin: 12px;
 }
 
 .media-frame.iu-has-folders #iu-media-folders-sidebar {
