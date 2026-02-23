@@ -154,7 +154,7 @@
 	position: relative;
 	top: 0;
 	border: none;
-	border-right: 1px solid #c3c4c7;
+	/*border-right: 1px solid #c3c4c7;*/
 	box-shadow: none;
 	max-height: 100%;
 }
@@ -244,9 +244,9 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 5px;
-	background: #3253e9;
+	background: #26a9e0;
 	color: #fff;
-	border: 1px solid #3253e9;
+	border: 1px solid #26a9e0;
 	border-radius: 4px;
 	cursor: pointer;
 	padding: 5px 12px;
@@ -258,14 +258,14 @@
 }
 
 .iu-folder-add-btn:hover {
-	background: #3148cf;
-	border-color: #3148cf;
+	background: #26a9e0;
+	border-color: #26a9e0;
 	color: #fff;
 }
 
 .iu-folder-add-btn:active {
-	background: #2a3eb5;
-	border-color: #2a3eb5;
+	background: #26a9e0;
+	border-color: #26a9e0;
 }
 
 .iu-folder-add-btn .dashicons {
@@ -602,7 +602,7 @@
 	pointer-events: none;
 }
 
-input.iu-folder-search-input {
+.iu-folders-search input.iu-folder-search-input {
 	width: 100%;
 	padding: 6px 25px 6px 28px;
 	border: 1px solid #CDD0D4;
