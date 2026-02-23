@@ -27,6 +27,8 @@ class MediaFolders {
 		add_action( 'wp_ajax_iu_sort_folders', [ $this, 'ajax_sort_folders' ] );
 		add_action( 'wp_ajax_iu_get_folder_counts', [ $this, 'ajax_get_folder_counts' ] );
 		add_action( 'wp_ajax_iu_set_upload_folder', [ $this, 'ajax_set_upload_folder' ] );
+		add_action( 'wp_ajax_iu_bulk_delete_folders', [ $this, 'ajax_bulk_delete_folders' ] );
+		add_action( 'wp_ajax_iu_bulk_move_folders',   [ $this, 'ajax_bulk_move_folders' ] );
 
 		// Assign newly uploaded attachments to the user's selected folder.
 		add_action( 'add_attachment', [ $this, 'on_add_attachment' ] );
@@ -116,6 +118,8 @@ class MediaFolders {
 			'paste'              => __( 'Paste', 'infinite-uploads' ),
 			'delete'             => __( 'Delete', 'infinite-uploads' ),
 			'confirm_delete'     => __( 'Delete this folder? Media files inside will be moved to Uncategorized.', 'infinite-uploads' ),
+			'confirm_bulk_delete' => __( 'Delete %d folders? Media files inside will be moved to Uncategorized.', 'infinite-uploads' ),
+			'delete_bulk'         => __( 'Delete (%d)', 'infinite-uploads' ),
 			'search_folders'     => __( 'Enter folder name…', 'infinite-uploads' ),
 			'sort_az'            => __( 'Sort A-Z', 'infinite-uploads' ),
 			'sort_za'            => __( 'Sort Z-A', 'infinite-uploads' ),
@@ -339,6 +343,69 @@ class MediaFolders {
 	}
 
 	// -----------------------------------------------------------------
+	// AJAX: Bulk delete folders
+	// -----------------------------------------------------------------
+
+	public function ajax_bulk_delete_folders() {
+		check_ajax_referer( 'iu_media_folders', 'nonce' );
+
+		if ( ! current_user_can( 'upload_files' ) ) {
+			wp_send_json_error( 'Permission denied.' );
+		}
+
+		$term_ids = array_filter( array_map( 'absint', (array) ( $_POST['term_ids'] ?? [] ) ) );
+
+		if ( empty( $term_ids ) ) {
+			wp_send_json_error( __( 'No folders specified.', 'infinite-uploads' ) );
+		}
+
+		global $wpdb;
+
+		$deleted = [];
+
+		foreach ( $term_ids as $folder_id ) {
+			$folder = $wpdb->get_row( $wpdb->prepare(
+				"SELECT * FROM {$this->folders_table()} WHERE id = %d",
+				$folder_id
+			) );
+
+			if ( ! $folder ) {
+				continue;
+			}
+
+			// Reparent direct children to this folder's parent.
+			$wpdb->update(
+				$this->folders_table(),
+				[ 'parent_id' => $folder->parent_id ],
+				[ 'parent_id' => $folder_id ],
+				[ '%d' ],
+				[ '%d' ]
+			);
+
+			// Remove media relationships (files become Uncategorized).
+			$wpdb->delete( $this->relationships_table(), [ 'folder_id' => $folder_id ], [ '%d' ] );
+
+			// Delete the folder.
+			$wpdb->delete( $this->folders_table(), [ 'id' => $folder_id ], [ '%d' ] );
+
+			$deleted[] = $folder_id;
+		}
+
+		// Fix orphaned children whose new parent was also in the deleted batch.
+		if ( ! empty( $deleted ) ) {
+			$placeholders = implode( ',', array_fill( 0, count( $deleted ), '%d' ) );
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			$wpdb->query( $wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+				"UPDATE {$this->folders_table()} SET parent_id = 0 WHERE parent_id IN ($placeholders)",
+				...$deleted
+			) );
+		}
+
+		wp_send_json_success( [ 'deleted' => $deleted ] );
+	}
+
+	// -----------------------------------------------------------------
 	// AJAX: Move folder (change parent)
 	// -----------------------------------------------------------------
 
@@ -372,6 +439,63 @@ class MediaFolders {
 		);
 
 		wp_send_json_success( [ 'term_id' => $folder_id, 'parent' => $parent_id ] );
+	}
+
+	// -----------------------------------------------------------------
+	// AJAX: Bulk move folders (change parent for multiple)
+	// -----------------------------------------------------------------
+
+	public function ajax_bulk_move_folders() {
+		check_ajax_referer( 'iu_media_folders', 'nonce' );
+
+		if ( ! current_user_can( 'upload_files' ) ) {
+			wp_send_json_error( 'Permission denied.' );
+		}
+
+		$term_ids  = array_filter( array_map( 'absint', (array) ( $_POST['term_ids'] ?? [] ) ) );
+		$parent_id = absint( $_POST['parent'] ?? 0 );
+
+		if ( empty( $term_ids ) ) {
+			wp_send_json_error( __( 'No folders specified.', 'infinite-uploads' ) );
+		}
+
+		global $wpdb;
+
+		$moved   = [];
+		$skipped = [];
+
+		foreach ( $term_ids as $folder_id ) {
+			// Cannot move a folder into itself.
+			if ( $folder_id === $parent_id ) {
+				$skipped[] = $folder_id;
+				continue;
+			}
+
+			// Prevent circular nesting.
+			if ( $parent_id && $this->is_descendant_of( $parent_id, $folder_id ) ) {
+				$skipped[] = $folder_id;
+				continue;
+			}
+
+			$wpdb->update(
+				$this->folders_table(),
+				[ 'parent_id' => $parent_id ],
+				[ 'id' => $folder_id ],
+				[ '%d' ],
+				[ '%d' ]
+			);
+
+			$moved[] = $folder_id;
+		}
+
+		$data = [ 'moved' => $moved ];
+
+		if ( ! empty( $skipped ) ) {
+			$data['skipped'] = $skipped;
+			$data['message'] = __( 'Some folders could not be moved (circular nesting).', 'infinite-uploads' );
+		}
+
+		wp_send_json_success( $data );
 	}
 
 	/**

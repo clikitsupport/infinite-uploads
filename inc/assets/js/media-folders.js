@@ -23,6 +23,10 @@
 		expandedNodes: null, // Set, loaded from localStorage
 		selectedNode: null,
 
+		// Multi-select state
+		selectedNodes: null,      // Set<string>, initialized in init()
+		folderDragNodeIds: [],    // replaces single folderDragNodeId; holds all folders being dragged
+
 		// Upload folder target (null = no folder selected)
 		uploadTargetFolder: null,
 
@@ -40,6 +44,8 @@
 			} catch (e) {
 				this.expandedNodes = new Set();
 			}
+
+			this.selectedNodes = new Set();
 
 			// Restore persisted upload target folder
 			this.uploadTargetFolder = localStorage.getItem('iu_upload_folder') || null;
@@ -270,8 +276,13 @@
 
 			$tree.append($ul);
 
-			// Re-apply selection
-			if (this.selectedNode) {
+			// Re-apply selection(s) after rebuild
+			if (this.selectedNodes && this.selectedNodes.size > 1) {
+				var self = this;
+				this.selectedNodes.forEach(function (nid) {
+					$tree.find('.iu-tree-node[data-id="' + nid + '"] > .iu-node-row').first().addClass('iu-multi-selected');
+				});
+			} else if (this.selectedNode) {
 				$tree.find('.iu-tree-node[data-id="' + this.selectedNode + '"] > .iu-node-row').first().addClass('iu-selected');
 			}
 		},
@@ -370,19 +381,88 @@
 		// Tree: selection
 		// -----------------------------------------------------------------
 
-		selectNode: function (nodeId) {
-			$('#iu-folders-tree .iu-node-row.iu-selected').removeClass('iu-selected');
+		selectNode: function (nodeId, addToSelection) {
+			var self = this;
+
+			if (!addToSelection) {
+				// Normal click: clear all selections
+				$('#iu-folders-tree .iu-node-row.iu-selected, #iu-folders-tree .iu-node-row.iu-multi-selected')
+					.removeClass('iu-selected iu-multi-selected');
+				this.selectedNodes.clear();
+			}
+
 			var $node = $('#iu-folders-tree .iu-tree-node[data-id="' + nodeId + '"]');
-			$node.children('.iu-node-row').addClass('iu-selected');
-			this.selectedNode = nodeId;
-			this.deselectVirtualFolders();
-			this.updateToolbarButtons(nodeId);
-			this.onFolderSelect(nodeId);
+
+			if (addToSelection && this.selectedNodes.has(nodeId)) {
+				// Ctrl+click on already-selected node → deselect it
+				$node.children('.iu-node-row').removeClass('iu-selected iu-multi-selected');
+				this.selectedNodes.delete(nodeId);
+				var remaining = Array.from(this.selectedNodes);
+				this.selectedNode = remaining.length ? remaining[remaining.length - 1] : null;
+				this.updateToolbarButtons(this.selectedNode);
+				return;
+			}
+
+			this.selectedNodes.add(nodeId);
+
+			if (!addToSelection) {
+				$node.children('.iu-node-row').addClass('iu-selected');
+				this.selectedNode = nodeId;
+				this.deselectVirtualFolders();
+				this.updateToolbarButtons(nodeId);
+				this.onFolderSelect(nodeId);
+			} else {
+				// Multi-select: re-style all selected nodes as multi-selected
+				this.selectedNodes.forEach(function (nid) {
+					$('#iu-folders-tree .iu-tree-node[data-id="' + nid + '"]')
+						.children('.iu-node-row')
+						.removeClass('iu-selected')
+						.addClass('iu-multi-selected');
+				});
+				this.selectedNode = nodeId;
+				this.deselectVirtualFolders();
+				this.updateToolbarButtons(this.selectedNode);
+				// Do NOT call onFolderSelect — no navigation on multi-select
+			}
 		},
 
 		deselectTree: function () {
-			$('#iu-folders-tree .iu-node-row.iu-selected').removeClass('iu-selected');
+			$('#iu-folders-tree .iu-node-row.iu-selected, #iu-folders-tree .iu-node-row.iu-multi-selected')
+				.removeClass('iu-selected iu-multi-selected');
 			this.selectedNode = null;
+			if (this.selectedNodes) this.selectedNodes.clear();
+		},
+
+		/**
+		 * Shift+click: range-select all visible folder nodes between the anchor
+		 * (selectedNode) and the clicked node.
+		 */
+		rangeSelectTo: function (nodeId) {
+			var self = this;
+			var ids = [];
+			$('#iu-folders-tree .iu-tree-node:not(.iu-search-hidden)').each(function () {
+				var nid = $(this).data('id');
+				if (nid && String(nid).indexOf('folder_') === 0) ids.push(nid);
+			});
+
+			var anchorIdx = ids.indexOf(this.selectedNode);
+			var targetIdx = ids.indexOf(nodeId);
+			if (anchorIdx === -1 || targetIdx === -1) { this.selectNode(nodeId); return; }
+
+			var start = Math.min(anchorIdx, targetIdx);
+			var end   = Math.max(anchorIdx, targetIdx);
+
+			$('#iu-folders-tree .iu-node-row.iu-selected, #iu-folders-tree .iu-node-row.iu-multi-selected')
+				.removeClass('iu-selected iu-multi-selected');
+			this.selectedNodes.clear();
+
+			for (var i = start; i <= end; i++) this.selectedNodes.add(ids[i]);
+
+			this.selectedNodes.forEach(function (nid) {
+				$('#iu-folders-tree .iu-tree-node[data-id="' + nid + '"]')
+					.children('.iu-node-row').addClass('iu-multi-selected');
+			});
+			this.updateToolbarButtons(this.selectedNode);
 		},
 
 		// -----------------------------------------------------------------
@@ -647,6 +727,55 @@
 		},
 
 		// -----------------------------------------------------------------
+		// Tree: bulk delete multiple folders
+		// -----------------------------------------------------------------
+
+		bulkDeleteFolders: function (nodeIds) {
+			var self = this;
+
+			var termIds = nodeIds
+				.filter(function (nid) { return String(nid).indexOf('folder_') === 0; })
+				.map(function (nid) { return parseInt(nid.replace('folder_', ''), 10); });
+			if (!termIds.length) return;
+
+			$.post(iuMediaFolders.ajax_url, {
+				action: 'iu_bulk_delete_folders',
+				nonce: iuMediaFolders.nonce,
+				term_ids: termIds,
+			}, function (response) {
+				if (response.success) {
+					var deletedIds = response.data.deleted || [];
+					var deletedNodeIds = deletedIds.map(function (id) { return 'folder_' + id; });
+
+					// Clean up cut state if any deleted node was marked as cut
+					deletedNodeIds.forEach(function (nodeId) {
+						if (self.cutNode === nodeId) {
+							self.cutNode = null;
+						}
+					});
+					$('#iu-folders-tree .iu-cut').removeClass('iu-cut');
+
+					// Clear selection
+					self.selectedNodes.clear();
+					self.selectedNode = null;
+					self.updateToolbarButtons(null);
+
+					// If the currently viewed folder was deleted, go to All Files
+					var currentWasDeleted = deletedNodeIds.indexOf(self.currentFolder) !== -1;
+					if (currentWasDeleted) {
+						self.selectVirtualFolder('all');
+						self.onFolderSelect('all');
+					}
+
+					// Full tree refresh handles reparented children correctly
+					self.refreshTree();
+				} else {
+					alert(response.data);
+				}
+			}, 'json');
+		},
+
+		// -----------------------------------------------------------------
 		// Tree: refresh (re-fetch and rebuild)
 		// -----------------------------------------------------------------
 
@@ -774,8 +903,6 @@
 		// Folder DnD (drag folder to reparent)
 		// -----------------------------------------------------------------
 
-		folderDragNodeId: null,
-
 		// -----------------------------------------------------------------
 		// Virtual folder management
 		// -----------------------------------------------------------------
@@ -802,9 +929,21 @@
 		// -----------------------------------------------------------------
 
 		updateToolbarButtons: function (nodeId) {
+			var count = this.selectedNodes ? this.selectedNodes.size : 0;
+			var isBulk = count >= 2;
 			var isUserFolder = nodeId && typeof nodeId === 'string' && nodeId.indexOf('folder_') === 0;
-			$('.iu-action-rename').prop('disabled', !isUserFolder);
-			$('.iu-action-delete').prop('disabled', !isUserFolder);
+			var $rename = $('.iu-action-rename');
+			var $delete = $('.iu-action-delete');
+
+			if (isBulk) {
+				$rename.prop('disabled', true);
+				$delete.prop('disabled', false);
+				$delete.find('span:not(.dashicons)').text(iuMediaFolders.delete_bulk.replace('%d', count));
+			} else {
+				$rename.prop('disabled', !isUserFolder);
+				$delete.prop('disabled', !isUserFolder);
+				$delete.find('span:not(.dashicons)').text(iuMediaFolders.delete);
+			}
 		},
 
 		// -----------------------------------------------------------------
@@ -1032,6 +1171,42 @@
 		},
 
 		// -----------------------------------------------------------------
+		// Bulk move: move multiple folders to a new parent
+		// -----------------------------------------------------------------
+
+		bulkMoveFolders: function (nodeIds, targetNodeId) {
+			var self = this;
+
+			// Filter to valid folder_ IDs, excluding the target itself
+			var validIds = nodeIds.filter(function (nid) {
+				return nid && String(nid).indexOf('folder_') === 0 && nid !== targetNodeId;
+			});
+			if (!validIds.length) return;
+
+			var termIds = validIds.map(function (nid) {
+				return parseInt(nid.replace('folder_', ''), 10);
+			});
+
+			var newParent = (targetNodeId && targetNodeId !== '#' && String(targetNodeId).indexOf('folder_') === 0)
+				? parseInt(targetNodeId.replace('folder_', ''), 10) : 0;
+
+			$.post(iuMediaFolders.ajax_url, {
+				action: 'iu_bulk_move_folders',
+				nonce: iuMediaFolders.nonce,
+				term_ids: termIds,
+				parent: newParent,
+			}, function (response) {
+				if (response.success) {
+					self.refreshTree();
+				} else {
+					self.refreshTree();
+					var msg = (response.data && response.data.message) ? response.data.message : response.data;
+					if (msg) alert(msg);
+				}
+			}, 'json');
+		},
+
+		// -----------------------------------------------------------------
 		// HTML5 Drag-and-Drop: media items -> folder tree
 		// -----------------------------------------------------------------
 
@@ -1241,7 +1416,11 @@
 			// --- Toolbar Delete ---
 			$(document).on('click', '.iu-action-delete', function (e) {
 				e.preventDefault();
-				if (self.selectedNode && confirm(iuMediaFolders.confirm_delete)) {
+				var count = self.selectedNodes ? self.selectedNodes.size : 0;
+				if (count >= 2) {
+					var msg = iuMediaFolders.confirm_bulk_delete.replace('%d', count);
+					if (confirm(msg)) self.bulkDeleteFolders(Array.from(self.selectedNodes));
+				} else if (self.selectedNode && confirm(iuMediaFolders.confirm_delete)) {
 					self.deleteFolder(self.selectedNode);
 				}
 			});
@@ -1289,21 +1468,28 @@
 				self.onFolderSelect(folder);
 			});
 
-			// --- Tree node click (select) ---
+			// --- Tree node click (select; supports Ctrl/Cmd multi-select and Shift range-select) ---
 			$(document).on('click', '#iu-folders-tree .iu-node-row', function (e) {
-				// Don't select if clicking on rename input
 				if ($(e.target).hasClass('iu-rename-input')) return;
 
 				var $node = $(this).closest('.iu-tree-node');
 				var nodeId = $node.data('id');
 
-				// If clicking on toggle, just toggle expand/collapse
 				if ($(e.target).closest('.iu-node-toggle').length) {
 					self.toggleNode(nodeId);
 					return;
 				}
 
-				self.selectNode(nodeId);
+				var isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+				var isCtrl = isMac ? e.metaKey : e.ctrlKey;
+
+				if (isCtrl && nodeId && String(nodeId).indexOf('folder_') === 0) {
+					self.selectNode(nodeId, true /* addToSelection */);
+				} else if (e.shiftKey && self.selectedNode && nodeId && String(nodeId).indexOf('folder_') === 0) {
+					self.rangeSelectTo(nodeId);
+				} else {
+					self.selectNode(nodeId);
+				}
 			});
 
 			// --- Tree node right-click (context menu) ---
@@ -1377,13 +1563,13 @@
 					e.stopPropagation();
 					$(this).removeClass('iu-drop-hover');
 
-					// If this is a folder being dragged, handle reparent to root
-					if (self.folderDragNodeId) {
+					// If folders are being dragged, handle reparent to root
+					if (self.folderDragNodeIds.length) {
 						var folder = $(this).data('folder');
 						if (folder === 'all') {
-							self.onFolderMove(self.folderDragNodeId, '#');
+							self.bulkMoveFolders(self.folderDragNodeIds, '#');
 						}
-						self.folderDragNodeId = null;
+						self.folderDragNodeIds = [];
 						return;
 					}
 
@@ -1458,12 +1644,13 @@
 					var $node = $row.closest('.iu-tree-node');
 					var targetNodeId = $node.data('id');
 
-					// If a folder is being dragged (reparent)
-					if (self.folderDragNodeId) {
-						if (self.folderDragNodeId !== targetNodeId) {
-							self.onFolderMove(self.folderDragNodeId, targetNodeId);
+					// If folders are being dragged (reparent)
+					if (self.folderDragNodeIds.length) {
+						// Prevent dropping onto one of the dragged nodes itself
+						if (self.folderDragNodeIds.indexOf(targetNodeId) === -1) {
+							self.bulkMoveFolders(self.folderDragNodeIds, targetNodeId);
 						}
-						self.folderDragNodeId = null;
+						self.folderDragNodeIds = [];
 						return;
 					}
 
@@ -1485,8 +1672,8 @@
 			// --- Drop on tree container empty space (reparent folder to root) ---
 			$('#iu-folders-tree')
 				.on('dragover', function (e) {
-					// Only accept if a folder is being dragged
-					if (self.folderDragNodeId) {
+					// Only accept if folders are being dragged
+					if (self.folderDragNodeIds.length) {
 						e.preventDefault();
 						e.originalEvent.dataTransfer.dropEffect = 'move';
 					}
@@ -1495,15 +1682,15 @@
 					// Only handle if drop landed on the container itself, not on a node row
 					if ($(e.target).closest('.iu-node-row').length) return;
 
-					if (self.folderDragNodeId) {
+					if (self.folderDragNodeIds.length) {
 						e.preventDefault();
 						e.stopPropagation();
-						self.onFolderMove(self.folderDragNodeId, '#');
-						self.folderDragNodeId = null;
+						self.bulkMoveFolders(self.folderDragNodeIds, '#');
+						self.folderDragNodeIds = [];
 					}
 				});
 
-			// --- Folder node drag (reparent via DnD) ---
+			// --- Folder node drag (reparent via DnD; supports multi-select) ---
 			$(document).on('dragstart', '#iu-folders-tree .iu-node-row[draggable]', function (e) {
 				var $node = $(this).closest('.iu-tree-node');
 				var nodeId = $node.data('id');
@@ -1516,17 +1703,29 @@
 				// Prevent media drag handler from firing
 				e.stopPropagation();
 
-				self.folderDragNodeId = nodeId;
+				// If dragging a node that is part of a multi-selection, drag all selected folders.
+				// Otherwise drag only this node (even if other nodes are selected).
+				var dragSet;
+				if (self.selectedNodes && self.selectedNodes.has(nodeId) && self.selectedNodes.size > 1) {
+					dragSet = Array.from(self.selectedNodes);
+				} else {
+					dragSet = [nodeId];
+				}
+
+				self.folderDragNodeIds = dragSet;
 				self.dragIds = []; // Clear media drag IDs
 
 				e.originalEvent.dataTransfer.effectAllowed = 'move';
-				e.originalEvent.dataTransfer.setData('text/plain', 'folder:' + nodeId);
+				e.originalEvent.dataTransfer.setData('text/plain', 'folder:' + dragSet.join(','));
 
-				$node.addClass('iu-dragging');
+				// Mark all dragged nodes
+				dragSet.forEach(function (nid) {
+					$('#iu-folders-tree .iu-tree-node[data-id="' + nid + '"]').addClass('iu-dragging');
+				});
 			});
 
 			$(document).on('dragend', '#iu-folders-tree .iu-node-row[draggable]', function () {
-				self.folderDragNodeId = null;
+				self.folderDragNodeIds = [];
 				$('#iu-folders-tree .iu-dragging').removeClass('iu-dragging');
 				$('#iu-folders-tree .iu-drop-hover').removeClass('iu-drop-hover');
 			});

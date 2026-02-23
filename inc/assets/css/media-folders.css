@@ -727,6 +727,31 @@
 	background: #d4d7f7;
 }
 
+/* Multi-select state */
+.iu-node-row.iu-multi-selected {
+	background: #e7e8ef;
+	outline: 1px solid #a3acf0;
+	outline-offset: -1px;
+}
+
+.iu-node-row.iu-multi-selected .iu-node-text {
+	color: #3253e9;
+	font-weight: 500;
+}
+
+.iu-node-row.iu-multi-selected .iu-node-icon {
+	color: #3253e9;
+}
+
+.iu-node-row.iu-multi-selected .iu-count-badge {
+	color: #3253e9;
+	background: #d4d7f7;
+}
+
+.iu-tree-node.iu-dragging > .iu-node-row.iu-multi-selected {
+	opacity: 0.4;
+}
+
 .iu-node-row:hover .iu-count-badge {
 	background: #e2e4e7;
 }
