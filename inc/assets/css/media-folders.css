@@ -2,6 +2,16 @@
    Infinite Uploads - Media Folders Sidebar (Custom Tree)
    ========================================================================== */
 
+/* -----------------------------------------------------------------
+   Brand colour tokens — change these two lines to re-theme the sidebar
+   ----------------------------------------------------------------- */
+:root {
+	--iu-primary:       #26a9e0;  /* main accent: buttons, active states, icons */
+	--iu-primary-bg:    #eef8fd;  /* 8% tint  — hover / selected row background */
+	--iu-primary-badge: #d4eef9;  /* 20% tint — count-badge background */
+	--iu-primary-muted: #a8ddf3;  /* 40% tint — multi-select outline */
+}
+
 /* Layout wrapper for list mode */
 .iu-media-wrapper {
 	display: flex;
@@ -57,8 +67,8 @@
 }
 
 .iu-sidebar-handle:hover::before {
-	background: #3253e9;
-	box-shadow: 1px 0 0 0 #3253e9;
+	background: var(--iu-primary);
+	box-shadow: 1px 0 0 0 var(--iu-primary);
 }
 
 /* Circular toggle button - flex item after handle */
@@ -86,9 +96,9 @@
 }
 
 .iu-sidebar-toggle:hover {
-	background: #3253e9;
+	background: var(--iu-primary);
 	color: #fff;
-	box-shadow: 0 0 0 1px #3253e9, 0 2px 5px rgba(51, 51, 51, 0.1);
+	box-shadow: 0 0 0 1px var(--iu-primary), 0 2px 5px rgba(51, 51, 51, 0.1);
 }
 
 .iu-sidebar-toggle svg {
@@ -250,9 +260,9 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 5px;
-	background: #26a9e0;
+	background: var(--iu-primary);
 	color: #fff;
-	border: 1px solid #26a9e0;
+	border: 1px solid var(--iu-primary);
 	border-radius: 4px;
 	cursor: pointer;
 	padding: 5px 12px;
@@ -264,14 +274,14 @@
 }
 
 .iu-folder-add-btn:hover {
-	background: #26a9e0;
-	border-color: #26a9e0;
+	background: var(--iu-primary);
+	border-color: var(--iu-primary);
 	color: #fff;
 }
 
 .iu-folder-add-btn:active {
-	background: #26a9e0;
-	border-color: #26a9e0;
+	background: var(--iu-primary);
+	border-color: var(--iu-primary);
 }
 
 .iu-folder-add-btn .dashicons {
@@ -302,20 +312,20 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 3px;
-	background: #f6f7f7;
+	background: var(--iu-primary);
 	border: none;
 	border-radius: 4px;
 	cursor: pointer;
 	padding: 3px 8px;
 	font-size: 14px;
-	color: #33302f;
+	color: #fff;
 	line-height: 1.4;
 	transition: all .2s;
 }
 
 .iu-action-rename:hover:not(:disabled),
 .iu-action-delete:hover:not(:disabled) {
-	background: #3253e9;
+	background: var(--iu-primary);
 	color: #fff;
 }
 
@@ -323,6 +333,8 @@
 .iu-action-delete:disabled {
 	opacity: 0.5;
 	cursor: default;
+	background: #fff;
+	color: #000
 }
 
 .iu-action-rename .dashicons,
@@ -358,12 +370,12 @@
 
 .iu-sort-btn:hover,
 .iu-action-more:hover {
-	background: #3253e9;
+	background: var(--iu-primary);
 	color: #fff;
 }
 
 .iu-sort-btn.iu-active {
-	background: #3253e9;
+	background: var(--iu-primary);
 	color: #fff;
 }
 
@@ -459,16 +471,16 @@
 }
 
 .iu-virtual-folder.iu-vf-selected {
-	background: #e7e8ef;
+	background: var(--iu-primary-bg);
 }
 
 .iu-virtual-folder.iu-vf-selected .iu-vf-name {
-	color: #3253e9;
+	color: var(--iu-primary);
 	font-weight: 500;
 }
 
 .iu-virtual-folder.iu-vf-selected .iu-vf-icon {
-	color: #3253e9;
+	color: var(--iu-primary);
 }
 
 .iu-vf-icon {
@@ -489,11 +501,11 @@
 
 /* Virtual folder drop hover */
 .iu-virtual-folder.iu-drop-hover {
-	background: #e7e8ef;
+	background: var(--iu-primary-bg);
 }
 
 .iu-virtual-folder.iu-drop-hover .iu-vf-name {
-	color: #3253e9;
+	color: var(--iu-primary);
 	font-weight: 600;
 }
 
@@ -552,7 +564,7 @@
 	font-size: 18px;
 	width: 18px;
 	height: 18px;
-	color: #3253e9;
+	color: var(--iu-primary);
 	flex-shrink: 0;
 }
 
@@ -576,8 +588,8 @@
 }
 
 .iu-upload-folder-select:focus {
-	border-color: #3253e9;
-	box-shadow: 0 0 0 1px #3253e9;
+	border-color: var(--iu-primary);
+	box-shadow: 0 0 0 1px var(--iu-primary);
 	outline: none;
 }
 
@@ -623,8 +635,8 @@
 }
 
 .iu-folder-search-input:focus {
-	border-color: #3253e9;
-	box-shadow: 0 0 0 1px #3253e9;
+	border-color: var(--iu-primary);
+	box-shadow: 0 0 0 1px var(--iu-primary);
 	outline: none;
 }
 
@@ -661,8 +673,8 @@
 }
 
 .iu-virtual-folder.iu-vf-selected .iu-count-badge {
-	color: #3253e9;
-	background: #d4d7f7;
+	color: var(--iu-primary);
+	background: var(--iu-primary-badge);
 }
 
 /* ==========================================================================
@@ -704,48 +716,48 @@
 }
 
 .iu-node-row:hover {
-	background: #e7e8ef;
-	color: #3253e9;
+	background: var(--iu-primary-bg);
+	color: var(--iu-primary);
 }
 
 /* Selected state */
 .iu-node-row.iu-selected {
-	background: #e7e8ef;
+	background: var(--iu-primary-bg);
 }
 
 .iu-node-row.iu-selected .iu-node-text {
-	color: #3253e9;
+	color: var(--iu-primary);
 	font-weight: 500;
 }
 
 .iu-node-row.iu-selected .iu-node-icon {
-	color: #3253e9;
+	color: var(--iu-primary);
 }
 
 .iu-node-row.iu-selected .iu-count-badge {
-	color: #3253e9;
-	background: #d4d7f7;
+	color: var(--iu-primary);
+	background: var(--iu-primary-badge);
 }
 
 /* Multi-select state */
 .iu-node-row.iu-multi-selected {
-	background: #e7e8ef;
-	outline: 1px solid #a3acf0;
+	background: var(--iu-primary-bg);
+	outline: 1px solid var(--iu-primary-muted);
 	outline-offset: -1px;
 }
 
 .iu-node-row.iu-multi-selected .iu-node-text {
-	color: #3253e9;
+	color: var(--iu-primary);
 	font-weight: 500;
 }
 
 .iu-node-row.iu-multi-selected .iu-node-icon {
-	color: #3253e9;
+	color: var(--iu-primary);
 }
 
 .iu-node-row.iu-multi-selected .iu-count-badge {
-	color: #3253e9;
-	background: #d4d7f7;
+	color: var(--iu-primary);
+	background: var(--iu-primary-badge);
 }
 
 .iu-tree-node.iu-dragging > .iu-node-row.iu-multi-selected {
@@ -802,7 +814,7 @@
 .iu-node-text {
 	flex: 1;
 	font-size: 13px;
-	/*color: #3253e9;*/
+	/*color: var(--iu-primary);*/
 	line-height: 36px;
 	white-space: nowrap;
 	overflow: hidden;
@@ -847,10 +859,10 @@
 	font-size: 13px;
 	line-height: 1.4;
 	padding: 2px 6px;
-	border: 1px solid #3253e9;
+	border: 1px solid var(--iu-primary);
 	border-radius: 3px;
 	outline: none;
-	box-shadow: 0 0 0 1px #3253e9;
+	box-shadow: 0 0 0 1px var(--iu-primary);
 	min-width: 0;
 	background: #fff;
 	color: #1d2327;
@@ -861,11 +873,11 @@
    ========================================================================== */
 
 .iu-node-row.iu-drop-hover {
-	background: #e7e8ef;
+	background: var(--iu-primary-bg);
 }
 
 .iu-node-row.iu-drop-hover .iu-node-text {
-	color: #3253e9;
+	color: var(--iu-primary);
 	font-weight: 600;
 }
 
@@ -946,8 +958,8 @@ body.iu-resizing * {
 }
 
 body.iu-resizing .iu-sidebar-handle::before {
-	background: #3253e9;
-	box-shadow: 1px 0 0 0 #3253e9;
+	background: var(--iu-primary);
+	box-shadow: 1px 0 0 0 var(--iu-primary);
 }
 
 /* ==========================================================================
@@ -989,7 +1001,7 @@ body.iu-resizing .iu-sidebar-handle::before {
 	position: absolute;
 	top: -6px;
 	right: -6px;
-	background: #3253e9;
+	background: var(--iu-primary);
 	color: #fff;
 	font-size: 10px;
 	font-weight: 600;
@@ -1010,8 +1022,8 @@ body.iu-resizing .iu-sidebar-handle::before {
 
 /* Drop target highlighting on sidebar */
 #iu-media-folders-sidebar.iu-drop-active {
-	border-color: #3253e9;
-	box-shadow: 0 0 0 1px #3253e9;
+	border-color: var(--iu-primary);
+	box-shadow: 0 0 0 1px var(--iu-primary);
 }
 
 /* ==========================================================================
