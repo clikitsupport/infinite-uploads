@@ -924,7 +924,38 @@
 				this.filterListMode(folderId);
 			} else {
 				this.filterGridMode(folderId);
+				this.syncUploadTargetToFolder(folderId);
 			}
+		},
+
+		/**
+		 * Keep uploadTargetFolder in sync with the currently selected folder
+		 * so that files dropped into the uploader go directly into that folder.
+		 * Persists to localStorage and server-side user meta (for PHP add_attachment hook).
+		 */
+		syncUploadTargetToFolder: function (folderId) {
+			var newTarget = (folderId && folderId !== 'all' && folderId !== 'uncategorized')
+				? folderId
+				: null;
+
+			if (newTarget === this.uploadTargetFolder) {
+				return; // nothing changed
+			}
+
+			this.uploadTargetFolder = newTarget;
+
+			if (newTarget) {
+				localStorage.setItem('iu_upload_folder', newTarget);
+			} else {
+				localStorage.removeItem('iu_upload_folder');
+			}
+
+			var numericId = newTarget ? parseInt(newTarget.replace('folder_', ''), 10) : 0;
+			$.post(iuMediaFolders.ajax_url, {
+				action: 'iu_set_upload_folder',
+				nonce: iuMediaFolders.nonce,
+				folder_id: numericId,
+			});
 		},
 
 		filterListMode: function (folderId) {
@@ -1718,10 +1749,14 @@
 					var folderId = self.uploadTargetFolder;
 					if ( !folderId || folderId === '') return;
 
+					// Immediately add the attachment to the current grid collection
+					// so the upload progress tile is visible even in a filtered folder view.
+					self.addAttachmentToGrid(attachment);
+
 					var doMove = function () {
 						var id = attachment.get('id');
 						if (id) {
-							self.moveMedia([id], folderId);
+							self.moveMedia([id], folderId, { skipRefresh: true });
 						}
 					};
 
@@ -1742,8 +1777,53 @@
 			});
 		},
 
-		moveMedia: function (attachmentIds, folderId) {
+		/**
+		 * Push an attachment model into the current grid collection so the
+		 * upload progress tile is visible even in a folder-filtered view.
+		 * WordPress's uploader can only add items to an unfiltered collection;
+		 * for folder-filtered Query collections we have to do it manually.
+		 */
+		addAttachmentToGrid: function (attachment) {
+			if (this.isListMode || typeof wp === 'undefined' || !wp.media || !wp.media.frame) {
+				return;
+			}
+			try {
+				var content = wp.media.frame.content && wp.media.frame.content.get();
+				if (!content) return;
+				var bc = content.collection || (content.options && content.options.collection);
+				if (!bc) return;
+				// Avoid duplicates — check by cid (no real id yet while uploading)
+				var lookupKey = attachment.get('id') || attachment.cid;
+				if (!bc.get(lookupKey)) {
+					bc.unshift(attachment);
+				}
+			} catch (e) {}
+		},
+
+		/**
+		 * Re-fetch the current folder's items from offset 0 and MERGE them
+		 * into the existing collection (remove:false), so newly uploaded
+		 * attachments appear without wiping the grid.
+		 */
+		softRefreshGrid: function () {
+			if (this.isListMode || typeof wp === 'undefined' || !wp.media || !wp.media.frame) {
+				return;
+			}
+			try {
+				var content = wp.media.frame.content && wp.media.frame.content.get();
+				if (!content) return;
+				var bc = content.collection || (content.options && content.options.collection);
+				if (!bc) return;
+				// Setting _more to null bypasses the "all loaded" guard in more()
+				// and makes sync() fetch from offset 0 (since falsy _more = no offset).
+				bc._more = null;
+				bc.more({ remove: false });
+			} catch (e) {}
+		},
+
+		moveMedia: function (attachmentIds, folderId, options) {
 			var self = this;
+			options = options || {};
 
 			if (folderId === 'all') return;
 
@@ -1760,7 +1840,11 @@
 				if (response.success) {
 					self.updateCountsFromResponse(response.data);
 
-					if (self.currentFolder && self.currentFolder !== 'all') {
+					if (options.skipRefresh) {
+						// Upload-triggered move: soft-refresh so the new item appears
+						// in the folder view without wiping the grid mid-upload.
+						self.softRefreshGrid();
+					} else if (self.currentFolder && self.currentFolder !== 'all') {
 						if (self.isListMode) {
 							window.location.reload();
 						} else {
