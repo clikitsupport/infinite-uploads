@@ -17,6 +17,12 @@ class MediaFolders {
 	public function __construct() {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 
+		// Elementor resets $wp_scripts with a fresh empty object inside its own
+		// enqueue_scripts() call, wiping everything registered via admin_enqueue_scripts.
+		// We must re-enqueue inside Elementor's own hook so our script ends up in
+		// the new $wp_scripts instance that actually gets output to the page.
+		add_action( 'elementor/editor/after_enqueue_scripts', [ $this, 'enqueue_for_elementor' ] );
+
 		// AJAX handlers for folder operations.
 		add_action( 'wp_ajax_iu_get_folders', [ $this, 'ajax_get_folders' ] );
 		add_action( 'wp_ajax_iu_create_folder', [ $this, 'ajax_create_folder' ] );
@@ -144,6 +150,20 @@ class MediaFolders {
 			'is_upload_page'     => $hook === 'upload.php',
 			'is_media_new_page'  => $hook === 'media-new.php',
 		] );
+	}
+
+	/**
+	 * Re-enqueue our assets inside Elementor's editor script queue.
+	 *
+	 * Elementor calls `$wp_scripts = new \WP_Scripts()` in its enqueue_scripts()
+	 * method, which discards everything that was registered via admin_enqueue_scripts.
+	 * This hook fires after Elementor has enqueued its own scripts (including
+	 * wp_enqueue_media()), so media-views is already registered.
+	 */
+	public function enqueue_for_elementor() {
+		// Re-use enqueue_assets with a neutral hook value so none of the
+		// upload.php / media-new.php specific flags are set.
+		$this->enqueue_assets( '_elementor' );
 	}
 
 	// -----------------------------------------------------------------
