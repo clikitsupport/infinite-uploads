@@ -202,8 +202,8 @@
 
 .media-frame.iu-has-menu-sidebar .media-frame-content,
 .media-frame.iu-has-menu-sidebar .media-frame-toolbar,
-.media-frame-router,
-.media-frame-title {
+.media-frame.iu-has-menu-sidebar .media-frame-router,
+.media-frame.iu-has-menu-sidebar .media-frame-title {
 	left: 240px !important;
 }
 

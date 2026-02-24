@@ -70,18 +70,22 @@ class MediaFolders {
 	}
 
 	/**
-	 * Enqueue assets only on media library pages.
+	 * Enqueue assets on all admin pages where the current user can manage media.
+	 * Page builders (Elementor, Avada, Oxygen, etc.) run on their own hooks, not
+	 * upload.php, so we must be hook-agnostic to inject the sidebar into their
+	 * media picker modals.
 	 */
 	public function enqueue_assets( $hook ) {
-		if ( ! in_array( $hook, [ 'upload.php', 'post.php', 'post-new.php', 'media-new.php' ], true ) ) {
+		if ( ! is_admin()  ) {
 			return;
 		}
 
 		$plugin_url = plugins_url( '', dirname( __FILE__ ) );
 
-		// Tailwind CSS (CDN) - skip on WooCommerce product pages and media-new.php to avoid style conflicts.
-		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		if ( ! $screen || ( $screen->post_type !== 'product' && $hook !== 'media-new.php' ) ) {
+		// Tailwind CSS (CDN) — only on upload.php where the sidebar is embedded in
+		// the page. post.php may serve Elementor's editor (post.php?action=elementor)
+		// where Tailwind's preflight reset would break the builder's UI.
+		if ( $hook === 'upload.php' ) {
 			wp_enqueue_script(
 				'iu-tailwind',
 				'https://cdn.tailwindcss.com',
@@ -98,6 +102,7 @@ class MediaFolders {
 			[],
 			INFINITE_UPLOADS_VERSION
 		);
+
 		wp_enqueue_script(
 			'iu-media-folders',
 			$plugin_url . '/inc/assets/js/media-folders.js',

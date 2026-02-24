@@ -26,6 +26,7 @@
 		// Multi-select state
 		selectedNodes: null,      // Set<string>, initialized in init()
 		folderDragNodeIds: [],    // replaces single folderDragNodeId; holds all folders being dragged
+		_activeFrame: null,       // last modal frame that received sidebar injection
 
 		// Upload folder target (null = no folder selected)
 		uploadTargetFolder: null,
@@ -74,19 +75,13 @@
 		},
 
 		/**
-		 * Inject the sidebar HTML into the media library page.
+		 * Generate the sidebar HTML string.
+		 * collapsed: bool — whether to start in collapsed state.
+		 * sidebarStyle: string — inline style attribute value for the sidebar panel.
 		 */
-		injectSidebar: function () {
-			var collapsed = localStorage.getItem('iu_folders_collapsed') === '1';
-			var savedWidth = localStorage.getItem('iu_folders_width');
-
-			var sidebarStyle = savedWidth ? ' style="width:' + savedWidth + 'px;min-width:' + savedWidth + 'px"' : '';
-
-			// Save for deferred injection into dynamically opened media frames.
-			this._sidebarHtml = null;
-
-			var sidebarHtml =
-				'<div id="iu-media-folders-wrap" class="' + (collapsed ? 'iu-collapsed' : '') + '">' +
+		buildSidebarHtml: function ( collapsed, sidebarStyle ) {
+			return (
+				'<div id="iu-media-folders-wrap" class="' + ( collapsed ? 'iu-collapsed' : '' ) + '">' +
 				'<div id="iu-media-folders-sidebar"' + sidebarStyle + '>' +
 				// Row 1: Title + New Folder button
 				'<div class="iu-folders-header">' +
@@ -153,7 +148,18 @@
 				'<span class="iu-sidebar-toggle" title="Toggle folders">' +
 				'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M10.5 17a1 1 0 0 1-.71-.29 1 1 0 0 1 0-1.42L13.1 12 9.92 8.69a1 1 0 0 1 0-1.41 1 1 0 0 1 1.42 0l3.86 4a1 1 0 0 1 0 1.4l-4 4a1 1 0 0 1-.7.32z"></path></svg>' +
 				'</span>' +
-				'</div>';
+				'</div>'
+			);
+		},
+
+		/**
+		 * Inject the sidebar HTML into the media library page.
+		 */
+		injectSidebar: function () {
+			var collapsed = localStorage.getItem('iu_folders_collapsed') === '1';
+			var savedWidth = localStorage.getItem('iu_folders_width');
+			var sidebarStyle = savedWidth ? ' style="width:' + savedWidth + 'px;min-width:' + savedWidth + 'px"' : '';
+			var sidebarHtml = this.buildSidebarHtml( collapsed, sidebarStyle );
 
 			if (this.isListMode) {
 				var $wrap = $('.wrap');
@@ -163,18 +169,16 @@
 					$wrap.find('#iu-media-folders-wrap, .iu-media-content').wrapAll('<div class="iu-media-wrapper"></div>');
 				}
 			} else {
-				// On upload.php the media grid frame is already in the DOM — inject
-				// directly.  On post.php / post-new.php an unrelated .media-frame may
-				// exist (block editor, featured image, etc.); we must NOT inject there.
-				// Instead always defer and let _extendAttachmentsBrowser() inject into
-				// whichever modal the user actually opens (WooCommerce gallery, etc.).
+				// On upload.php inject directly into the existing media frame.
+				// All other pages (page builders, post.php, etc.) rely on
+				// _extendAttachmentsBrowser() to inject when a modal opens.
 				var $mediaFrame = iuMediaFolders.is_upload_page ? $('.media-frame') : $([]);
 				if ($mediaFrame.length) {
 					$mediaFrame.addClass('iu-has-folders');
 					$mediaFrame.prepend(sidebarHtml);
-				} else {
-					this._sidebarHtml = sidebarHtml;
 				}
+				// Note: no _sidebarHtml storage — _extendAttachmentsBrowser generates
+				// fresh HTML for every modal that opens.
 			}
 		},
 
@@ -1122,7 +1126,10 @@
 				return;
 			}
 
-			var collection = wp.media.frame && wp.media.frame.content && wp.media.frame.content.get();
+			// Prefer the explicitly tracked frame (page builder modals, etc.);
+			// fall back to wp.media.frame for upload.php.
+			var activeFrame = this._activeFrame || wp.media.frame;
+			var collection = activeFrame && activeFrame.content && activeFrame.content.get();
 			if ( !collection) return;
 
 			var browserCollection = collection.collection || (collection.options && collection.options.collection);
@@ -1245,25 +1252,24 @@
 				draggableObserver.observe(existingFrame, {childList: true, subtree: true});
 			}
 
-			// For modals opened dynamically (WooCommerce gallery, ACF, Gutenberg Insert Image, etc.)
-			// extend AttachmentsBrowser so the sidebar is injected when the frame opens.
-			// On upload.php _sidebarHtml is null (already injected), so this is a no-op.
-			if (self._sidebarHtml) {
-				self._extendAttachmentsBrowser(draggableObserver);
-			}
+			// Extend AttachmentsBrowser so the sidebar is injected into every
+			// dynamically-opened wp.media() modal (page builders, WooCommerce gallery,
+			// ACF, Gutenberg, etc.).  The method guards against double injection.
+			self._extendAttachmentsBrowser(draggableObserver);
+
+			// MutationObserver fallback: catches page builders (Elementor, Avada,
+			// Oxygen, etc.) where the frame may be created before our Backbone patch
+			// is fully applied, or where the open event fires before we bind it.
+			self._watchForMediaModals(draggableObserver);
 		},
 
 		/**
 		 * Extend wp.media.view.AttachmentsBrowser so the folder sidebar is injected
-		 * into every dynamically-opened wp.media() modal (WooCommerce, ACF, etc.).
+		 * into every dynamically-opened wp.media() modal.
 		 *
-		 *  - Hook createToolbar() lifecycle
-		 *  - Check controller.options.modal to confirm we're in a modal
-		 *  - 50 ms delay for DOM stability
-		 *  - Prepend sidebar into .media-frame-menu (the 200 px left panel WP already
-		 *    reserves) and call removeClass('hide-menu') so WordPress's own CSS makes
-		 *    .media-frame-content start at left:200px automatically — no extra layout
-		 *    hacks needed.
+		 * Uses Backbone's views.add() so the sidebar survives menu re-renders
+		 * (e.g. when Elementor's onFrameReady clicks #menu-item-library which
+		 * triggers a state change that calls renderMenu and wipes DOM injections).
 		 */
 		_extendAttachmentsBrowser: function (draggableObserver) {
 			var self = this;
@@ -1277,44 +1283,82 @@
 				return;
 			}
 
+			// Guard against double-wrapping when hookGridMode() is called multiple times.
+			if (wp.media.view.AttachmentsBrowser._iuExtended) {
+				return;
+			}
+			wp.media.view.AttachmentsBrowser._iuExtended = true;
+
 			var OrigBrowser = wp.media.view.AttachmentsBrowser;
 
 			wp.media.view.AttachmentsBrowser = OrigBrowser.extend({
 				createToolbar: function () {
 					OrigBrowser.prototype.createToolbar.apply(this, arguments);
 
-					if ( !self._sidebarHtml) {
-						return; // Already injected or not needed.
-					}
-
-					// Only handle modal frames (WooCommerce, ACF, etc.).
-					// Non-modal (upload.php) is already handled by injectSidebar().
 					var controller = this.controller;
-					if ( !controller.options || !controller.options.modal) {
+					var browserView = this;
+
+					// Skip frames that already have the sidebar (upload.php inline frame).
+					var $frame = controller.$el || $(controller.el);
+					if ($frame.find('#iu-media-folders-wrap').length) {
+						self._activeFrame = controller;
 						return;
 					}
 
-					var $frame = $(controller.el);
+					/**
+					 * Inject sidebar using Backbone's view system.
+					 * browserView.views.parent == MediaFrame (set by wp.media Region.set).
+					 * Adding via views.add() makes the sidebar a managed Backbone subview
+					 * so it is re-inserted automatically when the menu region re-renders.
+					 */
+					function injectSidebar() {
+						var $f = controller.$el || $(controller.el);
 
-					// 50 ms delay — ensures the menu DOM is stable.
-					setTimeout(function () {
-						if ( !self._sidebarHtml) return;
-						if ($frame.find('#iu-media-folders-wrap').length) return;
+						// Guard: already injected.
+						if ($f.find('#iu-media-folders-wrap').length) {
+							self._activeFrame = controller;
+							return;
+						}
 
-						var $menu = $frame.find('.media-frame-menu');
-						if ( !$menu.length) return;
+						// ----------------------------------------------------------
+						// Primary path: Backbone views.add() so the sidebar survives
+						// any subsequent menu re-renders triggered by Elementor etc.
+						// browserView.views.parent is MediaFrame (confirmed by WP source:
+						// Region.set sets view.views.parent = the region owner).
+						// ----------------------------------------------------------
+						var menuView = null;
+						var parentView = browserView.views && browserView.views.parent;
+						if (parentView && parentView.views) {
+							var mv = parentView.views.get('.media-frame-menu');
+							if (mv && mv.length) menuView = mv[0];
+						}
+						// Fallback: try controller.views directly.
+						if (!menuView && controller.views) {
+							var mv2 = controller.views.get('.media-frame-menu');
+							if (mv2 && mv2.length) menuView = mv2[0];
+						}
 
-						// Inject into .media-frame-menu — WordPress already sizes this
-						// panel at 200px and offsets .media-frame-content to left:200px.
-						// Removing hide-menu makes it visible with no extra CSS needed.
-						$menu.prepend(self._sidebarHtml);
-						$frame.removeClass('hide-menu').addClass('iu-has-menu-sidebar');
-						// Always open expanded in modal context regardless of localStorage.
-						$frame.find('#iu-media-folders-wrap').removeClass('iu-collapsed');
+						var sidebarHtml = self.buildSidebarHtml(false, '');
 
-						// Hide not required headings.
-						$('.media-frame-menu-heading').hide();
-						self._sidebarHtml = null;
+						if (menuView) {
+							// Add as Backbone managed subview at position 0.
+							menuView.views.add(
+								new wp.media.View({ el: $(sidebarHtml)[0] }),
+								{ at: 0 }
+							);
+						} else {
+							// DOM fallback for non-standard frames.
+							var $menu = $f.find('.media-frame-menu');
+							if (!$menu.length) return;
+							$menu.prepend(sidebarHtml);
+						}
+
+						// Style the frame.
+						$f.removeClass('hide-menu').addClass('iu-has-menu-sidebar');
+						$f.find('#iu-media-folders-wrap').removeClass('iu-collapsed');
+						$f.find('.media-frame-menu-heading').hide();
+
+						self._activeFrame = controller;
 
 						if (self.folders.length) {
 							self.buildTree();
@@ -1323,14 +1367,99 @@
 						self.selectVirtualFolder('all');
 
 						if (draggableObserver) {
-							draggableObserver.observe(controller.el, {childList: true, subtree: true});
+							draggableObserver.observe(controller.el, { childList: true, subtree: true });
 						}
-						setTimeout(function () {
-							self.markDraggable();
-						}, 300);
-					}, 50);
+						setTimeout(function () { self.markDraggable(); }, 300);
+					}
+
+					// Every time the frame opens (handles Elementor reuse pattern).
+					controller.on('open', function () {
+						setTimeout(injectSidebar, 50);
+					});
+
+					// Immediate attempt for frames already visible at createToolbar time.
+					setTimeout(injectSidebar, 50);
 				},
 			});
+		},
+
+		/**
+		 * MutationObserver safety-net: watches document.body for .media-modal
+		 * being appended (which WordPress always does for any wp.media() dialog).
+		 * Uses Backbone's views.add() via wp.media.frame so the sidebar survives
+		 * any subsequent menu re-renders (e.g. triggered by Elementor).
+		 */
+		_watchForMediaModals: function (draggableObserver) {
+			var self = this;
+
+			var observer = new MutationObserver(function (mutations) {
+				mutations.forEach(function (mutation) {
+					mutation.addedNodes.forEach(function (node) {
+						if (node.nodeType !== 1) return;
+
+						// WordPress always wraps modal frames in .media-modal appended to body.
+						if (!$(node).hasClass('media-modal')) return;
+
+						var $frame = $(node).find('.media-frame').first();
+						if (!$frame.length) return;
+
+						var frameEl = $frame[0];
+
+						// Wait for Elementor / builder to finish its own frame setup
+						// (onFrameReady removes menu items, clicks #menu-item-library
+						// which triggers renderMenu and wipes plain DOM injections).
+						setTimeout(function () {
+							var $f = $(frameEl);
+							if ($f.find('#iu-media-folders-wrap').length) return;
+
+							// Use wp.media.frame (set by WP when any frame is created).
+							var frameController = (typeof wp !== 'undefined' && wp.media && wp.media.frame)
+								? wp.media.frame : null;
+
+							var menuView = null;
+							if (frameController && frameController.views) {
+								var mv = frameController.views.get('.media-frame-menu');
+								if (mv && mv.length) menuView = mv[0];
+							}
+
+							var sidebarHtml = self.buildSidebarHtml(false, '');
+
+							if (menuView) {
+								// Backbone views.add() — survives menu re-renders.
+								menuView.views.add(
+									new wp.media.View({ el: $(sidebarHtml)[0] }),
+									{ at: 0 }
+								);
+							} else {
+								// DOM fallback.
+								var $menu = $f.find('.media-frame-menu');
+								if (!$menu.length) return;
+								$menu.prepend(sidebarHtml);
+							}
+
+							$f.removeClass('hide-menu').addClass('iu-has-menu-sidebar');
+							$f.find('#iu-media-folders-wrap').removeClass('iu-collapsed');
+							$f.find('.media-frame-menu-heading').hide();
+
+							if (frameController) self._activeFrame = frameController;
+
+							if (self.folders.length) {
+								self.buildTree();
+								self.renderCountBadges();
+							}
+							self.selectVirtualFolder('all');
+
+							if (draggableObserver) {
+								draggableObserver.observe(frameEl, { childList: true, subtree: true });
+							}
+							setTimeout(function () { self.markDraggable(); }, 300);
+						}, 300);
+					});
+				});
+			});
+
+			// Watch only direct children of body — WP always appends modals there.
+			observer.observe(document.body, { childList: true });
 		},
 
 		hookListMode: function () {
@@ -1541,9 +1670,8 @@
 				}
 			});
 
-			$('#iu-media-folders-sidebar').on('scroll', function () {
-				self.closeContextMenu();
-			});
+			// Note: sidebar scroll is handled via capture listener in initSearch(),
+			// scroll events don't bubble so cannot be delegated here.
 
 			// --- Virtual folder drag-drop targets ---
 			$(document)
@@ -1621,20 +1749,21 @@
 				$('.iu-virtual-folder.iu-drop-hover').removeClass('iu-drop-hover');
 			});
 
-			// --- Drop targets: custom tree node rows (delegated) ---
-			$('#iu-folders-tree')
-				.on('dragover', '.iu-node-row', function (e) {
+			// --- Drop targets: custom tree node rows (delegated from document so
+			//     they work even when #iu-folders-tree is added to the DOM after init) ---
+			$(document)
+				.on('dragover', '#iu-folders-tree .iu-node-row', function (e) {
 					e.preventDefault();
 					e.originalEvent.dataTransfer.dropEffect = 'move';
 					$(this).addClass('iu-drop-hover');
 				})
-				.on('dragleave', '.iu-node-row', function (e) {
+				.on('dragleave', '#iu-folders-tree .iu-node-row', function (e) {
 					var related = e.originalEvent.relatedTarget;
 					if ( !this.contains(related)) {
 						$(this).removeClass('iu-drop-hover');
 					}
 				})
-				.on('drop', '.iu-node-row', function (e) {
+				.on('drop', '#iu-folders-tree .iu-node-row', function (e) {
 					e.preventDefault();
 					e.stopPropagation();
 
@@ -1670,15 +1799,15 @@
 				});
 
 			// --- Drop on tree container empty space (reparent folder to root) ---
-			$('#iu-folders-tree')
-				.on('dragover', function (e) {
+			$(document)
+				.on('dragover', '#iu-folders-tree', function (e) {
 					// Only accept if folders are being dragged
 					if (self.folderDragNodeIds.length) {
 						e.preventDefault();
 						e.originalEvent.dataTransfer.dropEffect = 'move';
 					}
 				})
-				.on('drop', function (e) {
+				.on('drop', '#iu-folders-tree', function (e) {
 					// Only handle if drop landed on the container itself, not on a node row
 					if ($(e.target).closest('.iu-node-row').length) return;
 
