@@ -91,6 +91,13 @@ class MediaFolders {
 
 	public function is_media_folders_js_required() {
 
+		// Added bricks support.
+		$is_bricks = isset( $_GET['bricks'] ) && $_GET['bricks'] === 'run';
+
+		if ( $is_bricks ) {
+			return true;
+		}
+
 		// If Divi is installed.
 		if ( ! function_exists( 'et_core_is_fb_enabled' ) ) {
 			return false;
