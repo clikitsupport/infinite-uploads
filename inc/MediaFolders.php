@@ -15,13 +15,26 @@ class MediaFolders {
 	}
 
 	public function __construct() {
-		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
+		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 
 		// Elementor resets $wp_scripts with a fresh empty object inside its own
 		// enqueue_scripts() call, wiping everything registered via admin_enqueue_scripts.
 		// We must re-enqueue inside Elementor's own hook so our script ends up in
 		// the new $wp_scripts instance that actually gets output to the page.
 		add_action( 'elementor/editor/after_enqueue_scripts', [ $this, 'enqueue_for_elementor' ] );
+
+
+//		add_action( 'wp_enqueue_scripts', function() {
+//
+//			if ( ! function_exists( 'et_core_is_fb_enabled' ) ) {
+//				return;
+//			}
+//
+//			if ( et_core_is_fb_enabled() ) {
+//				$this->enqueue_for_divi();
+//			}
+//
+//		});
 
 		// AJAX handlers for folder operations.
 		add_action( 'wp_ajax_iu_get_folders', [ $this, 'ajax_get_folders' ] );
@@ -75,6 +88,19 @@ class MediaFolders {
 		return $wpdb->prefix . 'infinite_uploads_media_folder_relationships';
 	}
 
+	public function is_media_folders_js_required() {
+
+		// If Divi is installed.
+		if ( ! function_exists( 'et_core_is_fb_enabled' ) ) {
+			return false;
+		}
+
+		if ( et_core_is_fb_enabled() ) {
+			return true;
+		}
+
+		return false;
+	}
 	/**
 	 * Enqueue assets on all admin pages where the current user can manage media.
 	 * Page builders (Elementor, Avada, Oxygen, etc.) run on their own hooks, not
@@ -82,7 +108,7 @@ class MediaFolders {
 	 * media picker modals.
 	 */
 	public function enqueue_assets( $hook ) {
-		if ( ! is_admin()  ) {
+		if ( ! is_admin() && ! $this->is_media_folders_js_required() ) {
 			return;
 		}
 
@@ -164,6 +190,11 @@ class MediaFolders {
 		// Re-use enqueue_assets with a neutral hook value so none of the
 		// upload.php / media-new.php specific flags are set.
 		$this->enqueue_assets( '_elementor' );
+	}
+
+
+	public function enqueue_for_divi() {
+		$this->enqueue_assets( '_divi' );
 	}
 
 	// -----------------------------------------------------------------
