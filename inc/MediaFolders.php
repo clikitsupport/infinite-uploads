@@ -16,6 +16,7 @@ class MediaFolders {
 
 	public function __construct() {
 		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_assets' ] );
+		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 
 		// Elementor resets $wp_scripts with a fresh empty object inside its own
 		// enqueue_scripts() call, wiping everything registered via admin_enqueue_scripts.
