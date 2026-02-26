@@ -23,7 +23,13 @@ class MediaFolders {
 		// We must re-enqueue inside Elementor's own hook so our script ends up in
 		// the new $wp_scripts instance that actually gets output to the page.
 		add_action( 'elementor/editor/after_enqueue_scripts', [ $this, 'enqueue_for_elementor' ] );
-		//add_action( 'brizy_edit_mode', [ $this, 'enqueue_for_brizy' ], 10, 1 );
+
+		// Brizy runs its editor inside a frontend iframe (URL param `is-editor-iframe`).
+		// It calls wp_enqueue_media() inside that iframe at wp_enqueue_scripts priority 9999,
+		// creating its own wp.media instance in the iframe window.  We must enqueue our
+		// script inside the same iframe so _extendAttachmentsBrowser patches the right
+		// window context.  PHP_INT_MAX ensures we run after Brizy's wp_enqueue_media() call.
+		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_for_brizy_iframe' ], PHP_INT_MAX );
 
 
 //		add_action( 'wp_enqueue_scripts', function() {
@@ -200,13 +206,6 @@ class MediaFolders {
 	}
 
 	/**
-	 * Enqueue assets in Brizy's editor context. Brizy loads the media picker in an iframe on upload.php, so we can use the same assets but need to enqueue them on a different hook.
-	 */
-	public function enqueue_for_brizy($post) {
-		$this->enqueue_assets( '_brizy' );
-	}
-
-	/**
 	 * Re-enqueue our assets inside Elementor's editor script queue.
 	 *
 	 * Elementor calls `$wp_scripts = new \WP_Scripts()` in its enqueue_scripts()
@@ -220,6 +219,75 @@ class MediaFolders {
 		$this->enqueue_assets( '_elementor' );
 	}
 
+	/**
+	 * Enqueue our script inside Brizy's frontend editor iframe.
+	 *
+	 * Brizy runs the page builder inside a frontend iframe identified by the
+	 * `is-editor-iframe` request parameter.  It calls wp_enqueue_media() inside
+	 * that iframe (at wp_enqueue_scripts priority 9999), so wp.media and
+	 * media-views exist in the iframe window context.  We enqueue here at
+	 * PHP_INT_MAX so the dependency is already registered.
+	 *
+	 * We cannot go through enqueue_assets() because is_admin() returns false
+	 * inside the frontend iframe, causing an early return.
+	 */
+	public function enqueue_for_brizy_iframe() {
+		if ( empty( $_REQUEST['is-editor-iframe'] ) ) {
+			return;
+		}
+
+		if ( ! is_user_logged_in() || ! current_user_can( 'upload_files' ) ) {
+			return;
+		}
+
+		$plugin_url = plugins_url( '', dirname( __FILE__ ) );
+
+		wp_enqueue_style(
+			'iu-media-folders',
+			$plugin_url . '/inc/assets/css/media-folders.css',
+			[],
+			INFINITE_UPLOADS_VERSION
+		);
+
+		// Brizy calls wp_enqueue_media() at priority 9999 so 'media-views' is
+		// already registered when we fire at PHP_INT_MAX.
+		wp_enqueue_script(
+			'iu-media-folders',
+			$plugin_url . '/inc/assets/js/media-folders.js',
+			[ 'jquery', 'media-views' ],
+			INFINITE_UPLOADS_VERSION,
+			true
+		);
+
+		wp_localize_script( 'iu-media-folders', 'iuMediaFolders', [
+			'ajax_url'            => admin_url( 'admin-ajax.php' ),
+			'nonce'               => wp_create_nonce( 'iu_media_folders' ),
+			'all_label'           => __( 'All Files', 'infinite-uploads' ),
+			'uncat_label'         => __( 'Uncategorized', 'infinite-uploads' ),
+			'new_folder'          => __( 'New Folder', 'infinite-uploads' ),
+			'new_subfolder'       => __( 'New Subfolder', 'infinite-uploads' ),
+			'rename'              => __( 'Rename', 'infinite-uploads' ),
+			'cut'                 => __( 'Cut', 'infinite-uploads' ),
+			'paste'               => __( 'Paste', 'infinite-uploads' ),
+			'delete'              => __( 'Delete', 'infinite-uploads' ),
+			'confirm_delete'      => __( 'Delete this folder? Media files inside will be moved to Uncategorized.', 'infinite-uploads' ),
+			'confirm_bulk_delete' => __( 'Delete %d folders? Media files inside will be moved to Uncategorized.', 'infinite-uploads' ),
+			'delete_bulk'         => __( 'Delete (%d)', 'infinite-uploads' ),
+			'search_folders'      => __( 'Enter folder name…', 'infinite-uploads' ),
+			'sort_az'             => __( 'Sort A-Z', 'infinite-uploads' ),
+			'sort_za'             => __( 'Sort Z-A', 'infinite-uploads' ),
+			'expand_all'          => __( 'Expand All', 'infinite-uploads' ),
+			'collapse_all'        => __( 'Collapse All', 'infinite-uploads' ),
+			'folders_title'       => __( 'Folders', 'infinite-uploads' ),
+			'more'                => __( 'More', 'infinite-uploads' ),
+			'choose_folder'       => __( 'Upload to folder:', 'infinite-uploads' ),
+			'upload_folder_none'  => __( 'No folder (Uncategorized)', 'infinite-uploads' ),
+			// The iframe is always grid mode; none of the page-specific flags apply.
+			'is_list_mode'        => false,
+			'is_upload_page'      => false,
+			'is_media_new_page'   => false,
+		] );
+	}
 
 	public function enqueue_for_divi() {
 		$this->enqueue_assets( '_divi' );
