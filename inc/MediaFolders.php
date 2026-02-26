@@ -23,6 +23,7 @@ class MediaFolders {
 		// We must re-enqueue inside Elementor's own hook so our script ends up in
 		// the new $wp_scripts instance that actually gets output to the page.
 		add_action( 'elementor/editor/after_enqueue_scripts', [ $this, 'enqueue_for_elementor' ] );
+		//add_action( 'brizy_edit_mode', [ $this, 'enqueue_for_brizy' ], 10, 1 );
 
 
 //		add_action( 'wp_enqueue_scripts', function() {
@@ -90,15 +91,27 @@ class MediaFolders {
 	}
 
 	public function is_media_folders_js_required() {
+		$is_brizy = isset( $_GET['action'] ) && $_GET['action'] === 'in-front-editor';
 
-		// Added bricks support.
+		if ( $is_brizy ) {
+			return true;
+		}
+
+		// Is Oxygen builder? Oxygen uses upload.php for its media picker, but with a special query var.
+		$is_oxygen = isset( $_GET['ct_builder'] ) && $_GET['ct_builder'] == true;
+
+		if ( $is_oxygen ) {
+			return true;
+		}
+
+		// Is Bricks builder? Bricks uses upload.php for its media picker, but with a special query var.
 		$is_bricks = isset( $_GET['bricks'] ) && $_GET['bricks'] === 'run';
 
 		if ( $is_bricks ) {
 			return true;
 		}
 
-		// If Divi is installed.
+		// Is Divi builder? Divi's media picker runs on upload.php but doesn't use a special query var, so we have to check if we're on upload.php and if Divi is active.
 		if ( ! function_exists( 'et_core_is_fb_enabled' ) ) {
 			return false;
 		}
@@ -184,6 +197,13 @@ class MediaFolders {
 			'is_upload_page'     => $hook === 'upload.php',
 			'is_media_new_page'  => $hook === 'media-new.php',
 		] );
+	}
+
+	/**
+	 * Enqueue assets in Brizy's editor context. Brizy loads the media picker in an iframe on upload.php, so we can use the same assets but need to enqueue them on a different hook.
+	 */
+	public function enqueue_for_brizy($post) {
+		$this->enqueue_assets( '_brizy' );
 	}
 
 	/**
