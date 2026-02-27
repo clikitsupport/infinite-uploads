@@ -31,6 +31,12 @@ class MediaFolders {
 		// window context.  PHP_INT_MAX ensures we run after Brizy's wp_enqueue_media() call.
 		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_for_brizy_iframe' ], PHP_INT_MAX );
 
+		// Beaver Builder fires fl_builder_ui_enqueue_scripts inside its editor iframe
+		// after it has cleared the wp_scripts queue and re-enqueued its own assets
+		// (including wp_enqueue_media()).  The editor also runs on the frontend
+		// so is_admin() is false and admin_enqueue_scripts never fires there.
+		add_action( 'fl_builder_ui_enqueue_scripts', [ $this, 'enqueue_for_beaver_builder' ] );
+
 
 //		add_action( 'wp_enqueue_scripts', function() {
 //
@@ -283,6 +289,68 @@ class MediaFolders {
 			'choose_folder'       => __( 'Upload to folder:', 'infinite-uploads' ),
 			'upload_folder_none'  => __( 'No folder (Uncategorized)', 'infinite-uploads' ),
 			// The iframe is always grid mode; none of the page-specific flags apply.
+			'is_list_mode'        => false,
+			'is_upload_page'      => false,
+			'is_media_new_page'   => false,
+		] );
+	}
+
+	/**
+	 * Enqueue our script inside the Beaver Builder editor iframe.
+	 *
+	 * Beaver Builder fires fl_builder_ui_enqueue_scripts inside its content
+	 * iframe after clearing the wp_scripts queue and re-enqueuing its own
+	 * assets (including wp_enqueue_media()).  The editor runs on the frontend
+	 * so is_admin() is false and enqueue_assets() would bail; we enqueue
+	 * directly here instead.
+	 */
+	public function enqueue_for_beaver_builder() {
+		if ( ! current_user_can( 'upload_files' ) ) {
+			return;
+		}
+
+		$plugin_url = plugins_url( '', dirname( __FILE__ ) );
+
+		wp_enqueue_style(
+			'iu-media-folders',
+			$plugin_url . '/inc/assets/css/media-folders.css',
+			[],
+			INFINITE_UPLOADS_VERSION
+		);
+
+		// BB has already called wp_enqueue_media() so 'media-views' is registered.
+		wp_enqueue_script(
+			'iu-media-folders',
+			$plugin_url . '/inc/assets/js/media-folders.js',
+			[ 'jquery', 'media-views' ],
+			INFINITE_UPLOADS_VERSION,
+			true
+		);
+
+		wp_localize_script( 'iu-media-folders', 'iuMediaFolders', [
+			'ajax_url'            => admin_url( 'admin-ajax.php' ),
+			'nonce'               => wp_create_nonce( 'iu_media_folders' ),
+			'all_label'           => __( 'All Files', 'infinite-uploads' ),
+			'uncat_label'         => __( 'Uncategorized', 'infinite-uploads' ),
+			'new_folder'          => __( 'New Folder', 'infinite-uploads' ),
+			'new_subfolder'       => __( 'New Subfolder', 'infinite-uploads' ),
+			'rename'              => __( 'Rename', 'infinite-uploads' ),
+			'cut'                 => __( 'Cut', 'infinite-uploads' ),
+			'paste'               => __( 'Paste', 'infinite-uploads' ),
+			'delete'              => __( 'Delete', 'infinite-uploads' ),
+			'confirm_delete'      => __( 'Delete this folder? Media files inside will be moved to Uncategorized.', 'infinite-uploads' ),
+			'confirm_bulk_delete' => __( 'Delete %d folders? Media files inside will be moved to Uncategorized.', 'infinite-uploads' ),
+			'delete_bulk'         => __( 'Delete (%d)', 'infinite-uploads' ),
+			'search_folders'      => __( 'Enter folder name…', 'infinite-uploads' ),
+			'sort_az'             => __( 'Sort A-Z', 'infinite-uploads' ),
+			'sort_za'             => __( 'Sort Z-A', 'infinite-uploads' ),
+			'expand_all'          => __( 'Expand All', 'infinite-uploads' ),
+			'collapse_all'        => __( 'Collapse All', 'infinite-uploads' ),
+			'folders_title'       => __( 'Folders', 'infinite-uploads' ),
+			'more'                => __( 'More', 'infinite-uploads' ),
+			'choose_folder'       => __( 'Upload to folder:', 'infinite-uploads' ),
+			'upload_folder_none'  => __( 'No folder (Uncategorized)', 'infinite-uploads' ),
+			// BB editor is always grid mode; none of the page-specific flags apply.
 			'is_list_mode'        => false,
 			'is_upload_page'      => false,
 			'is_media_new_page'   => false,
