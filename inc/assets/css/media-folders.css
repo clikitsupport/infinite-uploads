@@ -222,16 +222,12 @@
 	height: 100%;
 	max-height: none;
 	border: none;
-	border-right: 1px solid #c3c4c7;
 	box-shadow: none;
 }
 
-.media-frame.iu-has-menu-sidebar #iu-media-folders-wrap.iu-collapsed #iu-media-folders-sidebar {
-	border-right-width: 0;
-}
-
-/* Hide the resize handle in the modal — the menu width is fixed by WP CSS. */
-.media-frame.iu-has-menu-sidebar .iu-sidebar-handle {
+/* Hide the resize handle and toggle in the modal — sidebar is always visible. */
+.media-frame.iu-has-menu-sidebar .iu-sidebar-handle,
+.media-frame.iu-has-menu-sidebar .iu-sidebar-toggle {
 	display: none;
 }
 
