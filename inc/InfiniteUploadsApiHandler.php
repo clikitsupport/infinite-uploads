@@ -205,10 +205,11 @@ class InfiniteUploadsApiHandler {
 	 */
 	public function call( $remote_path, $data = [], $method = 'GET', $options = [] ) {
 		$link    = $this->rest_url( $remote_path );
+		$timeout = max( 5, (int) apply_filters( 'infinite_uploads_api_timeout', 25, $remote_path, $method ) );
 		$options = wp_parse_args(
 			$options,
 			[
-				'timeout'    => 25,
+				'timeout'    => $timeout,
 				'user-agent' => 'Infinite Uploads/' . INFINITE_UPLOADS_VERSION . ' (+' . network_site_url() . ')',
 				'headers'    => [
 					'Content-Type' => 'application/json',
@@ -416,28 +417,50 @@ class InfiniteUploadsApiHandler {
 			return false;
 		}
 
-		if ( ! $force_refresh ) {
-			$data = get_site_option( 'iup_api_data' );
-			if ( $data ) {
-				$data = json_decode( $data );
+		$data = false;
 
-				if ( $data->refreshed >= ( time() - HOUR_IN_SECONDS * 12 ) ) {
-					return $data;
+		// Try cache first.
+		if ( ! $force_refresh ) {
+			$cached = get_site_option( 'iup_api_data' );
+
+			if ( $cached ) {
+				$cached = json_decode( $cached );
+
+				if ( isset( $cached->refreshed ) &&
+				     $cached->refreshed >= ( time() - HOUR_IN_SECONDS * 12 )
+				) {
+					return $cached;
 				}
+
+				$data = $cached; // keep stale as fallback
 			}
 		}
 
+		// Fetch lock to prevent stampede.
+		$lock_key = 'iup_api_site_fetch_lock_' . $this->get_site_id();
 
+		if ( get_transient( $lock_key ) ) {
+			// Another request is already fetching.
+			return $data ? $data : false;
+		}
+
+		set_transient( $lock_key, 1, 30 ); // 30s lock,
+
+		// Call API.
 		$result = $this->call( "site/" . $this->get_site_id(), [], 'GET' );
+
+		// Release lock ASAP.
+		delete_transient( $lock_key );
+
 		if ( $result ) {
 			$result->refreshed = time();
-			//json_encode to prevent object injections
 			update_site_option( 'iup_api_data', json_encode( $result ) );
 
 			return $result;
 		}
 
-		return $data; //if a temp API issue default to using cached data
+		// If API failed, return stale cache.
+		return $data ? $data : false;
 	}
 
 	/**
