@@ -108,10 +108,6 @@ class InfiniteUploadsVideo {
      */
     public function update_library_settings( $args = [] ) {
         $new_settings = $this->api->call( "site/" . $this->api->get_site_id() . "/video", $args, 'POST' );
-        if ( $new_settings ) {
-            //TODO don't make another api call, just update the cache
-            return $this->get_library_settings( true );
-        }
 
         return $new_settings;
     }
