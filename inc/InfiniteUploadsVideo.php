@@ -93,12 +93,17 @@ class InfiniteUploadsVideo {
      */
     public function activate_video() {
         $result = $this->api->call( "site/" . $this->api->get_site_id() . "/video", [], 'POST' );
-        if ( $result ) {
-            //cache the new creds/settings once we enable video
-            return $this->get_library_settings( true );
+
+        error_log("Activate video result: " . print_r($result, true) );
+        if ( ! $result ) {
+            return false;
         }
 
-        return false;
+        // Best effort cache refresh; if another request holds the fetch lock,
+        // still treat activation as success based on the create/update response.
+        $settings = $this->get_library_settings( true );
+
+        return $settings ? $settings : $result;
     }
 
     /**
@@ -108,6 +113,23 @@ class InfiniteUploadsVideo {
      */
     public function update_library_settings( $args = [] ) {
         $new_settings = $this->api->call( "site/" . $this->api->get_site_id() . "/video", $args, 'POST' );
+
+        if ( $new_settings ) {
+            $cached = get_site_option( 'iup_api_data' );
+            if ( $cached ) {
+                $cached = json_decode( $cached );
+                if ( is_object( $cached ) ) {
+                    if ( ! isset( $cached->video ) || ! is_object( $cached->video ) ) {
+                        $cached->video = (object) [];
+                    }
+
+                    $cached->video->settings = $new_settings;
+                    $cached->refreshed       = time();
+
+                    update_site_option( 'iup_api_data', wp_json_encode( $cached ) );
+                }
+            }
+        }
 
         return $new_settings;
     }
