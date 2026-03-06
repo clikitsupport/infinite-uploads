@@ -114,6 +114,23 @@ class InfiniteUploadsVideo {
     public function update_library_settings( $args = [] ) {
         $new_settings = $this->api->call( "site/" . $this->api->get_site_id() . "/video", $args, 'POST' );
 
+        if ( $new_settings ) {
+            $cached = get_site_option( 'iup_api_data' );
+            if ( $cached ) {
+                $cached = json_decode( $cached );
+                if ( is_object( $cached ) ) {
+                    if ( ! isset( $cached->video ) || ! is_object( $cached->video ) ) {
+                        $cached->video = (object) [];
+                    }
+
+                    $cached->video->settings = $new_settings;
+                    $cached->refreshed       = time();
+
+                    update_site_option( 'iup_api_data', wp_json_encode( $cached ) );
+                }
+            }
+        }
+
         return $new_settings;
     }
 
