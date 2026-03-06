@@ -94,7 +94,6 @@ class InfiniteUploadsVideo {
     public function activate_video() {
         $result = $this->api->call( "site/" . $this->api->get_site_id() . "/video", [], 'POST' );
 
-        error_log("Activate video result: " . print_r($result, true) );
         if ( ! $result ) {
             return false;
         }
