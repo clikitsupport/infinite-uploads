@@ -12,13 +12,17 @@ import ColorPick from "./ColorPick";
 import Tabs from "react-bootstrap/Tabs";
 import Tab from "react-bootstrap/Tab";
 import Button from "react-bootstrap/Button";
+import Alert from "react-bootstrap/Alert";
 
 export default function Settings() {
 	const [loading, setLoading] = useState(false);
 	const [settings, setSettings] = useState(IUP_VIDEO.settings);
+	const [saveStatus, setSaveStatus] = useState(null); // null | 'success' | 'error'
+	const [saveError, setSaveError] = useState('');
 
 	function updateSettings() {
 		setLoading(true);
+		setSaveStatus(null);
 		const formData = new FormData();
 		formData.append('settings', JSON.stringify(settings));
 		formData.append('nonce', IUP_VIDEO.nonce);
@@ -36,13 +40,18 @@ export default function Settings() {
 			.then((data) => {
 				if (data.success) {
 					setSettings(data.data);
+					setSaveStatus('success');
 				} else {
 					console.error(data.data);
+					setSaveStatus('error');
+					setSaveError(typeof data.data === 'string' ? data.data : __('Failed to save settings.', 'infinite-uploads'));
 				}
 				setLoading(false);
 			})
 			.catch((error) => {
 				console.log('Error:', error);
+				setSaveStatus('error');
+				setSaveError(error.message || __('An unexpected error occurred.', 'infinite-uploads'));
 				setLoading(false);
 			});
 	}
@@ -198,7 +207,17 @@ export default function Settings() {
 						</Tab>
 					</Tabs>
 
-					<Row className="justify-content-center mb-3">
+					{saveStatus === 'success' && (
+					<Alert variant="success" onClose={() => setSaveStatus(null)} dismissible>
+						{__('Settings saved successfully.', 'infinite-uploads')}
+					</Alert>
+				)}
+				{saveStatus === 'error' && (
+					<Alert variant="danger" onClose={() => setSaveStatus(null)} dismissible>
+						{saveError}
+					</Alert>
+				)}
+				<Row className="justify-content-center mb-3">
 						<Col className="text-center">
 							<Button variant="info" className="text-nowrap text-white px-4" onClick={updateSettings} disabled={loading}>{__('Save Settings', 'infinite-uploads')}</Button>
 						</Col>
