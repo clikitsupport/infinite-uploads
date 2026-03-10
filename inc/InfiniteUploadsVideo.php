@@ -10,6 +10,8 @@ class InfiniteUploadsVideo {
     private $iup_instance;
     private $api;
 
+    private const LEGACY_PLAYER_VERSION = 1;
+
     public function __construct() {
         $this->iup_instance = InfiniteUploads::get_instance();
         $this->api          = InfiniteUploadsApiHandler::get_instance();
@@ -92,7 +94,12 @@ class InfiniteUploadsVideo {
      * @return object|false
      */
     public function activate_video() {
-        $result = $this->api->call( "site/" . $this->api->get_site_id() . "/video", [], 'POST' );
+        // Pin new libraries to the legacy player; embeds use iframe.mediadelivery.net only.
+        $result = $this->api->call(
+                "site/" . $this->api->get_site_id() . "/video",
+                [ 'PlayerVersion' => self::LEGACY_PLAYER_VERSION ],
+                'POST'
+        );
 
         if ( ! $result ) {
             return false;
