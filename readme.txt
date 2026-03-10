@@ -2,7 +2,7 @@
 
 Requires at least: 6.0
 Tested up to: 6.9.1
-Stable tag: 3.1.6
+Stable tag: 3.1.7
 Requires PHP: 8.0
 Contributors: bww
 Tags: cloud storage, media cloud, encoding, offload, video, streaming, s3, google cloud storage, spaces, storage, cdn, cloud sync
@@ -197,10 +197,15 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Changelog ==
 
-3.1.6
+3.1.7
 ----------------------------------------------------------------------
 
 - Update: Added `PlayerVersion` to API requests to ensure the latest video player is used for streaming videos.
+
+3.1.6
+----------------------------------------------------------------------
+
+- Update: Minor UI enhancements in the video library and settings pages.
 
 3.1.5
 ----------------------------------------------------------------------
