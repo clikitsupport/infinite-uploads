@@ -200,7 +200,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 3.1.6
 ----------------------------------------------------------------------
 
-- Update: Added `PlayerVersion` to Bunny API requests to ensure the latest video player is used for streaming videos.
+- Update: Added `PlayerVersion` to API requests to ensure the latest video player is used for streaming videos.
 
 3.1.5
 ----------------------------------------------------------------------
