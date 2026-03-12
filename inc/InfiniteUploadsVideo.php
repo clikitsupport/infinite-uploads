@@ -10,6 +10,8 @@ class InfiniteUploadsVideo {
     private $iup_instance;
     private $api;
 
+    private const LEGACY_PLAYER_VERSION = 1;
+
     public function __construct() {
         $this->iup_instance = InfiniteUploads::get_instance();
         $this->api          = InfiniteUploadsApiHandler::get_instance();
@@ -92,13 +94,22 @@ class InfiniteUploadsVideo {
      * @return object|false
      */
     public function activate_video() {
-        $result = $this->api->call( "site/" . $this->api->get_site_id() . "/video", [], 'POST' );
-        if ( $result ) {
-            //cache the new creds/settings once we enable video
-            return $this->get_library_settings( true );
+        // Pin new libraries to the legacy player; embeds use iframe.mediadelivery.net only.
+        $result = $this->api->call(
+                "site/" . $this->api->get_site_id() . "/video",
+                [ 'PlayerVersion' => self::LEGACY_PLAYER_VERSION ],
+                'POST'
+        );
+
+        if ( ! $result ) {
+            return false;
         }
 
-        return false;
+        // Best effort cache refresh; if another request holds the fetch lock,
+        // still treat activation as success based on the create/update response.
+        $settings = $this->get_library_settings( true );
+
+        return $settings ? $settings : $result;
     }
 
     /**
@@ -108,9 +119,22 @@ class InfiniteUploadsVideo {
      */
     public function update_library_settings( $args = [] ) {
         $new_settings = $this->api->call( "site/" . $this->api->get_site_id() . "/video", $args, 'POST' );
+
         if ( $new_settings ) {
-            //TODO don't make another api call, just update the cache
-            return $this->get_library_settings( true );
+            $cached = get_site_option( 'iup_api_data' );
+            if ( $cached ) {
+                $cached = json_decode( $cached );
+                if ( is_object( $cached ) ) {
+                    if ( ! isset( $cached->video ) || ! is_object( $cached->video ) ) {
+                        $cached->video = (object) [];
+                    }
+
+                    $cached->video->settings = $new_settings;
+                    $cached->refreshed       = time();
+
+                    update_site_option( 'iup_api_data', wp_json_encode( $cached ) );
+                }
+            }
         }
 
         return $new_settings;
