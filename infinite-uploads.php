@@ -123,6 +123,7 @@ function infinite_uploads_install() {
             created_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            color VARCHAR(20) NOT NULL DEFAULT '',
             PRIMARY KEY  (id),
             KEY parent_id (parent_id),
             KEY sort_order (sort_order)

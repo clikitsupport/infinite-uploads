@@ -13,6 +13,7 @@
 		isListMode: iuMediaFolders.is_list_mode,
 		dragIds: [],
 		sortMode: localStorage.getItem('iu_folders_sort') || 'custom',
+		folderColors: {},
 		cutNode: null,
 		totalCount: 0,
 		uncategorizedCount: 0,
@@ -251,6 +252,13 @@
 					self.totalCount = response.data.total_count || 0;
 					self.uncategorizedCount = response.data.uncategorized_count || 0;
 					self.folderCounts = response.data.counts || {};
+					// Rebuild color map from fresh data.
+					self.folderColors = {};
+					self.folders.forEach(function (f) {
+						if (f.data && f.data.color) {
+							self.folderColors[f.data.folder_id] = f.data.color;
+						}
+					});
 					self.updateVirtualCounts();
 					self.buildTree();
 					self.updateUploadFolderDropdown();
@@ -321,13 +329,19 @@
 
 			var $li = $('<li class="iu-tree-node" data-id="' + nodeId + '"></li>');
 
+			// Apply folder color directly to the icon.
+			var nodeColor = (folder.data && folder.data.color) ? folder.data.color : '';
+			var iconHtml = nodeColor
+				? '<span class="dashicons dashicons-open-folder iu-node-icon" style="color:' + nodeColor + '"></span>'
+				: self.folderSvg;
+
 			// Node row
 			var $row = $(
 				'<div class="iu-node-row" draggable="true">' +
 				'<span class="iu-node-toggle ' + (hasChildren ? (isExpanded ? 'iu-expanded' : '') : 'iu-leaf') + '">' +
 				self.chevronSvg +
 				'</span>' +
-				self.folderSvg +
+				iconHtml +
 				'<span class="iu-node-text">' + self.escHtml(folder.text) + '</span>' +
 				'<span class="iu-count-badge">' + count + '</span>' +
 				'</div>'
@@ -856,23 +870,48 @@
 				items += '<button class="iu-context-menu-item" data-action="paste"><span class="dashicons dashicons-clipboard"></span>' + iuMediaFolders.paste + '</button>';
 			}
 
+			var folderId     = parseInt( String(nodeId).replace('folder_', ''), 10 );
+			var currentColor = self.folderColors[folderId] || '';
+			var palette = [
+				'#e74c3c', '#e67e22', '#f1c40f', '#2ecc71',
+				'#1abc9c', '#3498db', '#9b59b6', '#e91e63',
+				'#795548', '#607d8b', '#95a5a6', '#1a1a2e',
+			];
+			var swatches = '<button class="iu-color-swatch iu-color-none' + (currentColor === '' ? ' iu-swatch-active' : '') + '" data-color="" title="' + iuMediaFolders.color_none + '">&#x2715;</button>';
+			for (var ci = 0; ci < palette.length; ci++) {
+				var pc = palette[ci];
+				swatches += '<button class="iu-color-swatch' + (currentColor === pc ? ' iu-swatch-active' : '') + '" data-color="' + pc + '" style="background:' + pc + '"></button>';
+			}
+			items += '<div class="iu-submenu-wrap">' +
+				'<button class="iu-context-menu-item iu-has-submenu" data-action="color">' +
+				'<span class="dashicons dashicons-art"></span>' + iuMediaFolders.set_color +
+				'<span class="iu-submenu-arrow">&#9654;</span>' +
+				'</button>' +
+				'<div class="iu-color-submenu">' +
+				'<div class="iu-color-swatches">' + swatches + '</div>' +
+				'<div class="iu-custom-color-wrap">' +
+				'<input type="color" class="iu-custom-color-input" value="' + (currentColor || '#3498db') + '">' +
+				'<span class="iu-custom-color-label">' + iuMediaFolders.color_custom + '</span>' +
+				'</div>' +
+				'</div>' +
+				'</div>';
 			items += '<div class="iu-context-menu-separator"></div>';
 			items += '<button class="iu-context-menu-item iu-danger" data-action="delete"><span class="dashicons dashicons-trash"></span>' + iuMediaFolders.delete + '</button>';
 
 			var $menu = $('<div class="iu-context-menu" data-node="' + nodeId + '">' + items + '</div>');
 			$('body').append($menu);
 
-			// Position
+			// Position (menu uses position:fixed → must use viewport coords)
 			var menuWidth = $menu.outerWidth();
 			var menuHeight = $menu.outerHeight();
-			var left = e.pageX;
-			var top = e.pageY;
+			var left = e.clientX;
+			var top  = e.clientY;
 
-			if (left + menuWidth > $(window).width()) {
-				left = $(window).width() - menuWidth - 5;
+			if (left + menuWidth > window.innerWidth - 5) {
+				left = window.innerWidth - menuWidth - 5;
 			}
-			if (top + menuHeight > $(window).scrollTop() + $(window).height()) {
-				top = e.pageY - menuHeight;
+			if (top + menuHeight > window.innerHeight - 5) {
+				top = e.clientY - menuHeight;
 			}
 
 			$menu.css({left: left, top: top});
@@ -880,6 +919,82 @@
 
 		closeContextMenu: function () {
 			$('.iu-context-menu').remove();
+		},
+
+		// -----------------------------------------------------------------
+		// Color picker
+		// -----------------------------------------------------------------
+
+		showColorPicker: function (e, nodeId) {
+			var self = this;
+			$('.iu-color-picker').remove();
+
+			var folderId = parseInt(String(nodeId).replace('folder_', ''), 10);
+			var current  = self.folderColors[folderId] || '';
+
+			var palette = [
+				'#e74c3c', '#e67e22', '#f1c40f', '#2ecc71',
+				'#1abc9c', '#3498db', '#9b59b6', '#e91e63',
+				'#795548', '#607d8b', '#95a5a6', '#1a1a2e',
+			];
+
+			var swatches = '<button class="iu-color-swatch iu-color-none' + (current === '' ? ' iu-swatch-active' : '') + '" data-color="" title="' + iuMediaFolders.color_none + '">✕</button>';
+			for (var i = 0; i < palette.length; i++) {
+				var c = palette[i];
+				swatches += '<button class="iu-color-swatch' + (current === c ? ' iu-swatch-active' : '') + '" data-color="' + c + '" style="background:' + c + '" title="' + c + '"></button>';
+			}
+
+			var $picker = $('<div class="iu-color-picker" data-node="' + nodeId + '">' +
+				'<div class="iu-color-picker-title">' + iuMediaFolders.set_color + '</div>' +
+				'<div class="iu-color-swatches">' + swatches + '</div>' +
+				'</div>');
+
+			$('body').append($picker);
+
+			// Position near cursor, keep inside viewport.
+			var pickerWidth  = $picker.outerWidth();
+			var pickerHeight = $picker.outerHeight();
+			var left = e.pageX;
+			var top  = e.pageY;
+
+			if (left + pickerWidth > $(window).width()) {
+				left = $(window).width() - pickerWidth - 5;
+			}
+			if (top + pickerHeight > $(window).scrollTop() + $(window).height()) {
+				top = e.pageY - pickerHeight;
+			}
+			$picker.css({left: left, top: top});
+		},
+
+		setFolderColor: function (nodeId, color) {
+			var self     = this;
+			var folderId = parseInt(String(nodeId).replace('folder_', ''), 10);
+
+			$.post(iuMediaFolders.ajax_url, {
+				action:    'iu_set_folder_color',
+				nonce:     iuMediaFolders.nonce,
+				folder_id: folderId,
+				color:     color,
+			}, function (response) {
+				if (response.success) {
+					// Update client-side color map and folder data.
+					if (color) {
+						self.folderColors[folderId] = color;
+					} else {
+						delete self.folderColors[folderId];
+					}
+					for (var i = 0; i < self.folders.length; i++) {
+						if (self.folders[i].data && self.folders[i].data.folder_id === folderId) {
+							self.folders[i].data.color = color;
+							break;
+						}
+					}
+
+					// Update the DOM directly — no full tree re-render needed.
+					var $icon = $('#iu-folders-tree .iu-tree-node[data-id="' + nodeId + '"] > .iu-node-row .iu-node-icon');
+					$icon.css('color', color || '');
+				}
+			}, 'json');
 		},
 
 		// -----------------------------------------------------------------
@@ -1549,8 +1664,21 @@
 			// --- Context menu item click ---
 			$(document).on('click', '.iu-context-menu-item', function (e) {
 				e.preventDefault();
-				var action = $(this).data('action');
-				var nodeId = $(this).closest('.iu-context-menu').data('node');
+				e.stopPropagation();
+				var action  = $(this).data('action');
+				var nodeId  = $(this).closest('.iu-context-menu').data('node');
+
+				if (action === 'color') {
+					var $submenu = $(this).siblings('.iu-color-submenu');
+					$submenu.toggleClass('iu-open');
+					if ($submenu.hasClass('iu-open')) {
+						// Flip to left if submenu overflows the right viewport edge.
+						var rect = $submenu[0].getBoundingClientRect();
+						$submenu.toggleClass('iu-flip-left', rect.right > window.innerWidth - 5);
+					}
+					return;
+				}
+
 				self.closeContextMenu();
 
 				switch (action) {
@@ -1572,6 +1700,25 @@
 						}
 						break;
 				}
+			});
+
+			// --- Color swatch click ---
+			$(document).on('click', '.iu-color-swatch', function (e) {
+				e.preventDefault();
+				e.stopPropagation();
+				var color  = $(this).data('color') || '';
+				var nodeId = $(this).closest('.iu-context-menu').data('node');
+				self.closeContextMenu();
+				self.setFolderColor(nodeId, color);
+			});
+
+			// --- Custom color input ---
+			$(document).on('change', '.iu-custom-color-input', function (e) {
+				e.stopPropagation();
+				var color  = $(this).val();
+				var nodeId = $(this).closest('.iu-context-menu').data('node');
+				self.closeContextMenu();
+				self.setFolderColor(nodeId, color);
 			});
 
 			// --- Close context menu on outside click / Escape / scroll ---

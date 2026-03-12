@@ -50,6 +50,9 @@ class MediaFolders {
 //
 //		});
 
+		// One-time DB migration to add the `color` column for existing installs.
+		add_action( 'admin_init', [ $this, 'maybe_migrate_db' ] );
+
 		// AJAX handlers for folder operations.
 		add_action( 'wp_ajax_iu_get_folders', [ $this, 'ajax_get_folders' ] );
 		add_action( 'wp_ajax_iu_create_folder', [ $this, 'ajax_create_folder' ] );
@@ -62,6 +65,7 @@ class MediaFolders {
 		add_action( 'wp_ajax_iu_set_upload_folder', [ $this, 'ajax_set_upload_folder' ] );
 		add_action( 'wp_ajax_iu_bulk_delete_folders', [ $this, 'ajax_bulk_delete_folders' ] );
 		add_action( 'wp_ajax_iu_bulk_move_folders',   [ $this, 'ajax_bulk_move_folders' ] );
+		add_action( 'wp_ajax_iu_set_folder_color',    [ $this, 'ajax_set_folder_color' ] );
 
 		// Assign newly uploaded attachments to the user's selected folder.
 		add_action( 'add_attachment', [ $this, 'on_add_attachment' ] );
@@ -100,6 +104,27 @@ class MediaFolders {
 		global $wpdb;
 
 		return $wpdb->prefix . 'infinite_uploads_media_folder_relationships';
+	}
+
+	/**
+	 * Add the `color` column to existing installs that pre-date this field.
+	 * Runs once via admin_init; skips on subsequent loads via an option flag.
+	 */
+	public function maybe_migrate_db() {
+		if ( get_option( 'iu_folders_db_version' ) === '2' ) {
+			return;
+		}
+
+		global $wpdb;
+
+		$table   = $this->folders_table();
+		$columns = $wpdb->get_col( "SHOW COLUMNS FROM `{$table}`", 0 ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		if ( ! in_array( 'color', $columns, true ) ) {
+			$wpdb->query( "ALTER TABLE `{$table}` ADD COLUMN `color` VARCHAR(20) NOT NULL DEFAULT '' AFTER `updated_at`" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		}
+
+		update_option( 'iu_folders_db_version', '2' );
 	}
 
 	public function is_media_folders_js_required() {
@@ -200,6 +225,9 @@ class MediaFolders {
 			'sort_size_asc'          => __( 'Size: Smallest', 'infinite-uploads' ),
 			'sort_size_desc'         => __( 'Size: Largest', 'infinite-uploads' ),
 			'sort_label'             => __( 'Sort', 'infinite-uploads' ),
+			'set_color'              => __( 'Set Color', 'infinite-uploads' ),
+			'color_none'             => __( 'No Color', 'infinite-uploads' ),
+			'color_custom'           => __( 'Custom', 'infinite-uploads' ),
 			'expand_all'             => __( 'Expand All', 'infinite-uploads' ),
 			'collapse_all'           => __( 'Collapse All', 'infinite-uploads' ),
 			'folders_title'          => __( 'Folders', 'infinite-uploads' ),
@@ -296,6 +324,9 @@ class MediaFolders {
 			'sort_size_asc'          => __( 'Size: Smallest', 'infinite-uploads' ),
 			'sort_size_desc'         => __( 'Size: Largest', 'infinite-uploads' ),
 			'sort_label'             => __( 'Sort', 'infinite-uploads' ),
+			'set_color'              => __( 'Set Color', 'infinite-uploads' ),
+			'color_none'             => __( 'No Color', 'infinite-uploads' ),
+			'color_custom'           => __( 'Custom', 'infinite-uploads' ),
 			'expand_all'             => __( 'Expand All', 'infinite-uploads' ),
 			'collapse_all'           => __( 'Collapse All', 'infinite-uploads' ),
 			'folders_title'          => __( 'Folders', 'infinite-uploads' ),
@@ -365,6 +396,9 @@ class MediaFolders {
 			'sort_size_asc'          => __( 'Size: Smallest', 'infinite-uploads' ),
 			'sort_size_desc'         => __( 'Size: Largest', 'infinite-uploads' ),
 			'sort_label'             => __( 'Sort', 'infinite-uploads' ),
+			'set_color'              => __( 'Set Color', 'infinite-uploads' ),
+			'color_none'             => __( 'No Color', 'infinite-uploads' ),
+			'color_custom'           => __( 'Custom', 'infinite-uploads' ),
 			'expand_all'             => __( 'Expand All', 'infinite-uploads' ),
 			'collapse_all'           => __( 'Collapse All', 'infinite-uploads' ),
 			'folders_title'          => __( 'Folders', 'infinite-uploads' ),
@@ -442,6 +476,7 @@ class MediaFolders {
 					'folder_id'   => (int) $folder->id,
 					'folder_name' => $folder->name,
 					'count'       => $counts[ (int) $folder->id ] ?? 0,
+					'color'       => $folder->color ?? '',
 				],
 			];
 		}
@@ -609,6 +644,38 @@ class MediaFolders {
 		);
 
 		wp_send_json_success( [ 'deleted' => $folder_id ] );
+	}
+
+	// -----------------------------------------------------------------
+	// AJAX: Set folder color
+	// -----------------------------------------------------------------
+
+	public function ajax_set_folder_color() {
+		check_ajax_referer( 'iu_media_folders', 'nonce' );
+
+		if ( ! current_user_can( 'upload_files' ) ) {
+			wp_send_json_error( 'Permission denied.' );
+		}
+
+		$folder_id = absint( $_POST['folder_id'] ?? 0 );
+		// Accept a valid 3- or 6-digit hex color, or empty string to clear.
+		$color = sanitize_hex_color( wp_unslash( $_POST['color'] ?? '' ) ) ?: '';
+
+		if ( ! $folder_id ) {
+			wp_send_json_error( __( 'Invalid folder.', 'infinite-uploads' ) );
+		}
+
+		global $wpdb;
+
+		$wpdb->update(
+			$this->folders_table(),
+			[ 'color' => $color, 'updated_at' => current_time( 'mysql' ) ],
+			[ 'id' => $folder_id ],
+			[ '%s', '%s' ],
+			[ '%d' ]
+		);
+
+		wp_send_json_success( [ 'folder_id' => $folder_id, 'color' => $color ] );
 	}
 
 	// -----------------------------------------------------------------
