@@ -61,6 +61,7 @@
 			}
 
 			this.injectSidebar();
+			this.updateSortButton();
 			this.loadAndRenderTree();
 			this.initSearch();
 			this.initResize();
@@ -102,9 +103,24 @@
 				'<span>' + iuMediaFolders.delete + '</span>' +
 				'</button>' +
 				'<div class="iu-actions-right">' +
-				'<button type="button" class="iu-sort-btn" title="' + iuMediaFolders.sort_az + '">' +
+				'<div class="iu-sort-dropdown">' +
+				'<button type="button" class="iu-sort-btn" title="' + iuMediaFolders.sort_label + '">' +
 				'<span class="dashicons dashicons-sort"></span>' +
 				'</button>' +
+				'<div class="iu-sort-menu">' +
+				'<button type="button" class="iu-sort-item" data-sort="az">' + iuMediaFolders.sort_az + '</button>' +
+				'<button type="button" class="iu-sort-item" data-sort="za">' + iuMediaFolders.sort_za + '</button>' +
+				'<div class="iu-sort-divider"></div>' +
+				'<button type="button" class="iu-sort-item" data-sort="date_desc">' + iuMediaFolders.sort_date_desc + '</button>' +
+				'<button type="button" class="iu-sort-item" data-sort="date_asc">' + iuMediaFolders.sort_date_asc + '</button>' +
+				'<div class="iu-sort-divider"></div>' +
+				'<button type="button" class="iu-sort-item" data-sort="modified_desc">' + iuMediaFolders.sort_modified_desc + '</button>' +
+				'<button type="button" class="iu-sort-item" data-sort="modified_asc">' + iuMediaFolders.sort_modified_asc + '</button>' +
+				'<div class="iu-sort-divider"></div>' +
+				'<button type="button" class="iu-sort-item" data-sort="size_desc">' + iuMediaFolders.sort_size_desc + '</button>' +
+				'<button type="button" class="iu-sort-item" data-sort="size_asc">' + iuMediaFolders.sort_size_asc + '</button>' +
+				'</div>' +
+				'</div>' +
 
 				'<div class="iu-more-dropdown">' +
 				'<button type="button" class="iu-action-more" title="' + iuMediaFolders.more + '">' +
@@ -1001,12 +1017,8 @@
 		// Sort
 		// -----------------------------------------------------------------
 
-		sortFolders: function () {
-			if (this.sortMode === 'custom' || this.sortMode === 'za') {
-				this.sortMode = 'az';
-			} else if (this.sortMode === 'az') {
-				this.sortMode = 'za';
-			}
+		sortFolders: function (mode) {
+			this.sortMode = mode;
 			localStorage.setItem('iu_folders_sort', this.sortMode);
 			this.updateSortButton();
 			this.refreshTree();
@@ -1014,13 +1026,15 @@
 
 		updateSortButton: function () {
 			var $btn = $('.iu-sort-btn');
-			if (this.sortMode === 'az') {
-				$btn.attr('title', iuMediaFolders.sort_za).addClass('iu-active');
-			} else if (this.sortMode === 'za') {
-				$btn.attr('title', iuMediaFolders.sort_az).addClass('iu-active');
+			var isCustom = (this.sortMode === 'custom');
+			if (isCustom) {
+				$btn.removeClass('iu-active');
 			} else {
-				$btn.attr('title', iuMediaFolders.sort_az).removeClass('iu-active');
+				$btn.addClass('iu-active');
 			}
+			// Mark the active item in the sort menu.
+			$('.iu-sort-item[data-sort]').removeClass('iu-sort-active');
+			$('.iu-sort-item[data-sort="' + this.sortMode + '"]').addClass('iu-sort-active');
 		},
 
 		// -----------------------------------------------------------------
@@ -1442,10 +1456,21 @@
 				}
 			});
 
-			// --- Sort button ---
+			// --- Sort dropdown toggle ---
 			$(document).on('click', '.iu-sort-btn', function (e) {
 				e.preventDefault();
-				self.sortFolders();
+				e.stopPropagation();
+				var $menu = $(this).siblings('.iu-sort-menu');
+				$menu.toggleClass('iu-open');
+				$('.iu-more-menu').removeClass('iu-open');
+			});
+
+			// --- Sort item selection ---
+			$(document).on('click', '.iu-sort-item[data-sort]', function (e) {
+				e.preventDefault();
+				var mode = $(this).data('sort');
+				$('.iu-sort-menu').removeClass('iu-open');
+				self.sortFolders(mode);
 			});
 
 			// --- More dropdown toggle ---
@@ -1454,12 +1479,16 @@
 				e.stopPropagation();
 				var $menu = $(this).siblings('.iu-more-menu');
 				$menu.toggleClass('iu-open');
+				$('.iu-sort-menu').removeClass('iu-open');
 			});
 
-			// Close more dropdown on outside click.
+			// Close dropdowns on outside click.
 			$(document).on('click', function (e) {
 				if ( !$(e.target).closest('.iu-more-dropdown').length) {
 					$('.iu-more-menu').removeClass('iu-open');
+				}
+				if ( !$(e.target).closest('.iu-sort-dropdown').length) {
+					$('.iu-sort-menu').removeClass('iu-open');
 				}
 			});
 

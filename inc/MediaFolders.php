@@ -190,15 +190,22 @@ class MediaFolders {
 			'confirm_delete'     => __( 'Delete this folder? Media files inside will be moved to Uncategorized.', 'infinite-uploads' ),
 			'confirm_bulk_delete' => __( 'Delete %d folders? Media files inside will be moved to Uncategorized.', 'infinite-uploads' ),
 			'delete_bulk'         => __( 'Delete (%d)', 'infinite-uploads' ),
-			'search_folders'     => __( 'Enter folder name…', 'infinite-uploads' ),
-			'sort_az'            => __( 'Sort A-Z', 'infinite-uploads' ),
-			'sort_za'            => __( 'Sort Z-A', 'infinite-uploads' ),
-			'expand_all'         => __( 'Expand All', 'infinite-uploads' ),
-			'collapse_all'       => __( 'Collapse All', 'infinite-uploads' ),
-			'folders_title'      => __( 'Folders', 'infinite-uploads' ),
-			'more'               => __( 'More', 'infinite-uploads' ),
-			'choose_folder'      => __( 'Upload to folder:', 'infinite-uploads' ),
-			'upload_folder_none' => __( 'No folder (Uncategorized)', 'infinite-uploads' ),
+			'search_folders'         => __( 'Enter folder name…', 'infinite-uploads' ),
+			'sort_az'                => __( 'Name: A → Z', 'infinite-uploads' ),
+			'sort_za'                => __( 'Name: Z → A', 'infinite-uploads' ),
+			'sort_date_asc'          => __( 'Date Created: Oldest', 'infinite-uploads' ),
+			'sort_date_desc'         => __( 'Date Created: Newest', 'infinite-uploads' ),
+			'sort_modified_asc'      => __( 'Date Modified: Oldest', 'infinite-uploads' ),
+			'sort_modified_desc'     => __( 'Date Modified: Newest', 'infinite-uploads' ),
+			'sort_size_asc'          => __( 'Size: Smallest', 'infinite-uploads' ),
+			'sort_size_desc'         => __( 'Size: Largest', 'infinite-uploads' ),
+			'sort_label'             => __( 'Sort', 'infinite-uploads' ),
+			'expand_all'             => __( 'Expand All', 'infinite-uploads' ),
+			'collapse_all'           => __( 'Collapse All', 'infinite-uploads' ),
+			'folders_title'          => __( 'Folders', 'infinite-uploads' ),
+			'more'                   => __( 'More', 'infinite-uploads' ),
+			'choose_folder'          => __( 'Upload to folder:', 'infinite-uploads' ),
+			'upload_folder_none'     => __( 'No folder (Uncategorized)', 'infinite-uploads' ),
 			// is_list_mode is only meaningful on upload.php; never on post.php/post-new.php.
 			'is_list_mode'       => $hook === 'upload.php' && (
 				( isset( $_GET['mode'] ) && $_GET['mode'] === 'list' ) ||
@@ -279,19 +286,26 @@ class MediaFolders {
 			'confirm_delete'      => __( 'Delete this folder? Media files inside will be moved to Uncategorized.', 'infinite-uploads' ),
 			'confirm_bulk_delete' => __( 'Delete %d folders? Media files inside will be moved to Uncategorized.', 'infinite-uploads' ),
 			'delete_bulk'         => __( 'Delete (%d)', 'infinite-uploads' ),
-			'search_folders'      => __( 'Enter folder name…', 'infinite-uploads' ),
-			'sort_az'             => __( 'Sort A-Z', 'infinite-uploads' ),
-			'sort_za'             => __( 'Sort Z-A', 'infinite-uploads' ),
-			'expand_all'          => __( 'Expand All', 'infinite-uploads' ),
-			'collapse_all'        => __( 'Collapse All', 'infinite-uploads' ),
-			'folders_title'       => __( 'Folders', 'infinite-uploads' ),
-			'more'                => __( 'More', 'infinite-uploads' ),
-			'choose_folder'       => __( 'Upload to folder:', 'infinite-uploads' ),
-			'upload_folder_none'  => __( 'No folder (Uncategorized)', 'infinite-uploads' ),
+			'search_folders'         => __( 'Enter folder name…', 'infinite-uploads' ),
+			'sort_az'                => __( 'Name: A → Z', 'infinite-uploads' ),
+			'sort_za'                => __( 'Name: Z → A', 'infinite-uploads' ),
+			'sort_date_asc'          => __( 'Date Created: Oldest', 'infinite-uploads' ),
+			'sort_date_desc'         => __( 'Date Created: Newest', 'infinite-uploads' ),
+			'sort_modified_asc'      => __( 'Date Modified: Oldest', 'infinite-uploads' ),
+			'sort_modified_desc'     => __( 'Date Modified: Newest', 'infinite-uploads' ),
+			'sort_size_asc'          => __( 'Size: Smallest', 'infinite-uploads' ),
+			'sort_size_desc'         => __( 'Size: Largest', 'infinite-uploads' ),
+			'sort_label'             => __( 'Sort', 'infinite-uploads' ),
+			'expand_all'             => __( 'Expand All', 'infinite-uploads' ),
+			'collapse_all'           => __( 'Collapse All', 'infinite-uploads' ),
+			'folders_title'          => __( 'Folders', 'infinite-uploads' ),
+			'more'                   => __( 'More', 'infinite-uploads' ),
+			'choose_folder'          => __( 'Upload to folder:', 'infinite-uploads' ),
+			'upload_folder_none'     => __( 'No folder (Uncategorized)', 'infinite-uploads' ),
 			// The iframe is always grid mode; none of the page-specific flags apply.
-			'is_list_mode'        => false,
-			'is_upload_page'      => false,
-			'is_media_new_page'   => false,
+			'is_list_mode'           => false,
+			'is_upload_page'         => false,
+			'is_media_new_page'      => false,
 		] );
 	}
 
@@ -341,19 +355,26 @@ class MediaFolders {
 			'confirm_delete'      => __( 'Delete this folder? Media files inside will be moved to Uncategorized.', 'infinite-uploads' ),
 			'confirm_bulk_delete' => __( 'Delete %d folders? Media files inside will be moved to Uncategorized.', 'infinite-uploads' ),
 			'delete_bulk'         => __( 'Delete (%d)', 'infinite-uploads' ),
-			'search_folders'      => __( 'Enter folder name…', 'infinite-uploads' ),
-			'sort_az'             => __( 'Sort A-Z', 'infinite-uploads' ),
-			'sort_za'             => __( 'Sort Z-A', 'infinite-uploads' ),
-			'expand_all'          => __( 'Expand All', 'infinite-uploads' ),
-			'collapse_all'        => __( 'Collapse All', 'infinite-uploads' ),
-			'folders_title'       => __( 'Folders', 'infinite-uploads' ),
-			'more'                => __( 'More', 'infinite-uploads' ),
-			'choose_folder'       => __( 'Upload to folder:', 'infinite-uploads' ),
-			'upload_folder_none'  => __( 'No folder (Uncategorized)', 'infinite-uploads' ),
+			'search_folders'         => __( 'Enter folder name…', 'infinite-uploads' ),
+			'sort_az'                => __( 'Name: A → Z', 'infinite-uploads' ),
+			'sort_za'                => __( 'Name: Z → A', 'infinite-uploads' ),
+			'sort_date_asc'          => __( 'Date Created: Oldest', 'infinite-uploads' ),
+			'sort_date_desc'         => __( 'Date Created: Newest', 'infinite-uploads' ),
+			'sort_modified_asc'      => __( 'Date Modified: Oldest', 'infinite-uploads' ),
+			'sort_modified_desc'     => __( 'Date Modified: Newest', 'infinite-uploads' ),
+			'sort_size_asc'          => __( 'Size: Smallest', 'infinite-uploads' ),
+			'sort_size_desc'         => __( 'Size: Largest', 'infinite-uploads' ),
+			'sort_label'             => __( 'Sort', 'infinite-uploads' ),
+			'expand_all'             => __( 'Expand All', 'infinite-uploads' ),
+			'collapse_all'           => __( 'Collapse All', 'infinite-uploads' ),
+			'folders_title'          => __( 'Folders', 'infinite-uploads' ),
+			'more'                   => __( 'More', 'infinite-uploads' ),
+			'choose_folder'          => __( 'Upload to folder:', 'infinite-uploads' ),
+			'upload_folder_none'     => __( 'No folder (Uncategorized)', 'infinite-uploads' ),
 			// BB editor is always grid mode; none of the page-specific flags apply.
-			'is_list_mode'        => false,
-			'is_upload_page'      => false,
-			'is_media_new_page'   => false,
+			'is_list_mode'           => false,
+			'is_upload_page'         => false,
+			'is_media_new_page'      => false,
 		] );
 	}
 
@@ -383,6 +404,23 @@ class MediaFolders {
 			case 'za':
 				$order_clause = 'ORDER BY name DESC';
 				break;
+			case 'date_asc':
+				$order_clause = 'ORDER BY created_at ASC, name ASC';
+				break;
+			case 'date_desc':
+				$order_clause = 'ORDER BY created_at DESC, name ASC';
+				break;
+			case 'modified_asc':
+				$order_clause = 'ORDER BY updated_at ASC, name ASC';
+				break;
+			case 'modified_desc':
+				$order_clause = 'ORDER BY updated_at DESC, name ASC';
+				break;
+			case 'size_asc':
+			case 'size_desc':
+				// Fetch unordered; we'll sort in PHP after computing sizes.
+				$order_clause = 'ORDER BY parent_id ASC, sort_order ASC, name ASC';
+				break;
 			default:
 				$order_clause = 'ORDER BY sort_order ASC, name ASC';
 				break;
@@ -406,6 +444,17 @@ class MediaFolders {
 					'count'       => $counts[ (int) $folder->id ] ?? 0,
 				],
 			];
+		}
+
+		// For size sorts, compute sizes in PHP and re-sort (siblings only need sorting
+		// relative to each other; jstree respects array insertion order per parent).
+		if ( $sort === 'size_asc' || $sort === 'size_desc' ) {
+			$sizes = $this->get_folder_sizes();
+			usort( $tree, function ( $a, $b ) use ( $sizes, $sort ) {
+				$sa = $sizes[ $a['data']['folder_id'] ] ?? 0;
+				$sb = $sizes[ $b['data']['folder_id'] ] ?? 0;
+				return $sort === 'size_asc' ? $sa - $sb : $sb - $sa;
+			} );
 		}
 
 		wp_send_json_success( [
@@ -494,9 +543,9 @@ class MediaFolders {
 
 		$updated = $wpdb->update(
 			$this->folders_table(),
-			[ 'name' => $name ],
+			[ 'name' => $name, 'updated_at' => current_time( 'mysql' ) ],
 			[ 'id' => $folder_id ],
-			[ '%s' ],
+			[ '%s', '%s' ],
 			[ '%d' ]
 		);
 
@@ -765,6 +814,15 @@ class MediaFolders {
 
 		global $wpdb;
 
+		// Collect source folders before removing relationships (for updated_at touch).
+		$placeholders = implode( ',', array_fill( 0, count( $attachment_ids ), '%d' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$source_folder_ids = $wpdb->get_col( $wpdb->prepare(
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			"SELECT DISTINCT folder_id FROM {$this->relationships_table()} WHERE attachment_id IN ($placeholders)",
+			...$attachment_ids
+		) );
+
 		foreach ( $attachment_ids as $attachment_id ) {
 			if ( ! $attachment_id ) {
 				continue;
@@ -789,6 +847,25 @@ class MediaFolders {
 				);
 			}
 		}
+
+		// Touch updated_at for affected folders (source + destination).
+		$affected_ids = array_unique( array_merge(
+			array_map( 'intval', $source_folder_ids ),
+			$folder_id > 0 ? [ $folder_id ] : []
+		) );
+		if ( ! empty( $affected_ids ) ) {
+			$ph   = implode( ',', array_fill( 0, count( $affected_ids ), '%d' ) );
+			$args = array_merge( [ current_time( 'mysql' ) ], $affected_ids );
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			$wpdb->query( $wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+				"UPDATE {$this->folders_table()} SET updated_at = %s WHERE id IN ($ph)",
+				...$args
+			) );
+		}
+
+		// Invalidate the size cache so the next size-sort fetch is fresh.
+		wp_cache_delete( 'iu_folder_sizes', 'iu_media_folders' );
 
 		wp_send_json_success( [
 			'moved'                => count( $attachment_ids ),
@@ -1060,6 +1137,49 @@ class MediaFolders {
 		}
 
 		return $counts;
+	}
+
+	/**
+	 * Get total file sizes per folder (in bytes).
+	 *
+	 * Uses a single SQL query to fetch attachment metadata for all folder
+	 * relationships, then sums the `filesize` key from wp_attachment_metadata
+	 * in PHP.  Result is request-cached via wp_cache to avoid redundant queries
+	 * when called multiple times in one request.
+	 *
+	 * @return array Associative array of folder_id => total_size_bytes.
+	 */
+	private function get_folder_sizes() {
+		$cache_key = 'iu_folder_sizes';
+		$cached    = wp_cache_get( $cache_key, 'iu_media_folders' );
+		if ( false !== $cached ) {
+			return $cached;
+		}
+
+		global $wpdb;
+
+		// One query: all (folder_id, _wp_attachment_metadata) pairs for all folders.
+		$rows = $wpdb->get_results(
+			"SELECT r.folder_id, pm.meta_value
+			 FROM {$this->relationships_table()} r
+			 INNER JOIN {$wpdb->posts} p ON p.ID = r.attachment_id AND p.post_type = 'attachment'
+			 LEFT JOIN {$wpdb->postmeta} pm
+			        ON pm.post_id = r.attachment_id AND pm.meta_key = '_wp_attachment_metadata'"
+		);
+
+		$sizes = [];
+		foreach ( $rows as $row ) {
+			$fid  = (int) $row->folder_id;
+			$meta = maybe_unserialize( $row->meta_value );
+			// 'filesize' key is present in WP 6.0+ and for any attachment that
+			// has been re-generated after upgrading.
+			$file_size = isset( $meta['filesize'] ) ? (int) $meta['filesize'] : 0;
+			$sizes[ $fid ] = ( $sizes[ $fid ] ?? 0 ) + $file_size;
+		}
+
+		wp_cache_set( $cache_key, $sizes, 'iu_media_folders', 5 * MINUTE_IN_SECONDS );
+
+		return $sizes;
 	}
 
 	// -----------------------------------------------------------------
