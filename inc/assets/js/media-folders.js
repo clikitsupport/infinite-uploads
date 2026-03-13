@@ -14,6 +14,8 @@
 		dragIds: [],
 		sortMode: localStorage.getItem('iu_folders_sort') || 'custom',
 		folderColors: {},
+		mediaSortMode: localStorage.getItem('iu_media_sort') || 'date',
+		mediaSortOrder: localStorage.getItem('iu_media_sort_order') || 'desc',
 		cutNode: null,
 		totalCount: 0,
 		uncategorizedCount: 0,
@@ -1279,6 +1281,90 @@
 		},
 
 		// -----------------------------------------------------------------
+		// Media file sort bar
+		// -----------------------------------------------------------------
+
+		/**
+		 * Build the HTML for the media-file sort bar.
+		 */
+		buildMediaSortBarHtml: function () {
+			var self = this;
+			var s    = iuMediaFolders;
+
+			var options = [
+				['date',      s.media_sort_date],
+				['modified',  s.media_sort_modified],
+				['name',      s.media_sort_name],
+				['filename',  s.media_sort_filename],
+				['author',    s.media_sort_author],
+				['file_type', s.media_sort_file_type],
+				['extension', s.media_sort_extension],
+				['file_size', s.media_sort_file_size],
+			];
+
+			var optHtml = '';
+			options.forEach(function (o) {
+				var sel = (o[0] === self.mediaSortMode) ? ' selected' : '';
+				optHtml += '<option value="' + o[0] + '"' + sel + '>' + o[1] + '</option>';
+			});
+
+			var isAsc  = (self.mediaSortOrder === 'asc');
+			var icon   = isAsc ? 'dashicons-arrow-up-alt2' : 'dashicons-arrow-down-alt2';
+			var title  = isAsc ? s.media_sort_desc : s.media_sort_asc;
+
+			return (
+				'<div class="iu-media-sort-bar">' +
+				'<span class="iu-media-sort-label">' + s.media_sort_label + '</span>' +
+				'<select class="iu-media-sort-select">' + optHtml + '</select>' +
+				'<button type="button" class="iu-media-sort-order" title="' + title + '">' +
+				'<span class="dashicons ' + icon + '"></span>' +
+				'</button>' +
+				'</div>'
+			);
+		},
+
+		/**
+		 * Inject the media sort bar into the given container element.
+		 * Safe to call multiple times — guards against double injection.
+		 *
+		 * @param {jQuery} $container  Element to append the bar to.
+		 */
+		injectMediaSortBar: function ($container) {
+			if (!$container || !$container.length) return;
+			if ($container.find('.iu-media-sort-bar').length) return;
+			$container.append(this.buildMediaSortBarHtml());
+		},
+
+		/**
+		 * Apply the current mediaSortMode / mediaSortOrder.
+		 * Grid mode: reset the collection to re-fetch with new params.
+		 * List mode: navigate to the URL with updated sort params.
+		 */
+		applyMediaSort: function () {
+			var self = this;
+
+			if (this.isListMode) {
+				var url = new URL(window.location.href);
+				url.searchParams.set('iu_media_orderby', this.mediaSortMode);
+				url.searchParams.set('iu_media_order',   this.mediaSortOrder);
+				url.searchParams.delete('paged');
+				window.location.href = url.toString();
+				return;
+			}
+
+			// Grid mode: trigger a re-fetch with updated sort params.
+			var activeFrame = this._activeFrame || (typeof wp !== 'undefined' && wp.media && wp.media.frame);
+			var collection  = activeFrame && activeFrame.content && activeFrame.content.get();
+			if (!collection) return;
+
+			var browserCollection = collection.collection || (collection.options && collection.options.collection);
+			if (!browserCollection) return;
+
+			browserCollection.reset();
+			browserCollection.more();
+		},
+
+		// -----------------------------------------------------------------
 		// Folder move (DnD reparent via tree)
 		// -----------------------------------------------------------------
 
@@ -1349,15 +1435,19 @@
 		hookGridMode: function () {
 			var self = this;
 
-			// Patch wp.media.model.Query to pass iu_folder param.
+			// Patch wp.media.model.Query to pass iu_folder and media sort params.
 			if (typeof wp !== 'undefined' && wp.media && wp.media.model && wp.media.model.Query) {
 				var origSync = wp.media.model.Query.prototype.sync;
 				wp.media.model.Query.prototype.sync = function (method, model, options) {
 					var folder = this.props.get('iu_folder');
+					options = options || {};
+					options.data = options.data || {};
 					if (folder) {
-						options = options || {};
-						options.data = options.data || {};
 						options.data.iu_folder = folder;
+					}
+					if (self.mediaSortMode) {
+						options.data.iu_media_orderby = self.mediaSortMode;
+						options.data.iu_media_order   = self.mediaSortOrder;
 					}
 					return origSync.call(this, method, model, options);
 				};
@@ -1379,6 +1469,12 @@
 				: null;
 			if (existingFrame) {
 				draggableObserver.observe(existingFrame, {childList: true, subtree: true});
+
+				// Inject media sort bar into the existing upload.php frame toolbar.
+				setTimeout(function () {
+					var $toolbar = $(existingFrame).find('.media-toolbar-secondary');
+					self.injectMediaSortBar($toolbar);
+				}, 400);
 			}
 
 			// Extend AttachmentsBrowser so the sidebar is injected into every
@@ -1449,6 +1545,12 @@
 
 						self._activeFrame = controller;
 
+						// Inject media sort bar into the toolbar.
+						setTimeout(function () {
+							var $toolbar = $(controller.el).find('.media-toolbar-secondary');
+							self.injectMediaSortBar($toolbar);
+						}, 150);
+
 						if (self.folders.length) {
 							self.buildTree();
 							self.renderCountBadges();
@@ -1482,7 +1584,20 @@
 		hookListMode: function () {
 			var self = this;
 
+			// Restore sort state from URL on list mode page load.
 			var urlParams = new URLSearchParams(window.location.search);
+			var urlSortMode  = urlParams.get('iu_media_orderby');
+			var urlSortOrder = urlParams.get('iu_media_order');
+			if (urlSortMode)  { self.mediaSortMode  = urlSortMode; }
+			if (urlSortOrder) { self.mediaSortOrder = urlSortOrder; }
+
+			// Inject sort bar into the WP filter toolbar.
+			setTimeout(function () {
+				var $target = $('.wp-filter');
+				if (!$target.length) $target = $('.tablenav.top');
+				self.injectMediaSortBar($target);
+			}, 200);
+
 			var currentFolderParam = urlParams.get('iu_folder');
 
 			// Wait for tree to load then restore selection
@@ -1595,6 +1710,28 @@
 				var $menu = $(this).siblings('.iu-more-menu');
 				$menu.toggleClass('iu-open');
 				$('.iu-sort-menu').removeClass('iu-open');
+			});
+
+			// --- Media file sort select ---
+			$(document).on('change', '.iu-media-sort-select', function () {
+				self.mediaSortMode = $(this).val();
+				localStorage.setItem('iu_media_sort', self.mediaSortMode);
+				self.applyMediaSort();
+			});
+
+			// --- Media sort order toggle ---
+			$(document).on('click', '.iu-media-sort-order', function () {
+				self.mediaSortOrder = (self.mediaSortOrder === 'asc') ? 'desc' : 'asc';
+				localStorage.setItem('iu_media_sort_order', self.mediaSortOrder);
+
+				// Update icon and title.
+				var isAsc = (self.mediaSortOrder === 'asc');
+				$(this).find('.dashicons')
+					.removeClass('dashicons-arrow-up-alt2 dashicons-arrow-down-alt2')
+					.addClass(isAsc ? 'dashicons-arrow-up-alt2' : 'dashicons-arrow-down-alt2');
+				$(this).attr('title', isAsc ? iuMediaFolders.media_sort_desc : iuMediaFolders.media_sort_asc);
+
+				self.applyMediaSort();
 			});
 
 			// Close dropdowns on outside click.

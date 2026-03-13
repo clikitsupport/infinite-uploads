@@ -1287,3 +1287,81 @@ body.iu-resizing .iu-sidebar-handle::before {
 .wp-list-table.fixed {
 	    position: static !important;
 }
+
+/* ==========================================================================
+   Media File Sort Bar
+   ========================================================================== */
+
+.iu-media-sort-bar {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin-left: 6px;
+	vertical-align: middle;
+}
+
+.iu-media-sort-label {
+	font-size: 13px;
+	color: #50575e;
+	white-space: nowrap;
+	line-height: 1;
+}
+
+.iu-media-sort-select {
+	font-size: 13px;
+	height: 28px;
+	padding: 0 4px;
+	border: 1px solid #c3c4c7;
+	border-radius: 3px;
+	background: #fff;
+	color: #2c3338;
+	cursor: pointer;
+	max-width: 150px;
+}
+
+.iu-media-sort-select:focus {
+	border-color: var(--iu-primary);
+	outline: none;
+	box-shadow: 0 0 0 1px var(--iu-primary);
+}
+
+.iu-media-sort-order {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid #c3c4c7;
+	border-radius: 3px;
+	background: #fff;
+	cursor: pointer;
+	color: #50575e;
+	flex-shrink: 0;
+}
+
+.iu-media-sort-order:hover {
+	border-color: var(--iu-primary);
+	color: var(--iu-primary);
+	background: var(--iu-primary-bg);
+}
+
+.iu-media-sort-order .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	line-height: 1;
+}
+
+/* List-mode sort bar placement — inside .wp-filter toolbar */
+.wp-filter .iu-media-sort-bar {
+	float: left;
+	margin: 4px 0 4px 10px;
+}
+
+/* Responsive: collapse label on small screens */
+@media (max-width: 800px) {
+	.iu-media-sort-label {
+		display: none;
+	}
+}

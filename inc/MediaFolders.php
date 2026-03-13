@@ -67,8 +67,15 @@ class MediaFolders {
 		add_action( 'wp_ajax_iu_bulk_move_folders',   [ $this, 'ajax_bulk_move_folders' ] );
 		add_action( 'wp_ajax_iu_set_folder_color',    [ $this, 'ajax_set_folder_color' ] );
 
-		// Assign newly uploaded attachments to the user's selected folder.
+		// Assign newly uploaded attachments to the user's selected folder;
+		// also record the file size for sort-by-size support.
 		add_action( 'add_attachment', [ $this, 'on_add_attachment' ] );
+
+		// Update filesize meta when WP generates attachment metadata (covers all upload paths).
+		add_filter( 'wp_update_attachment_metadata', [ $this, 'store_attachment_filesize_from_meta' ], 10, 2 );
+
+		// Handle custom media orderby (file_size / extension / file_type) via SQL.
+		add_filter( 'posts_clauses', [ $this, 'handle_custom_media_orderby' ], 10, 2 );
 
 		// Filter media library queries.
 		add_action( 'pre_get_posts', [ $this, 'filter_media_query' ] );
@@ -234,6 +241,18 @@ class MediaFolders {
 			'more'                   => __( 'More', 'infinite-uploads' ),
 			'choose_folder'          => __( 'Upload to folder:', 'infinite-uploads' ),
 			'upload_folder_none'     => __( 'No folder (Uncategorized)', 'infinite-uploads' ),
+			// Media file sort strings.
+			'media_sort_label'       => __( 'Sort:', 'infinite-uploads' ),
+			'media_sort_date'        => __( 'Date Added', 'infinite-uploads' ),
+			'media_sort_modified'    => __( 'Date Modified', 'infinite-uploads' ),
+			'media_sort_name'        => __( 'Title', 'infinite-uploads' ),
+			'media_sort_filename'    => __( 'Filename', 'infinite-uploads' ),
+			'media_sort_author'      => __( 'Author', 'infinite-uploads' ),
+			'media_sort_file_type'   => __( 'File Type', 'infinite-uploads' ),
+			'media_sort_extension'   => __( 'Extension', 'infinite-uploads' ),
+			'media_sort_file_size'   => __( 'File Size', 'infinite-uploads' ),
+			'media_sort_asc'         => __( 'Ascending', 'infinite-uploads' ),
+			'media_sort_desc'        => __( 'Descending', 'infinite-uploads' ),
 			// is_list_mode is only meaningful on upload.php; never on post.php/post-new.php.
 			'is_list_mode'       => $hook === 'upload.php' && (
 				( isset( $_GET['mode'] ) && $_GET['mode'] === 'list' ) ||
@@ -333,6 +352,17 @@ class MediaFolders {
 			'more'                   => __( 'More', 'infinite-uploads' ),
 			'choose_folder'          => __( 'Upload to folder:', 'infinite-uploads' ),
 			'upload_folder_none'     => __( 'No folder (Uncategorized)', 'infinite-uploads' ),
+			'media_sort_label'       => __( 'Sort:', 'infinite-uploads' ),
+			'media_sort_date'        => __( 'Date Added', 'infinite-uploads' ),
+			'media_sort_modified'    => __( 'Date Modified', 'infinite-uploads' ),
+			'media_sort_name'        => __( 'Title', 'infinite-uploads' ),
+			'media_sort_filename'    => __( 'Filename', 'infinite-uploads' ),
+			'media_sort_author'      => __( 'Author', 'infinite-uploads' ),
+			'media_sort_file_type'   => __( 'File Type', 'infinite-uploads' ),
+			'media_sort_extension'   => __( 'Extension', 'infinite-uploads' ),
+			'media_sort_file_size'   => __( 'File Size', 'infinite-uploads' ),
+			'media_sort_asc'         => __( 'Ascending', 'infinite-uploads' ),
+			'media_sort_desc'        => __( 'Descending', 'infinite-uploads' ),
 			// The iframe is always grid mode; none of the page-specific flags apply.
 			'is_list_mode'           => false,
 			'is_upload_page'         => false,
@@ -405,6 +435,17 @@ class MediaFolders {
 			'more'                   => __( 'More', 'infinite-uploads' ),
 			'choose_folder'          => __( 'Upload to folder:', 'infinite-uploads' ),
 			'upload_folder_none'     => __( 'No folder (Uncategorized)', 'infinite-uploads' ),
+			'media_sort_label'       => __( 'Sort:', 'infinite-uploads' ),
+			'media_sort_date'        => __( 'Date Added', 'infinite-uploads' ),
+			'media_sort_modified'    => __( 'Date Modified', 'infinite-uploads' ),
+			'media_sort_name'        => __( 'Title', 'infinite-uploads' ),
+			'media_sort_filename'    => __( 'Filename', 'infinite-uploads' ),
+			'media_sort_author'      => __( 'Author', 'infinite-uploads' ),
+			'media_sort_file_type'   => __( 'File Type', 'infinite-uploads' ),
+			'media_sort_extension'   => __( 'Extension', 'infinite-uploads' ),
+			'media_sort_file_size'   => __( 'File Size', 'infinite-uploads' ),
+			'media_sort_asc'         => __( 'Ascending', 'infinite-uploads' ),
+			'media_sort_desc'        => __( 'Descending', 'infinite-uploads' ),
 			// BB editor is always grid mode; none of the page-specific flags apply.
 			'is_list_mode'           => false,
 			'is_upload_page'         => false,
@@ -1013,6 +1054,87 @@ class MediaFolders {
 		);
 	}
 
+	/**
+	 * Store filesize meta when WP generates attachment metadata.
+	 * This covers all upload paths (admin, REST, WP-CLI, etc.).
+	 *
+	 * @param array $data          Attachment metadata.
+	 * @param int   $attachment_id Attachment post ID.
+	 *
+	 * @return array Unchanged metadata.
+	 */
+	public function store_attachment_filesize_from_meta( $data, $attachment_id ) {
+		if ( ! empty( $data['filesize'] ) ) {
+			update_post_meta( $attachment_id, '_iu_filesize', (int) $data['filesize'] );
+		} elseif ( empty( get_post_meta( $attachment_id, '_iu_filesize', true ) ) ) {
+			$file = get_attached_file( $attachment_id );
+			if ( $file && file_exists( $file ) ) {
+				update_post_meta( $attachment_id, '_iu_filesize', (int) filesize( $file ) );
+			}
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Map a JS sort key to a native WP_Query orderby value.
+	 * Returns an empty string if the sort requires custom SQL.
+	 *
+	 * @param string $key
+	 *
+	 * @return string
+	 */
+	private function _get_native_orderby( $key ) {
+		$map = [
+			'date'     => 'date',
+			'modified' => 'modified',
+			'name'     => 'title',
+			'filename' => 'name',
+			'author'   => 'author',
+		];
+
+		return $map[ $key ] ?? '';
+	}
+
+	/**
+	 * Apply custom ORDER BY clauses for file_size, extension, and file_type sorts.
+	 * Fires only when $_custom_orderby has been set by the query-arg filter.
+	 *
+	 * @param array    $clauses
+	 * @param WP_Query $query
+	 *
+	 * @return array
+	 */
+	public function handle_custom_media_orderby( $clauses, $query ) {
+		if ( ! $this->_custom_orderby ) {
+			return $clauses;
+		}
+
+		if ( $query->get( 'post_type' ) !== 'attachment' ) {
+			return $clauses;
+		}
+
+		global $wpdb;
+		$order = $this->_custom_order;
+
+		switch ( $this->_custom_orderby ) {
+			case 'file_size':
+				$clauses['join']   .= " LEFT JOIN {$wpdb->postmeta} iu_fs ON iu_fs.post_id = {$wpdb->posts}.ID AND iu_fs.meta_key = '_iu_filesize'";
+				$clauses['orderby'] = "CAST(COALESCE(iu_fs.meta_value, 0) AS UNSIGNED) {$order}";
+				break;
+
+			case 'extension':
+				$clauses['orderby'] = "SUBSTRING_INDEX({$wpdb->posts}.post_mime_type, '/', -1) {$order}, {$wpdb->posts}.post_title {$order}";
+				break;
+
+			case 'file_type':
+				$clauses['orderby'] = "SUBSTRING_INDEX({$wpdb->posts}.post_mime_type, '/', 1) {$order}, {$wpdb->posts}.post_title {$order}";
+				break;
+		}
+
+		return $clauses;
+	}
+
 	// -----------------------------------------------------------------
 	// AJAX: Sort folders (save custom order)
 	// -----------------------------------------------------------------
@@ -1058,6 +1180,10 @@ class MediaFolders {
 	 * @var array|null
 	 */
 	private $folder_cache = null;
+
+	/** Orderby key for custom media sorts (file_size, extension, file_type). */
+	private $_custom_orderby = '';
+	private $_custom_order   = 'DESC';
 
 	/**
 	 * Add "Folder" column to the media list table.
@@ -1269,23 +1395,40 @@ class MediaFolders {
 			return;
 		}
 
-		$folder = $_GET['iu_folder'] ?? '';
+		$folder  = $_GET['iu_folder'] ?? '';
+		$orderby = sanitize_text_field( $_GET['iu_media_orderby'] ?? '' );
 
-		if ( $folder === '' ) {
+		if ( $folder === '' && $orderby === '' ) {
 			return;
 		}
 
-		$post_ids = $this->get_attachment_ids_for_folder( $folder );
+		// Apply folder filter.
+		if ( $folder !== '' ) {
+			$post_ids = $this->get_attachment_ids_for_folder( $folder );
 
-		if ( $post_ids === null ) {
-			return; // Show all.
+			if ( $post_ids !== null ) {
+				if ( empty( $post_ids ) ) {
+					$query->set( 'post__in', [ 0 ] );
+				} else {
+					$query->set( 'post__in', $post_ids );
+				}
+			}
 		}
 
-		if ( empty( $post_ids ) ) {
-			// No attachments in this folder – force empty result.
-			$query->set( 'post__in', [ 0 ] );
-		} else {
-			$query->set( 'post__in', $post_ids );
+		// Apply media sort.
+		if ( $orderby !== '' ) {
+			$order  = strtoupper( sanitize_text_field( $_GET['iu_media_order'] ?? 'DESC' ) );
+			$order  = in_array( $order, [ 'ASC', 'DESC' ], true ) ? $order : 'DESC';
+			$native = $this->_get_native_orderby( $orderby );
+
+			if ( $native !== '' ) {
+				$query->set( 'orderby', $native );
+				$query->set( 'order', $order );
+			} else {
+				$this->_custom_orderby = $orderby;
+				$this->_custom_order   = $order;
+				$query->set( 'orderby', 'none' );
+			}
 		}
 	}
 
@@ -1297,22 +1440,37 @@ class MediaFolders {
 	 * @return array
 	 */
 	public function filter_ajax_attachments_args( $query ) {
+		// Apply folder filter.
 		$folder = $_REQUEST['iu_folder'] ?? '';
 
-		if ( $folder === '' ) {
-			return $query;
+		if ( $folder !== '' ) {
+			$post_ids = $this->get_attachment_ids_for_folder( $folder );
+
+			if ( $post_ids !== null ) {
+				if ( empty( $post_ids ) ) {
+					$query['post__in'] = [ 0 ];
+				} else {
+					$query['post__in'] = $post_ids;
+				}
+			}
 		}
 
-		$post_ids = $this->get_attachment_ids_for_folder( $folder );
+		// Apply media sort.
+		$orderby = sanitize_text_field( $_REQUEST['iu_media_orderby'] ?? '' );
 
-		if ( $post_ids === null ) {
-			return $query;
-		}
+		if ( $orderby !== '' ) {
+			$order  = strtoupper( sanitize_text_field( $_REQUEST['iu_media_order'] ?? 'DESC' ) );
+			$order  = in_array( $order, [ 'ASC', 'DESC' ], true ) ? $order : 'DESC';
+			$native = $this->_get_native_orderby( $orderby );
 
-		if ( empty( $post_ids ) ) {
-			$query['post__in'] = [ 0 ];
-		} else {
-			$query['post__in'] = $post_ids;
+			if ( $native !== '' ) {
+				$query['orderby'] = $native;
+				$query['order']   = $order;
+			} else {
+				$this->_custom_orderby = $orderby;
+				$this->_custom_order   = $order;
+				$query['orderby']      = 'none';
+			}
 		}
 
 		return $query;
