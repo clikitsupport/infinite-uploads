@@ -77,6 +77,9 @@ class MediaFolders {
 		// Handle custom media orderby (file_size / extension / file_type) via SQL.
 		add_filter( 'posts_clauses', [ $this, 'handle_custom_media_orderby' ], 10, 2 );
 
+		// Apply custom per-field media search (title, filename, alt, description, caption, folders).
+		add_filter( 'posts_where', [ $this, 'handle_custom_media_search' ], 10, 2 );
+
 		// Filter media library queries.
 		add_action( 'pre_get_posts', [ $this, 'filter_media_query' ] );
 
@@ -253,6 +256,14 @@ class MediaFolders {
 			'media_sort_file_size'   => __( 'File Size', 'infinite-uploads' ),
 			'media_sort_asc'         => __( 'Ascending', 'infinite-uploads' ),
 			'media_sort_desc'        => __( 'Descending', 'infinite-uploads' ),
+			// Media search field labels.
+			'search_fields_label'      => __( 'Search in:', 'infinite-uploads' ),
+			'search_field_title'       => __( 'Title', 'infinite-uploads' ),
+			'search_field_filename'    => __( 'Filename', 'infinite-uploads' ),
+			'search_field_alt'         => __( 'Alt Text', 'infinite-uploads' ),
+			'search_field_description' => __( 'Description', 'infinite-uploads' ),
+			'search_field_caption'     => __( 'Caption', 'infinite-uploads' ),
+			'search_field_folders'     => __( 'Folder Name', 'infinite-uploads' ),
 			// is_list_mode is only meaningful on upload.php; never on post.php/post-new.php.
 			'is_list_mode'       => $hook === 'upload.php' && (
 				( isset( $_GET['mode'] ) && $_GET['mode'] === 'list' ) ||
@@ -363,6 +374,14 @@ class MediaFolders {
 			'media_sort_file_size'   => __( 'File Size', 'infinite-uploads' ),
 			'media_sort_asc'         => __( 'Ascending', 'infinite-uploads' ),
 			'media_sort_desc'        => __( 'Descending', 'infinite-uploads' ),
+			// Media search field labels.
+			'search_fields_label'      => __( 'Search in:', 'infinite-uploads' ),
+			'search_field_title'       => __( 'Title', 'infinite-uploads' ),
+			'search_field_filename'    => __( 'Filename', 'infinite-uploads' ),
+			'search_field_alt'         => __( 'Alt Text', 'infinite-uploads' ),
+			'search_field_description' => __( 'Description', 'infinite-uploads' ),
+			'search_field_caption'     => __( 'Caption', 'infinite-uploads' ),
+			'search_field_folders'     => __( 'Folder Name', 'infinite-uploads' ),
 			// The iframe is always grid mode; none of the page-specific flags apply.
 			'is_list_mode'           => false,
 			'is_upload_page'         => false,
@@ -446,6 +465,14 @@ class MediaFolders {
 			'media_sort_file_size'   => __( 'File Size', 'infinite-uploads' ),
 			'media_sort_asc'         => __( 'Ascending', 'infinite-uploads' ),
 			'media_sort_desc'        => __( 'Descending', 'infinite-uploads' ),
+			// Media search field labels.
+			'search_fields_label'      => __( 'Search in:', 'infinite-uploads' ),
+			'search_field_title'       => __( 'Title', 'infinite-uploads' ),
+			'search_field_filename'    => __( 'Filename', 'infinite-uploads' ),
+			'search_field_alt'         => __( 'Alt Text', 'infinite-uploads' ),
+			'search_field_description' => __( 'Description', 'infinite-uploads' ),
+			'search_field_caption'     => __( 'Caption', 'infinite-uploads' ),
+			'search_field_folders'     => __( 'Folder Name', 'infinite-uploads' ),
 			// BB editor is always grid mode; none of the page-specific flags apply.
 			'is_list_mode'           => false,
 			'is_upload_page'         => false,
@@ -1132,6 +1159,88 @@ class MediaFolders {
 	}
 
 	// -----------------------------------------------------------------
+	// Custom per-field media search
+	// -----------------------------------------------------------------
+
+	/**
+	 * Build a custom WHERE clause that searches only the user-selected fields.
+	 *
+	 * Uses EXISTS subqueries for postmeta fields (alt, filename) and for folder
+	 * name lookup to avoid row-multiplication from JOINs.
+	 *
+	 * Called only when $_search_term and $_search_fields have been populated by
+	 * filter_ajax_attachments_args() or filter_media_query().
+	 *
+	 * @param string   $where
+	 * @param WP_Query $query
+	 *
+	 * @return string
+	 */
+	public function handle_custom_media_search( $where, $query ) {
+		if ( $this->_search_term === '' || empty( $this->_search_fields ) ) {
+			return $where;
+		}
+
+		global $wpdb;
+		$term    = '%' . $wpdb->esc_like( $this->_search_term ) . '%';
+		$clauses = [];
+
+		foreach ( $this->_search_fields as $field ) {
+			switch ( $field ) {
+				case 'title':
+					$clauses[] = $wpdb->prepare( "{$wpdb->posts}.post_title LIKE %s", $term );
+					break;
+
+				case 'description':
+					$clauses[] = $wpdb->prepare( "{$wpdb->posts}.post_content LIKE %s", $term );
+					break;
+
+				case 'caption':
+					$clauses[] = $wpdb->prepare( "{$wpdb->posts}.post_excerpt LIKE %s", $term );
+					break;
+
+				case 'filename':
+					$clauses[] = $wpdb->prepare(
+						"EXISTS (SELECT 1 FROM {$wpdb->postmeta} pm
+						          WHERE pm.post_id = {$wpdb->posts}.ID
+						            AND pm.meta_key = '_wp_attached_file'
+						            AND pm.meta_value LIKE %s)",
+						$term
+					);
+					break;
+
+				case 'alt':
+					$clauses[] = $wpdb->prepare(
+						"EXISTS (SELECT 1 FROM {$wpdb->postmeta} pm
+						          WHERE pm.post_id = {$wpdb->posts}.ID
+						            AND pm.meta_key = '_wp_attachment_image_alt'
+						            AND pm.meta_value LIKE %s)",
+						$term
+					);
+					break;
+
+				case 'folders':
+					$clauses[] = $wpdb->prepare(
+						"EXISTS (SELECT 1 FROM {$this->relationships_table()} r
+						          JOIN {$this->folders_table()} f ON f.id = r.folder_id
+						         WHERE r.attachment_id = {$wpdb->posts}.ID
+						           AND f.name LIKE %s)",
+						$term
+					);
+					break;
+			}
+		}
+
+		if ( empty( $clauses ) ) {
+			return $where;
+		}
+
+		$where .= ' AND (' . implode( ' OR ', $clauses ) . ')';
+
+		return $where;
+	}
+
+	// -----------------------------------------------------------------
 	// AJAX: Sort folders (save custom order)
 	// -----------------------------------------------------------------
 
@@ -1178,8 +1287,10 @@ class MediaFolders {
 	private $folder_cache = null;
 
 	/** Orderby key for custom media sorts (file_size, extension, file_type). */
-	private $_custom_orderby = '';
-	private $_custom_order   = 'DESC';
+	private $_custom_orderby  = '';
+	private $_custom_order    = 'DESC';
+	private $_search_term     = '';
+	private $_search_fields   = [];
 
 	/**
 	 * Add "Folder" column to the media list table.
@@ -1426,6 +1537,17 @@ class MediaFolders {
 				$query->set( 'orderby', 'none' );
 			}
 		}
+
+		// Apply custom per-field media search (list mode).
+		$search = sanitize_text_field( $_GET['s'] ?? '' );
+		$fields = array_filter( array_map( 'sanitize_key', (array) ( $_GET['iu_search_fields'] ?? [] ) ) );
+
+		if ( $search !== '' && ! empty( $fields ) ) {
+			$this->_search_term   = $search;
+			$this->_search_fields = $fields;
+			// Suppress WP's native search; handle_custom_media_search provides the WHERE.
+			$query->set( 's', '' );
+		}
 	}
 
 	/**
@@ -1462,6 +1584,18 @@ class MediaFolders {
 			$this->_custom_orderby = $orderby;
 			$this->_custom_order   = $order;
 			$query['orderby']      = 'none';
+		}
+
+		// Apply custom per-field media search.
+		$search = sanitize_text_field( $_REQUEST['s'] ?? '' );
+		$fields = array_filter( array_map( 'sanitize_key', (array) ( $_REQUEST['iu_search_fields'] ?? [] ) ) );
+
+		if ( $search !== '' && ! empty( $fields ) ) {
+			$this->_search_term   = $search;
+			$this->_search_fields = $fields;
+			// Suppress WP's native full-text search so handle_custom_media_search
+			// fully controls the WHERE clause.
+			$query['s'] = '';
 		}
 
 		return $query;

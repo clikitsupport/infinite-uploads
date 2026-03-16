@@ -1378,3 +1378,105 @@ body.iu-resizing .iu-sidebar-handle::before {
 	margin-left: 6px;
 	line-height: 2;
 }
+
+/* ==========================================================================
+   Media Search Fields Selector
+   A filter-icon button that opens a popover of checkboxes letting the user
+   choose which fields (title, filename, alt, description, caption, folders)
+   are included in media library searches.
+   ========================================================================== */
+
+/* Wrapper — positions the popover relative to the button */
+.iu-search-fields-wrap {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	vertical-align: middle;
+	margin-right: 6px;
+}
+
+/* Filter toggle button */
+.iu-search-fields-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid #c3c4c7;
+	border-radius: 3px;
+	background: #fff;
+	cursor: pointer;
+	color: #50575e;
+	line-height: 1;
+	flex-shrink: 0;
+}
+
+.iu-search-fields-btn:hover,
+.iu-search-fields-btn.iu-active {
+	border-color: var(--iu-primary);
+	color: var(--iu-primary);
+	background: var(--iu-primary-bg);
+}
+
+.iu-search-fields-btn .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	line-height: 1;
+}
+
+/* Popover panel */
+.iu-search-fields-popover {
+	position: absolute;
+	top: calc(100% + 4px);
+	left: 0;
+	z-index: 99999;
+	min-width: 160px;
+	padding: 8px 0 6px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
+}
+
+.iu-search-fields-title {
+	padding: 0 12px 6px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: .04em;
+	color: #646970;
+	border-bottom: 1px solid #f0f0f1;
+	margin-bottom: 4px;
+}
+
+.iu-search-field-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 5px 12px;
+	font-size: 13px;
+	color: #2c3338;
+	cursor: pointer;
+	white-space: nowrap;
+	user-select: none;
+	font-weight: normal;
+}
+
+.iu-search-field-item:hover {
+	background: var(--iu-primary-bg);
+	color: var(--iu-primary);
+}
+
+.iu-search-field-item input[type="checkbox"] {
+	margin: 0;
+	cursor: pointer;
+}
+
+/* In list mode, position the wrap inline next to the search box */
+.search-box .iu-search-fields-wrap {
+	display: inline-flex;
+	margin-right: 4px;
+	vertical-align: middle;
+}

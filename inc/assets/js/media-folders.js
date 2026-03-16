@@ -16,6 +16,10 @@
 		folderColors: {},
 		mediaSortMode: localStorage.getItem('iu_media_sort') || 'date',
 		mediaSortOrder: localStorage.getItem('iu_media_sort_order') || 'desc',
+		mediaSearchFields: (function () {
+			var stored = localStorage.getItem('iu_search_fields');
+			return stored ? JSON.parse(stored) : ['title', 'filename', 'alt', 'description', 'caption', 'folders'];
+		}()),
 		cutNode: null,
 		totalCount: 0,
 		uncategorizedCount: 0,
@@ -1360,6 +1364,98 @@
 				$secondary.append(html);
 				$secondary.addClass('iu-has-sort');
 			}
+
+			// Also inject the search-fields selector into the same scope.
+			this.injectSearchFieldsBtn($scope);
+		},
+
+		/**
+		 * Build the search-fields popover HTML (checkboxes for each searchable field).
+		 */
+		buildSearchFieldsHtml: function () {
+			var self = this;
+			var s    = iuMediaFolders;
+			var defs = [
+				['title',       s.search_field_title],
+				['filename',    s.search_field_filename],
+				['alt',         s.search_field_alt],
+				['description', s.search_field_description],
+				['caption',     s.search_field_caption],
+				['folders',     s.search_field_folders],
+			];
+			var rows = defs.map(function (f) {
+				var checked = self.mediaSearchFields.indexOf(f[0]) !== -1 ? ' checked' : '';
+				return (
+					'<label class="iu-search-field-item">' +
+					'<input type="checkbox" value="' + f[0] + '"' + checked + '> ' +
+					f[1] +
+					'</label>'
+				);
+			}).join('');
+			return (
+				'<div class="iu-search-fields-popover" hidden>' +
+				'<div class="iu-search-fields-title">' + s.search_fields_label + '</div>' +
+				rows +
+				'</div>'
+			);
+		},
+
+		/**
+		 * Inject the search-fields toggle button next to the media search input.
+		 * Grid/modal: prepends to .media-toolbar-primary.
+		 * List mode: prepends to .search-box (before submit button).
+		 */
+		injectSearchFieldsBtn: function ($scope) {
+			if (!$scope || !$scope.length) return;
+			if ($scope.find('.iu-search-fields-btn').length) return;
+			var btnHtml = (
+				'<span class="iu-search-fields-wrap">' +
+				'<button type="button" class="iu-search-fields-btn" title="' + iuMediaFolders.search_fields_label + '">' +
+				'<span class="dashicons dashicons-filter"></span>' +
+				'</button>' +
+				this.buildSearchFieldsHtml() +
+				'</span>'
+			);
+			var $primary = $scope.find('.media-toolbar-primary');
+			if ($primary.length) {
+				$primary.prepend(btnHtml);
+				return;
+			}
+			// List mode: inject before the search-box paragraph.
+			var $searchBox = $scope.find('.search-box');
+			if ($searchBox.length) {
+				$searchBox.before(btnHtml);
+				this._syncListSearchFields();
+			}
+		},
+
+		/**
+		 * Sync hidden iu_search_fields[] inputs in the list-mode search form
+		 * with the current mediaSearchFields state.
+		 */
+		_syncListSearchFields: function () {
+			var self = this;
+			var $form = $('#posts-filter');
+			if (!$form.length) return;
+			$form.find('input[name="iu_search_fields[]"]').remove();
+			self.mediaSearchFields.forEach(function (field) {
+				$form.append('<input type="hidden" name="iu_search_fields[]" value="' + field + '">');
+			});
+		},
+
+		/**
+		 * Force a grid-mode re-query after search field state changes.
+		 * Uses a timestamp prop to guarantee _requery fires.
+		 */
+		_applySearchFieldsRequery: function () {
+			var activeFrame = this._activeFrame || (typeof wp !== 'undefined' && wp.media && wp.media.frame);
+			if (!activeFrame) return;
+			var content = activeFrame.content && activeFrame.content.get();
+			if (!content) return;
+			var browserCollection = content.collection || (content.options && content.options.collection);
+			if (!browserCollection || !browserCollection.props) return;
+			// Any prop change triggers WP's _requery; timestamp ensures it fires every time.
+			browserCollection.props.set('iu_query_time', Date.now());
 		},
 
 		/**
@@ -1513,6 +1609,9 @@
 						options.data.iu_media_orderby = customSort;
 						options.data.iu_media_order   = this.props.get('iu_media_order') || 'DESC';
 					}
+
+					// Always send search fields; PHP applies them only when s= is present.
+					options.data.iu_search_fields = self.mediaSearchFields;
 
 					return origSync.call(this, method, model, options);
 				};
@@ -1795,6 +1894,31 @@
 				self.applyMediaSort();
 			});
 
+			// --- Search fields popover toggle ---
+			$(document).on('click', '.iu-search-fields-btn', function (e) {
+				e.stopPropagation();
+				var $popover = $(this).siblings('.iu-search-fields-popover');
+				var isHidden = $popover.prop('hidden');
+				$('.iu-search-fields-popover').prop('hidden', true);
+				$popover.prop('hidden', !isHidden);
+				$(this).toggleClass('iu-active', !isHidden);
+			});
+
+			// --- Search field checkbox ---
+			$(document).on('change', '.iu-search-fields-popover input[type="checkbox"]', function () {
+				var fields = [];
+				$(this).closest('.iu-search-fields-popover').find('input[type="checkbox"]:checked').each(function () {
+					fields.push($(this).val());
+				});
+				self.mediaSearchFields = fields;
+				localStorage.setItem('iu_search_fields', JSON.stringify(fields));
+				if (self.isListMode) {
+					self._syncListSearchFields();
+				} else {
+					self._applySearchFieldsRequery();
+				}
+			});
+
 			// Close dropdowns on outside click.
 			$(document).on('click', function (e) {
 				if ( !$(e.target).closest('.iu-more-dropdown').length) {
@@ -1802,6 +1926,10 @@
 				}
 				if ( !$(e.target).closest('.iu-sort-dropdown').length) {
 					$('.iu-sort-menu').removeClass('iu-open');
+				}
+				if ( !$(e.target).closest('.iu-search-fields-wrap').length) {
+					$('.iu-search-fields-popover').prop('hidden', true);
+					$('.iu-search-fields-btn').removeClass('iu-active');
 				}
 			});
 
