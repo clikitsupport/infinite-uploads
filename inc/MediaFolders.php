@@ -1110,10 +1110,6 @@ class MediaFolders {
 			return $clauses;
 		}
 
-		if ( $query->get( 'post_type' ) !== 'attachment' ) {
-			return $clauses;
-		}
-
 		global $wpdb;
 		$order = $this->_custom_order;
 
@@ -1455,22 +1451,17 @@ class MediaFolders {
 			}
 		}
 
-		// Apply media sort.
+		// Apply custom media sort (file_size / extension / file_type).
+		// Native sorts (date, modified, title, name, author) are handled by
+		// WordPress itself via the orderby/order props set in JS — no PHP needed.
 		$orderby = sanitize_text_field( $_REQUEST['iu_media_orderby'] ?? '' );
 
-		if ( $orderby !== '' ) {
-			$order  = strtoupper( sanitize_text_field( $_REQUEST['iu_media_order'] ?? 'DESC' ) );
-			$order  = in_array( $order, [ 'ASC', 'DESC' ], true ) ? $order : 'DESC';
-			$native = $this->_get_native_orderby( $orderby );
-
-			if ( $native !== '' ) {
-				$query['orderby'] = $native;
-				$query['order']   = $order;
-			} else {
-				$this->_custom_orderby = $orderby;
-				$this->_custom_order   = $order;
-				$query['orderby']      = 'none';
-			}
+		if ( $orderby !== '' && $this->_get_native_orderby( $orderby ) === '' ) {
+			$order                 = strtoupper( sanitize_text_field( $_REQUEST['iu_media_order'] ?? 'DESC' ) );
+			$order                 = in_array( $order, [ 'ASC', 'DESC' ], true ) ? $order : 'DESC';
+			$this->_custom_orderby = $orderby;
+			$this->_custom_order   = $order;
+			$query['orderby']      = 'none';
 		}
 
 		return $query;

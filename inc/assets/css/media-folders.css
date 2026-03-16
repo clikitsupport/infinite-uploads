@@ -1289,55 +1289,31 @@ body.iu-resizing .iu-sidebar-handle::before {
 }
 
 /* ==========================================================================
-   Media File Sort Bar
+   Media File Sort Controls
+   Injected inline next to the "All dates" filter in the media toolbar.
+   .iu-media-sort-select uses WP's .attachment-filters class for native styling.
    ========================================================================== */
 
-.iu-media-sort-bar {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	margin-left: 6px;
-	vertical-align: middle;
-}
-
-.iu-media-sort-label {
-	font-size: 13px;
-	color: #50575e;
-	white-space: nowrap;
-	line-height: 1;
-}
-
+/* Cap width so long labels don't stretch the toolbar */
 .iu-media-sort-select {
-	font-size: 13px;
-	height: 28px;
-	padding: 0 4px;
-	border: 1px solid #c3c4c7;
-	border-radius: 3px;
-	background: #fff;
-	color: #2c3338;
-	cursor: pointer;
-	max-width: 150px;
+	max-width: 140px;
 }
 
-.iu-media-sort-select:focus {
-	border-color: var(--iu-primary);
-	outline: none;
-	box-shadow: 0 0 0 1px var(--iu-primary);
-}
-
+/* Asc / desc order toggle — sits immediately after the sort select */
 .iu-media-sort-order {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	vertical-align: middle;
 	width: 28px;
 	height: 28px;
+	margin-left: 2px;
 	padding: 0;
 	border: 1px solid #c3c4c7;
 	border-radius: 3px;
 	background: #fff;
 	cursor: pointer;
 	color: #50575e;
-	flex-shrink: 0;
 }
 
 .iu-media-sort-order:hover {
@@ -1353,15 +1329,9 @@ body.iu-resizing .iu-sidebar-handle::before {
 	line-height: 1;
 }
 
-/* List-mode sort bar placement — inside .wp-filter toolbar */
-.wp-filter .iu-media-sort-bar {
+/* List-mode: floated into .wp-filter bar */
+.wp-filter .iu-media-sort-select,
+.wp-filter .iu-media-sort-order {
 	float: left;
-	margin: 4px 0 4px 10px;
-}
-
-/* Responsive: collapse label on small screens */
-@media (max-width: 800px) {
-	.iu-media-sort-label {
-		display: none;
-	}
+	margin: 4px 2px;
 }

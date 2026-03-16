@@ -1285,7 +1285,9 @@
 		// -----------------------------------------------------------------
 
 		/**
-		 * Build the HTML for the media-file sort bar.
+		 * Build the sort select + order-toggle button HTML.
+		 * Returns two sibling elements (no wrapper) so they sit inline
+		 * with WP's native attachment-filter selects.
 		 */
 		buildMediaSortBarHtml: function () {
 			var self = this;
@@ -1308,41 +1310,75 @@
 				optHtml += '<option value="' + o[0] + '"' + sel + '>' + o[1] + '</option>';
 			});
 
-			var isAsc  = (self.mediaSortOrder === 'asc');
-			var icon   = isAsc ? 'dashicons-arrow-up-alt2' : 'dashicons-arrow-down-alt2';
-			var title  = isAsc ? s.media_sort_desc : s.media_sort_asc;
+			var isAsc = (self.mediaSortOrder === 'asc');
+			var icon  = isAsc ? 'dashicons-arrow-up-alt2' : 'dashicons-arrow-down-alt2';
+			var title = isAsc ? s.media_sort_desc : s.media_sort_asc;
 
+			// Use WP's own attachment-filters class so the select inherits native toolbar styling.
 			return (
-				'<div class="iu-media-sort-bar">' +
-				'<span class="iu-media-sort-label">' + s.media_sort_label + '</span>' +
-				'<select class="iu-media-sort-select">' + optHtml + '</select>' +
+				'<select class="attachment-filters iu-media-sort-select" title="' + s.media_sort_label + '">' +
+				optHtml +
+				'</select>' +
 				'<button type="button" class="iu-media-sort-order" title="' + title + '">' +
 				'<span class="dashicons ' + icon + '"></span>' +
-				'</button>' +
-				'</div>'
+				'</button>'
 			);
 		},
 
 		/**
-		 * Inject the media sort bar into the given container element.
-		 * Safe to call multiple times — guards against double injection.
-		 *
-		 * @param {jQuery} $container  Element to append the bar to.
+		 * Inject the sort controls next to the "All dates" filter inside $scope.
+		 * $scope is the frame element (grid) or document.body (list mode).
+		 * Safe to call multiple times — guarded by presence of .iu-media-sort-select.
 		 */
-		injectMediaSortBar: function ($container) {
-			if (!$container || !$container.length) return;
-			if ($container.find('.iu-media-sort-bar').length) return;
-			$container.append(this.buildMediaSortBarHtml());
+		injectMediaSortBar: function ($scope) {
+			if (!$scope || !$scope.length) return;
+			if ($scope.find('.iu-media-sort-select').length) return;
+
+			var html = this.buildMediaSortBarHtml();
+
+			// Grid mode: "All dates" dropdown inside the media frame toolbar
+			var $after = $scope.find('#media-attachment-date-filters');
+
+			// List mode: WP's date filter in the tablenav
+			if (!$after.length) $after = $scope.find('#filter-by-date');
+
+			if ($after.length) {
+				$after.after(html);
+			} else {
+				// Fallback: append to secondary toolbar (grid) or tablenav actions (list)
+				var $secondary = $scope.find('.media-toolbar-secondary');
+				if ($secondary.length) {
+					$secondary.append(html);
+				} else {
+					var $nav = $scope.find('.tablenav.top');
+					if ($nav.length) $nav.append(html);
+				}
+			}
+		},
+
+		/**
+		 * Map of our sort keys → WP-native orderby values.
+		 * These are handled entirely by WordPress core; no PHP intervention needed.
+		 */
+		_nativeSortMap: {
+			date:     'date',
+			modified: 'modified',
+			name:     'title',
+			filename: 'name',
+			author:   'author',
 		},
 
 		/**
 		 * Apply the current mediaSortMode / mediaSortOrder.
-		 * Grid mode: reset the collection to re-fetch with new params.
+		 *
+		 * Grid mode: call props.set() on the Attachments collection so WP's
+		 *   internal _requery fires and creates a fresh Query (fresh _hasMore
+		 *   state, guaranteed refetch). Native sorts use WP's own orderby/order
+		 *   props; custom sorts set iu_media_orderby which the sync patch picks up.
+		 *
 		 * List mode: navigate to the URL with updated sort params.
 		 */
 		applyMediaSort: function () {
-			var self = this;
-
 			if (this.isListMode) {
 				var url = new URL(window.location.href);
 				url.searchParams.set('iu_media_orderby', this.mediaSortMode);
@@ -1352,16 +1388,30 @@
 				return;
 			}
 
-			// Grid mode: trigger a re-fetch with updated sort params.
-			var activeFrame = this._activeFrame || (typeof wp !== 'undefined' && wp.media && wp.media.frame);
+			// Grid mode — same frame/collection resolution as filterGridMode.
+			var activeFrame = this._activeFrame || wp.media.frame;
 			var collection  = activeFrame && activeFrame.content && activeFrame.content.get();
 			if (!collection) return;
 
 			var browserCollection = collection.collection || (collection.options && collection.options.collection);
 			if (!browserCollection) return;
 
-			browserCollection.reset();
-			browserCollection.more();
+			var props    = browserCollection.props;
+			var nativeWp = this._nativeSortMap[this.mediaSortMode];
+			var order    = this.mediaSortOrder.toUpperCase();
+
+			if (nativeWp) {
+				// Clear any custom sort prop first (silent so _requery fires only once).
+				props.unset('iu_media_orderby', {silent: true});
+				props.unset('iu_media_order',   {silent: true});
+				// Set WP's own orderby/order props — this triggers _requery and a fresh fetch.
+				props.set({ orderby: nativeWp, order: order });
+			} else {
+				// Custom sort (file_size / extension / file_type).
+				// Setting iu_media_orderby triggers _requery; our sync patch then injects
+				// the value into the POST data so PHP can apply custom SQL ordering.
+				props.set({ iu_media_orderby: this.mediaSortMode, iu_media_order: order });
+			}
 		},
 
 		// -----------------------------------------------------------------
@@ -1435,20 +1485,29 @@
 		hookGridMode: function () {
 			var self = this;
 
-			// Patch wp.media.model.Query to pass iu_folder and media sort params.
+			// Patch wp.media.model.Query to pass iu_folder and custom sort params.
+			// We read from this.props (per-query) so each Query instance carries its own
+			// values, exactly the same way iu_folder is already handled.
 			if (typeof wp !== 'undefined' && wp.media && wp.media.model && wp.media.model.Query) {
 				var origSync = wp.media.model.Query.prototype.sync;
 				wp.media.model.Query.prototype.sync = function (method, model, options) {
-					var folder = this.props.get('iu_folder');
 					options = options || {};
 					options.data = options.data || {};
+
+					// Folder filter (existing pattern).
+					var folder = this.props.get('iu_folder');
 					if (folder) {
 						options.data.iu_folder = folder;
 					}
-					if (self.mediaSortMode) {
-						options.data.iu_media_orderby = self.mediaSortMode;
-						options.data.iu_media_order   = self.mediaSortOrder;
+
+					// Custom sorts (file_size / extension / file_type) — set via
+					// applyMediaSort(); native sorts use WP's own orderby/order props.
+					var customSort = this.props.get('iu_media_orderby');
+					if (customSort) {
+						options.data.iu_media_orderby = customSort;
+						options.data.iu_media_order   = this.props.get('iu_media_order') || 'DESC';
 					}
+
 					return origSync.call(this, method, model, options);
 				};
 			}
@@ -1470,11 +1529,10 @@
 			if (existingFrame) {
 				draggableObserver.observe(existingFrame, {childList: true, subtree: true});
 
-				// Inject media sort bar into the existing upload.php frame toolbar.
+				// Inject sort controls next to the "All dates" filter.
 				setTimeout(function () {
-					var $toolbar = $(existingFrame).find('.media-toolbar-secondary');
-					self.injectMediaSortBar($toolbar);
-				}, 400);
+					self.injectMediaSortBar($(existingFrame));
+				}, 500);
 			}
 
 			// Extend AttachmentsBrowser so the sidebar is injected into every
@@ -1545,11 +1603,10 @@
 
 						self._activeFrame = controller;
 
-						// Inject media sort bar into the toolbar.
+						// Inject sort controls next to the "All dates" filter.
 						setTimeout(function () {
-							var $toolbar = $(controller.el).find('.media-toolbar-secondary');
-							self.injectMediaSortBar($toolbar);
-						}, 150);
+							self.injectMediaSortBar($(controller.el));
+						}, 200);
 
 						if (self.folders.length) {
 							self.buildTree();
@@ -1591,11 +1648,9 @@
 			if (urlSortMode)  { self.mediaSortMode  = urlSortMode; }
 			if (urlSortOrder) { self.mediaSortOrder = urlSortOrder; }
 
-			// Inject sort bar into the WP filter toolbar.
+			// Inject sort controls next to the date filter in the list-mode toolbar.
 			setTimeout(function () {
-				var $target = $('.wp-filter');
-				if (!$target.length) $target = $('.tablenav.top');
-				self.injectMediaSortBar($target);
+				self.injectMediaSortBar($(document.body));
 			}, 200);
 
 			var currentFolderParam = urlParams.get('iu_folder');
