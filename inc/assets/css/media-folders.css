@@ -1291,29 +1291,53 @@ body.iu-resizing .iu-sidebar-handle::before {
 /* ==========================================================================
    Media File Sort Controls
    Injected inline next to the "All dates" filter in the media toolbar.
-   .iu-media-sort-select uses WP's .attachment-filters class for native styling.
    ========================================================================== */
 
-/* Cap width so long labels don't stretch the toolbar */
+/* Wrapper keeps the select + button together as a single inline unit */
+.iu-media-sort-wrap {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	vertical-align: middle;
+}
+
+.media-modal-content .iu-media-sort-wrap {
+	margin-left: 10px;
+	margin-top: 30px;
+}
+
+/* Sort dropdown — self-contained, does NOT use .attachment-filters to avoid
+   WP modal overrides (margin-top:32px, width:calc(48% - 12px)) */
 .iu-media-sort-select {
-	max-width: 140px;
+	min-width: 160px;
+	height: 28px;
+	font-size: 13px;
+	border: 1px solid #c3c4c7;
+	border-radius: 3px;
+	padding: 0 4px;
+	background: #fff;
+	color: #2c3338;
+	margin: 0;
+	line-height: 2;
 }
 
 /* Asc / desc order toggle — sits immediately after the sort select */
 .iu-media-sort-order {
-	display: inline-flex;
+	display: flex;
 	align-items: center;
 	justify-content: center;
-	vertical-align: middle;
+	align-self: center;
+	flex-shrink: 0;
 	width: 28px;
 	height: 28px;
-	margin-left: 2px;
+	margin-right: 8px;
 	padding: 0;
 	border: 1px solid #c3c4c7;
 	border-radius: 3px;
 	background: #fff;
 	cursor: pointer;
 	color: #50575e;
+	line-height: 1;
 }
 
 .iu-media-sort-order:hover {
@@ -1329,9 +1353,28 @@ body.iu-resizing .iu-sidebar-handle::before {
 	line-height: 1;
 }
 
-/* List-mode: floated into .wp-filter bar */
-.wp-filter .iu-media-sort-select,
-.wp-filter .iu-media-sort-order {
+/* Modal / grid: expand the secondary toolbar to fit our extra controls.
+   WP normally sets overflow:hidden and right:50% on .media-toolbar-secondary,
+   which clips anything beyond the two native filter selects. */
+.media-frame .media-toolbar-secondary.iu-has-sort {
+	overflow: visible;
+	width: auto;
+	right: 130px; /* leave room for the search input in .media-toolbar-primary */
+	display: flex;
+	align-items: center;
+	flex-wrap: nowrap;
+}
+
+/* Reset WP's percentage-based widths on the two native selects so they
+   size to content instead of calc(48% - 12px) of the now-wider container. */
+.media-frame .media-toolbar-secondary.iu-has-sort select.attachment-filters {
+	width: auto;
+	max-width: none;
+}
+
+/* List-mode: sits inline after the Filter button in .tablenav.top */
+.tablenav .iu-media-sort-wrap {
 	float: left;
-	margin: 4px 2px;
+	margin-left: 6px;
+	line-height: 2;
 }

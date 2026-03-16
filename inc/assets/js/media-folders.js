@@ -1314,14 +1314,17 @@
 			var icon  = isAsc ? 'dashicons-arrow-up-alt2' : 'dashicons-arrow-down-alt2';
 			var title = isAsc ? s.media_sort_desc : s.media_sort_asc;
 
-			// Use WP's own attachment-filters class so the select inherits native toolbar styling.
+			// Wrap both controls in a single span so they are always injected
+			// as one DOM node and stay together regardless of toolbar layout.
 			return (
-				'<select class="attachment-filters iu-media-sort-select" title="' + s.media_sort_label + '">' +
+				'<span class="iu-media-sort-wrap">' +
+				'<select class="iu-media-sort-select" title="' + s.media_sort_label + '">' +
 				optHtml +
 				'</select>' +
 				'<button type="button" class="iu-media-sort-order" title="' + title + '">' +
 				'<span class="dashicons ' + icon + '"></span>' +
-				'</button>'
+				'</button>' +
+				'</span>'
 			);
 		},
 
@@ -1332,27 +1335,30 @@
 		 */
 		injectMediaSortBar: function ($scope) {
 			if (!$scope || !$scope.length) return;
-			if ($scope.find('.iu-media-sort-select').length) return;
+			if ($scope.find('.iu-media-sort-wrap').length) return;
 
 			var html = this.buildMediaSortBarHtml();
 
-			// Grid mode: "All dates" dropdown inside the media frame toolbar
+			// List mode: insert after the "Filter" submit button in the tablenav.
+			var $filterBtn = $scope.find('#post-query-submit');
+			if ($filterBtn.length) {
+				$filterBtn.after(html);
+				return;
+			}
+
+			// Grid mode: insert after the "All dates" dropdown in the media toolbar.
 			var $after = $scope.find('#media-attachment-date-filters');
-
-			// List mode: WP's date filter in the tablenav
-			if (!$after.length) $after = $scope.find('#filter-by-date');
-
 			if ($after.length) {
 				$after.after(html);
-			} else {
-				// Fallback: append to secondary toolbar (grid) or tablenav actions (list)
-				var $secondary = $scope.find('.media-toolbar-secondary');
-				if ($secondary.length) {
-					$secondary.append(html);
-				} else {
-					var $nav = $scope.find('.tablenav.top');
-					if ($nav.length) $nav.append(html);
-				}
+				$after.closest('.media-toolbar-secondary').addClass('iu-has-sort');
+				return;
+			}
+
+			// Fallback: append to secondary toolbar.
+			var $secondary = $scope.find('.media-toolbar-secondary');
+			if ($secondary.length) {
+				$secondary.append(html);
+				$secondary.addClass('iu-has-sort');
 			}
 		},
 
