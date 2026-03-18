@@ -1339,33 +1339,33 @@
 		 */
 		injectMediaSortBar: function ($scope) {
 			if (!$scope || !$scope.length) return;
-			if ($scope.find('.iu-media-sort-wrap').length) return;
 
-			var html = this.buildMediaSortBarHtml();
+			// Inject sort controls only once; search-fields button is always attempted.
+			if (!$scope.find('.iu-media-sort-wrap').length) {
+				var html = this.buildMediaSortBarHtml();
 
-			// List mode: insert after the "Filter" submit button in the tablenav.
-			var $filterBtn = $scope.find('#post-query-submit');
-			if ($filterBtn.length) {
-				$filterBtn.after(html);
-				return;
+				// List mode: insert after the "Filter" submit button in the tablenav.
+				var $filterBtn = $scope.find('#post-query-submit');
+				if ($filterBtn.length) {
+					$filterBtn.after(html);
+				} else {
+					// Grid mode: insert after the "All dates" dropdown in the media toolbar.
+					var $after = $scope.find('#media-attachment-date-filters');
+					if ($after.length) {
+						$after.after(html);
+						$after.closest('.media-toolbar-secondary').addClass('iu-has-sort');
+					} else {
+						// Fallback: append to secondary toolbar.
+						var $secondary = $scope.find('.media-toolbar-secondary');
+						if ($secondary.length) {
+							$secondary.append(html);
+							$secondary.addClass('iu-has-sort');
+						}
+					}
+				}
 			}
 
-			// Grid mode: insert after the "All dates" dropdown in the media toolbar.
-			var $after = $scope.find('#media-attachment-date-filters');
-			if ($after.length) {
-				$after.after(html);
-				$after.closest('.media-toolbar-secondary').addClass('iu-has-sort');
-				return;
-			}
-
-			// Fallback: append to secondary toolbar.
-			var $secondary = $scope.find('.media-toolbar-secondary');
-			if ($secondary.length) {
-				$secondary.append(html);
-				$secondary.addClass('iu-has-sort');
-			}
-
-			// Also inject the search-fields selector into the same scope.
+			// Always inject the search-fields button (guarded inside).
 			this.injectSearchFieldsBtn($scope);
 		},
 
@@ -1897,11 +1897,26 @@
 			// --- Search fields popover toggle ---
 			$(document).on('click', '.iu-search-fields-btn', function (e) {
 				e.stopPropagation();
-				var $popover = $(this).siblings('.iu-search-fields-popover');
+				var $btn     = $(this);
+				var $popover = $btn.siblings('.iu-search-fields-popover');
 				var isHidden = $popover.prop('hidden');
+
+				// Close any open popover first.
 				$('.iu-search-fields-popover').prop('hidden', true);
-				$popover.prop('hidden', !isHidden);
-				$(this).toggleClass('iu-active', !isHidden);
+				$('.iu-search-fields-btn').removeClass('iu-active');
+
+				if (isHidden) {
+					// Position as fixed so it escapes any overflow:hidden parents
+					// (WP's toolbar clips absolutely-positioned children).
+					var rect = this.getBoundingClientRect();
+					$popover.css({
+						position: 'fixed',
+						top:  (rect.bottom + 4) + 'px',
+						left: rect.left + 'px',
+					});
+					$popover.prop('hidden', false);
+					$btn.addClass('iu-active');
+				}
 			});
 
 			// --- Search field checkbox ---

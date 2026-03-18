@@ -1502,10 +1502,12 @@ class MediaFolders {
 			return;
 		}
 
-		$folder  = $_GET['iu_folder'] ?? '';
-		$orderby = sanitize_text_field( $_GET['iu_media_orderby'] ?? '' );
+		$folder       = $_GET['iu_folder'] ?? '';
+		$orderby      = sanitize_text_field( $_GET['iu_media_orderby'] ?? '' );
+		$search       = sanitize_text_field( $_GET['s'] ?? '' );
+		$searchFields = array_filter( array_map( 'sanitize_key', (array) ( $_GET['iu_search_fields'] ?? [] ) ) );
 
-		if ( $folder === '' && $orderby === '' ) {
+		if ( $folder === '' && $orderby === '' && ( $search === '' || empty( $searchFields ) ) ) {
 			return;
 		}
 
@@ -1539,12 +1541,9 @@ class MediaFolders {
 		}
 
 		// Apply custom per-field media search (list mode).
-		$search = sanitize_text_field( $_GET['s'] ?? '' );
-		$fields = array_filter( array_map( 'sanitize_key', (array) ( $_GET['iu_search_fields'] ?? [] ) ) );
-
-		if ( $search !== '' && ! empty( $fields ) ) {
+		if ( $search !== '' && ! empty( $searchFields ) ) {
 			$this->_search_term   = $search;
-			$this->_search_fields = $fields;
+			$this->_search_fields = $searchFields;
 			// Suppress WP's native search; handle_custom_media_search provides the WHERE.
 			$query->set( 's', '' );
 		}

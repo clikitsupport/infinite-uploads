@@ -1428,10 +1428,8 @@ body.iu-resizing .iu-sidebar-handle::before {
 
 /* Popover panel */
 .iu-search-fields-popover {
-	position: absolute;
-	top: calc(100% + 4px);
-	left: 0;
-	z-index: 99999;
+	/* position/top/left are set to fixed via JS on click to escape overflow:hidden parents */
+	z-index: 999999;
 	min-width: 160px;
 	padding: 8px 0 6px;
 	background: #fff;
