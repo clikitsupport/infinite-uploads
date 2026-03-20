@@ -823,6 +823,15 @@
 			this.loadAndRenderTree(callback);
 		},
 
+		highlightMovedNodes: function (nodeIds) {
+			var self = this;
+			nodeIds.forEach(function (nodeId) {
+				var $row = $('#iu-folders-tree .iu-tree-node[data-id="' + nodeId + '"]').children('.iu-node-row');
+				$row.addClass('iu-node-moved');
+				setTimeout(function () { $row.removeClass('iu-node-moved'); }, 3000);
+			});
+		},
+
 		// -----------------------------------------------------------------
 		// Tree: search/filter
 		// -----------------------------------------------------------------
@@ -1022,18 +1031,24 @@
 
 			if (targetNodeId && targetNodeId.indexOf('folder_') === 0) {
 				newParent = parseInt(targetNodeId.replace('folder_', ''), 10);
+				// Ensure the destination folder is expanded after the tree reloads.
+				self.expandedNodes.add(targetNodeId);
+				self.persistExpanded();
 			}
 
+			self.showTreeLoader();
 			$.post(iuMediaFolders.ajax_url, {
 				action: 'iu_move_folder',
 				nonce: iuMediaFolders.nonce,
 				term_id: termId,
 				parent: newParent,
 			}, function (response) {
+				self.hideTreeLoader();
 				$('#iu-folders-tree .iu-cut').removeClass('iu-cut');
+				var movedNodeId = self.cutNode;
 				self.cutNode = null;
 				if (response.success) {
-					self.refreshTree();
+					self.refreshTree(function () { self.highlightMovedNodes([movedNodeId]); });
 				} else {
 					alert(response.data);
 				}
@@ -1527,16 +1542,21 @@
 
 			if (newParentId && newParentId !== '#') {
 				newParent = parseInt(newParentId.replace('folder_', ''), 10);
+				// Ensure the destination folder is expanded after the tree reloads.
+				self.expandedNodes.add(newParentId);
+				self.persistExpanded();
 			}
 
+			self.showTreeLoader();
 			$.post(iuMediaFolders.ajax_url, {
 				action: 'iu_move_folder',
 				nonce: iuMediaFolders.nonce,
 				term_id: termId,
 				parent: newParent,
 			}, function (response) {
+				self.hideTreeLoader();
 				if (response.success) {
-					self.refreshTree();
+					self.refreshTree(function () { self.highlightMovedNodes([nodeId]); });
 				} else {
 					self.refreshTree();
 					alert(response.data);
@@ -1564,14 +1584,22 @@
 			var newParent = (targetNodeId && targetNodeId !== '#' && String(targetNodeId).indexOf('folder_') === 0)
 				? parseInt(targetNodeId.replace('folder_', ''), 10) : 0;
 
+			// Ensure the destination folder is expanded after the tree reloads.
+			if (targetNodeId && targetNodeId !== '#' && String(targetNodeId).indexOf('folder_') === 0) {
+				self.expandedNodes.add(targetNodeId);
+				self.persistExpanded();
+			}
+
+			self.showTreeLoader();
 			$.post(iuMediaFolders.ajax_url, {
 				action: 'iu_bulk_move_folders',
 				nonce: iuMediaFolders.nonce,
 				term_ids: termIds,
 				parent: newParent,
 			}, function (response) {
+				self.hideTreeLoader();
 				if (response.success) {
-					self.refreshTree();
+					self.refreshTree(function () { self.highlightMovedNodes(validIds); });
 				} else {
 					self.refreshTree();
 					var msg = (response.data && response.data.message) ? response.data.message : response.data;
@@ -2174,7 +2202,8 @@
 			// Folder highlighting is handled here too because stopPropagation prevents
 			// the bubble-phase jQuery dragover handlers from firing.
 			document.addEventListener('dragenter', function (e) {
-				if (!self.dragIds.length) return;
+				var isDragging = self.dragIds.length || self.folderDragNodeIds.length;
+				if (!isDragging) return;
 				e.stopPropagation();
 				// Highlight whichever folder the cursor just entered; clear others.
 				var $row = $(e.target).closest('.iu-node-row');
@@ -2185,7 +2214,8 @@
 			}, true);
 
 			document.addEventListener('dragover', function (e) {
-				if (!self.dragIds.length) return;
+				var isDragging = self.dragIds.length || self.folderDragNodeIds.length;
+				if (!isDragging) return;
 				e.stopPropagation();
 				// Allow drop on folder targets; deny everywhere else.
 				var overFolder = $(e.target).closest('.iu-node-row, .iu-virtual-folder').length > 0;
@@ -2291,6 +2321,9 @@
 				e.originalEvent.dataTransfer.effectAllowed = 'move';
 				e.originalEvent.dataTransfer.setData('text/plain', 'folder:' + dragSet.join(','));
 
+				// Suppress WP's upload overlay for folder drags (same as media drags).
+				document.body.classList.add('iu-dragging-media');
+
 				// Mark all dragged nodes
 				dragSet.forEach(function (nid) {
 					$('#iu-folders-tree .iu-tree-node[data-id="' + nid + '"]').addClass('iu-dragging');
@@ -2299,6 +2332,7 @@
 
 			$(document).on('dragend', '#iu-folders-tree .iu-node-row[draggable]', function () {
 				self.folderDragNodeIds = [];
+				document.body.classList.remove('iu-dragging-media');
 				$('#iu-folders-tree .iu-dragging').removeClass('iu-dragging');
 				$('#iu-folders-tree .iu-drop-hover').removeClass('iu-drop-hover');
 			});
@@ -2593,6 +2627,22 @@
 			} catch (e) {}
 		},
 
+		// -----------------------------------------------------------------
+		// Sidebar loading indicator
+		// -----------------------------------------------------------------
+
+		showTreeLoader: function () {
+			$('#iu-media-folders-sidebar').addClass('iu-loading');
+			if (!$('#iu-media-folders-sidebar .iu-tree-spinner').length) {
+				$('#iu-folders-tree').after('<span class="iu-tree-spinner"></span>');
+			}
+		},
+
+		hideTreeLoader: function () {
+			$('#iu-media-folders-sidebar').removeClass('iu-loading');
+			$('.iu-tree-spinner').remove();
+		},
+
 		moveMedia: function (attachmentIds, folderId, options) {
 			var self = this;
 			options = options || {};
@@ -2603,12 +2653,14 @@
 				? 0
 				: parseInt(folderId.replace('folder_', ''), 10);
 
+			self.showTreeLoader();
 			$.post(iuMediaFolders.ajax_url, {
 				action: 'iu_move_media',
 				nonce: iuMediaFolders.nonce,
 				attachment_ids: attachmentIds,
 				folder_id: targetFolderId,
 			}, function (response) {
+				self.hideTreeLoader();
 				if (response.success) {
 					self.updateCountsFromResponse(response.data);
 

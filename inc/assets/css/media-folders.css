@@ -938,6 +938,16 @@
 	opacity: 0.4;
 }
 
+/* Moved folder highlight (fades out over 3s) */
+@keyframes iu-moved-flash {
+	0%   { background: #d4f5d4; }
+	70%  { background: #d4f5d4; }
+	100% { background: transparent; }
+}
+.iu-node-row.iu-node-moved {
+	animation: iu-moved-flash 3s ease-out forwards;
+}
+
 /* ==========================================================================
    Context Menu
    ========================================================================== */
@@ -1489,4 +1499,31 @@ body.iu-dragging-media .media-uploader-status,
 body.iu-dragging-media .uploader-inline-content.has-upload-message {
 	display: none !important;
 	pointer-events: none !important;
+}
+
+/* ==========================================================================
+   Sidebar loading indicator
+   Shown during folder move / media move AJAX operations.
+   ========================================================================== */
+
+#iu-media-folders-sidebar.iu-loading #iu-folders-tree {
+	opacity: 0.4;
+	pointer-events: none;
+	user-select: none;
+	transition: opacity 0.15s;
+}
+
+.iu-tree-spinner {
+	display: block;
+	width: 22px;
+	height: 22px;
+	margin: 14px auto 0;
+	border: 3px solid rgba(0, 0, 0, .08);
+	border-top-color: var(--iu-primary);
+	border-radius: 50%;
+	animation: iu-spin 0.65s linear infinite;
+}
+
+@keyframes iu-spin {
+	to { transform: rotate(360deg); }
 }
