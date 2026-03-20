@@ -1478,3 +1478,15 @@ body.iu-resizing .iu-sidebar-handle::before {
 	margin-right: 4px;
 	vertical-align: middle;
 }
+
+/* ==========================================================================
+   Suppress WP's "Drop files to upload" overlay during attachment→folder drags.
+   The .iu-dragging-media class is added to <body> in dragstart and removed in
+   dragend, so these rules are active only for the duration of a folder-move drag.
+   ========================================================================== */
+body.iu-dragging-media .uploader-window,
+body.iu-dragging-media .media-uploader-status,
+body.iu-dragging-media .uploader-inline-content.has-upload-message {
+	display: none !important;
+	pointer-events: none !important;
+}

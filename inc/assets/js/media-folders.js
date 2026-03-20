@@ -1698,6 +1698,15 @@
 						var $menu = $f.find('.media-frame-menu');
 						if (!$menu.length) return;
 
+						// WP hides modals on close rather than removing them from the DOM.
+						// A hidden frame's #iu-folders-tree / #iu-media-folders-wrap IDs
+						// conflict with the fresh ones we inject here, causing buildTree()
+						// to target the wrong (invisible) element. Remove any leftover
+						// sidebars from other modal frames before injecting the new one.
+						$('.media-frame-menu #iu-media-folders-wrap').remove();
+						$('.media-frame-menu .iu-media-sort-wrap').remove();
+						$('.media-frame-menu .iu-search-fields-wrap').remove();
+
 						// Generate fresh HTML — each modal gets its own sidebar instance.
 						var sidebarHtml = self.buildSidebarHtml(false, '');
 
@@ -2143,16 +2152,46 @@
 					document.body.removeChild(ghost);
 				}, 0);
 
+				// Mark body so CSS can suppress WP's "Drop files to upload" overlay.
+				document.body.classList.add('iu-dragging-media');
+
 				$('#iu-media-folders-wrap').removeClass('iu-collapsed');
 				$('#iu-media-folders-sidebar').addClass('iu-drop-active');
 			});
 
 			$(document).on('dragend', '.attachment[draggable], #the-list tr[draggable]', function () {
 				self.dragIds = [];
+				document.body.classList.remove('iu-dragging-media');
 				$('#iu-media-folders-sidebar').removeClass('iu-drop-active');
 				$('#iu-folders-tree .iu-drop-hover').removeClass('iu-drop-hover');
 				$('.iu-virtual-folder.iu-drop-hover').removeClass('iu-drop-hover');
 			});
+
+			// Suppress WP's plupload upload overlay during attachment-to-folder drags.
+			// WP listens to dragenter/dragover in bubble phase; we intercept in capture
+			// phase (useCapture=true) so we run first and can stop propagation before
+			// WP's handlers ever see the event.
+			// Folder highlighting is handled here too because stopPropagation prevents
+			// the bubble-phase jQuery dragover handlers from firing.
+			document.addEventListener('dragenter', function (e) {
+				if (!self.dragIds.length) return;
+				e.stopPropagation();
+				// Highlight whichever folder the cursor just entered; clear others.
+				var $row = $(e.target).closest('.iu-node-row');
+				var $vf  = $(e.target).closest('.iu-virtual-folder');
+				$('.iu-node-row.iu-drop-hover, .iu-virtual-folder.iu-drop-hover').removeClass('iu-drop-hover');
+				if ($row.length) { $row.addClass('iu-drop-hover'); }
+				else if ($vf.length) { $vf.addClass('iu-drop-hover'); }
+			}, true);
+
+			document.addEventListener('dragover', function (e) {
+				if (!self.dragIds.length) return;
+				e.stopPropagation();
+				// Allow drop on folder targets; deny everywhere else.
+				var overFolder = $(e.target).closest('.iu-node-row, .iu-virtual-folder').length > 0;
+				e.dataTransfer.dropEffect = overFolder ? 'move' : 'none';
+				if (overFolder) e.preventDefault();
+			}, true);
 
 			// --- Drop targets: custom tree node rows (delegated from document so
 			//     they work even when #iu-folders-tree is added to the DOM after init) ---
