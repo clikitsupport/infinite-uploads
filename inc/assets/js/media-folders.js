@@ -1518,6 +1518,11 @@
 			var order    = this.mediaSortOrder.toUpperCase();
 
 			if (nativeWp) {
+				// Restore WP's native client-side comparator (it reads props.orderby/order
+				// and re-sorts the collection correctly for date/title/etc.).
+				// We may have nulled it for a previous custom sort, so delete the own
+				// property to let the prototype method take over again.
+				delete browserCollection.comparator;
 				// Clear any custom sort prop first (silent so _requery fires only once).
 				props.unset('iu_media_orderby', {silent: true});
 				props.unset('iu_media_order',   {silent: true});
@@ -1525,6 +1530,10 @@
 				props.set({ orderby: nativeWp, order: order });
 			} else {
 				// Custom sort (file_size / extension / file_type).
+				// WP's collection comparator re-sorts models client-side after each fetch,
+				// discarding the server's order. Setting comparator to null tells Backbone
+				// to preserve insertion (server-response) order instead.
+				browserCollection.comparator = null;
 				// Setting iu_media_orderby triggers _requery; our sync patch then injects
 				// the value into the POST data so PHP can apply custom SQL ordering.
 				props.set({ iu_media_orderby: this.mediaSortMode, iu_media_order: order });

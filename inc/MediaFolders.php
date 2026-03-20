@@ -74,6 +74,9 @@ class MediaFolders {
 		// Update filesize meta when WP generates attachment metadata (covers all upload paths).
 		add_filter( 'wp_update_attachment_metadata', [ $this, 'store_attachment_filesize_from_meta' ], 10, 2 );
 
+		// Background cron job: backfill _iu_filesize for pre-existing attachments.
+		add_action( 'iu_backfill_filesize', [ $this, 'cron_backfill_filesize' ] );
+
 		// Handle custom media orderby (file_size / extension / file_type) via SQL.
 		add_filter( 'posts_clauses', [ $this, 'handle_custom_media_orderby' ], 10, 2 );
 
@@ -1104,6 +1107,80 @@ class MediaFolders {
 	}
 
 	/**
+	 * Schedule a one-time background cron to backfill _iu_filesize for existing attachments.
+	 * Called whenever the user selects the file-size sort. No-ops once the backfill is complete.
+	 */
+	private function maybe_schedule_filesize_backfill() {
+		if ( get_option( 'iu_filesize_backfill_done' ) ) {
+			return;
+		}
+		if ( ! wp_next_scheduled( 'iu_backfill_filesize' ) ) {
+			wp_schedule_single_event( time(), 'iu_backfill_filesize' );
+			spawn_cron(); // Ask WP to dispatch cron immediately so the first batch runs soon.
+		}
+	}
+
+	/**
+	 * Cron handler: populate _iu_filesize for up to 200 attachments that are missing it.
+	 * Re-schedules itself until the queue is empty, then sets a permanent flag.
+	 */
+	public function cron_backfill_filesize() {
+		global $wpdb;
+
+		$batch_size = 200;
+
+		// Fetch the next batch of attachment IDs that have no _iu_filesize meta yet.
+		// The LEFT JOIN + IS NULL pattern is index-friendly on large tables.
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT p.ID
+				   FROM {$wpdb->posts} p
+				   LEFT JOIN {$wpdb->postmeta} pm
+				          ON pm.post_id = p.ID AND pm.meta_key = '_iu_filesize'
+				  WHERE p.post_type   = 'attachment'
+				    AND p.post_status != 'trash'
+				    AND pm.meta_id   IS NULL
+				  ORDER BY p.ID ASC
+				  LIMIT %d",
+				$batch_size
+			)
+		);
+
+		if ( empty( $ids ) ) {
+			// Nothing left to process — mark permanently done.
+			update_option( 'iu_filesize_backfill_done', 1, false );
+			return;
+		}
+
+		foreach ( $ids as $attachment_id ) {
+			$size = 0;
+
+			// Prefer the WP 6.0+ filesize key stored in attachment metadata.
+			$meta = wp_get_attachment_metadata( (int) $attachment_id );
+			if ( ! empty( $meta['filesize'] ) ) {
+				$size = (int) $meta['filesize'];
+			} else {
+				// Fall back to a direct filesystem stat (works for locally-hosted files).
+				$file = get_attached_file( (int) $attachment_id );
+				if ( $file && file_exists( $file ) ) {
+					$size = (int) filesize( $file );
+				}
+			}
+
+			// Always write a value (even 0) so this attachment is never re-queued.
+			update_post_meta( (int) $attachment_id, '_iu_filesize', $size );
+		}
+
+		// If a full batch was processed there may be more — re-schedule immediately.
+		if ( count( $ids ) >= $batch_size ) {
+			wp_schedule_single_event( time(), 'iu_backfill_filesize' );
+			spawn_cron();
+		} else {
+			update_option( 'iu_filesize_backfill_done', 1, false );
+		}
+	}
+
+	/**
 	 * Map a JS sort key to a native WP_Query orderby value.
 	 * Returns an empty string if the sort requires custom SQL.
 	 *
@@ -1142,8 +1219,12 @@ class MediaFolders {
 
 		switch ( $this->_custom_orderby ) {
 			case 'file_size':
+				// Primary: _iu_filesize meta (set on every upload via store_attachment_filesize_from_meta).
+				// Fallback: extract filesize from _wp_attachment_metadata serialized string (WP 6.0+).
+				// SUBSTRING_INDEX safely returns 0 for older records that lack the filesize key.
 				$clauses['join']   .= " LEFT JOIN {$wpdb->postmeta} iu_fs ON iu_fs.post_id = {$wpdb->posts}.ID AND iu_fs.meta_key = '_iu_filesize'";
-				$clauses['orderby'] = "CAST(COALESCE(iu_fs.meta_value, 0) AS UNSIGNED) {$order}";
+				$clauses['join']   .= " LEFT JOIN {$wpdb->postmeta} iu_fsmeta ON iu_fsmeta.post_id = {$wpdb->posts}.ID AND iu_fsmeta.meta_key = '_wp_attachment_metadata'";
+				$clauses['orderby'] = "CAST(COALESCE(NULLIF(iu_fs.meta_value,''),SUBSTRING_INDEX(SUBSTRING_INDEX(IFNULL(iu_fsmeta.meta_value,''),'\"filesize\";i:',-1),';',1)) AS UNSIGNED) {$order}";
 				break;
 
 			case 'extension':
@@ -1537,6 +1618,9 @@ class MediaFolders {
 				$this->_custom_orderby = $orderby;
 				$this->_custom_order   = $order;
 				$query->set( 'orderby', 'none' );
+				if ( 'file_size' === $orderby ) {
+					$this->maybe_schedule_filesize_backfill();
+				}
 			}
 		}
 
@@ -1583,10 +1667,15 @@ class MediaFolders {
 			$this->_custom_orderby = $orderby;
 			$this->_custom_order   = $order;
 			$query['orderby']      = 'none';
+			if ( 'file_size' === $orderby ) {
+				$this->maybe_schedule_filesize_backfill();
+			}
 		}
 
 		// Apply custom per-field media search.
-		$search = sanitize_text_field( $_REQUEST['s'] ?? '' );
+		// In grid AJAX mode the search term arrives as $query['s'] (from $_REQUEST['query']['s']);
+		// in direct $_REQUEST (list mode / custom callers) it may be at the top level.
+		$search = sanitize_text_field( $query['s'] ?? $_REQUEST['s'] ?? '' );
 		$fields = array_filter( array_map( 'sanitize_key', (array) ( $_REQUEST['iu_search_fields'] ?? [] ) ) );
 
 		if ( $search !== '' && ! empty( $fields ) ) {
