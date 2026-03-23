@@ -547,7 +547,7 @@ class MediaFolders {
 		foreach ( $folders as $folder ) {
 			$tree[] = [
 				'id'     => 'folder_' . $folder->id,
-				'text'   => esc_html( $folder->name ),
+				'text'   => $folder->name,
 				'parent' => $folder->parent_id ? 'folder_' . $folder->parent_id : '#',
 				'data'   => [
 					'folder_id'   => (int) $folder->id,
@@ -622,7 +622,7 @@ class MediaFolders {
 
 		wp_send_json_success( [
 			'id'        => 'folder_' . $folder_id,
-			'text'      => esc_html( $name ),
+			'text'      => $name,
 			'parent'    => $parent_id ? 'folder_' . $parent_id : '#',
 			'folder_id' => $folder_id,
 			'data'      => [
