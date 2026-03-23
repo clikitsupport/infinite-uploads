@@ -78,10 +78,16 @@ function infinite_uploads_init() {
 
 function infinite_uploads_upgrade() {
 
-	// Install the needed DB table if not already.
+	// Network-wide table (infinite_uploads_files) — one option gates the whole network.
 	$installed = get_site_option( 'iup_installed' );
 	if ( INFINITE_UPLOADS_VERSION != $installed ) {
 		infinite_uploads_install();
+	}
+
+	// Per-site folder tables — each subsite tracks its own version independently.
+	$folders_installed = get_option( 'iup_folders_installed' );
+	if ( INFINITE_UPLOADS_VERSION != $folders_installed ) {
+		infinite_uploads_install_folders();
 	}
 }
 
@@ -114,8 +120,33 @@ function infinite_uploads_install() {
             KEY `deleted` (`deleted`)
         ) {$charset_collate};";
 
+	if ( ! function_exists( 'dbDelta' ) ) {
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+	}
+
+	dbDelta( $sql );
+
+	// Create per-site folder tables for the current site.
+	infinite_uploads_install_folders();
+}
+
+/**
+ * Create (or upgrade) the per-site media-folder tables for the current subsite.
+ *
+ * Uses $wpdb->prefix so each subsite gets its own tables, keeping folder
+ * assignments isolated to the site that owns the attachment posts.
+ * Gated by a per-site option so it runs independently on every subsite.
+ */
+function infinite_uploads_install_folders() {
+	global $wpdb;
+
+	// Prevent race conditions by marking done before the potentially slow dbDelta.
+	update_option( 'iup_folders_installed', INFINITE_UPLOADS_VERSION, true );
+
+	$charset_collate = $wpdb->get_charset_collate();
+
 	// Media folders table.
-	$sql .= "\nCREATE TABLE {$wpdb->prefix}infinite_uploads_media_folders (
+	$sql = "CREATE TABLE {$wpdb->prefix}infinite_uploads_media_folders (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             name VARCHAR(255) NOT NULL,
             parent_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
@@ -141,8 +172,15 @@ function infinite_uploads_install() {
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 	}
 
-	return dbDelta( $sql );
+	dbDelta( $sql );
 }
+
+// Create folder tables for each new subsite when it is provisioned.
+add_action( 'wp_initialize_site', function ( $new_site ) {
+	switch_to_blog( $new_site->blog_id );
+	infinite_uploads_install_folders();
+	restore_current_blog();
+} );
 
 /**
  * Check whether the environment meets the plugin's requirements, like the minimum PHP version.
