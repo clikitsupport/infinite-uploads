@@ -1286,9 +1286,23 @@
 			// fall back to wp.media.frame for upload.php.
 			var activeFrame = this._activeFrame || wp.media.frame;
 			var collection = activeFrame && activeFrame.content && activeFrame.content.get();
-			if ( !collection) return;
+			var browserCollection = collection && (collection.collection || (collection.options && collection.options.collection));
 
-			var browserCollection = collection.collection || (collection.options && collection.options.collection);
+			// When the user has clicked a media file the frame switches to an
+			// attachment-details view; content.get() no longer returns the
+			// AttachmentsBrowser so browserCollection is null.
+			// Fallback 1: try the frame's state library (always available).
+			if (!browserCollection && activeFrame) {
+				try {
+					var lib = activeFrame.state && activeFrame.state() && activeFrame.state().get('library');
+					if (lib && lib.props) { browserCollection = lib; }
+				} catch (e) {}
+			}
+			// Fallback 2: navigate back to the grid/browse view so the user sees results.
+			if (activeFrame && activeFrame.content && typeof activeFrame.content.mode === 'function') {
+				try { activeFrame.content.mode('browse'); } catch (e) {}
+			}
+
 			if ( !browserCollection) return;
 
 			var props = browserCollection.props;
