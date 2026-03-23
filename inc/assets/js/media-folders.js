@@ -372,6 +372,13 @@
 			return div.innerHTML;
 		},
 
+		// Use for strings placed inside HTML attribute values (value="...", data-*="...").
+		// escHtml() encodes <, >, & but not ", so quotes in folder names would break
+		// out of the attribute and create an injection vector.
+		escAttr: function (str) {
+			return this.escHtml(str).replace(/"/g, '&quot;');
+		},
+
 		// -----------------------------------------------------------------
 		// Tree: expand / collapse
 		// -----------------------------------------------------------------
@@ -518,7 +525,7 @@
 
 			// Replace text with input
 			$text.replaceWith(
-				'<input type="text" class="iu-rename-input" value="' + self.escHtml(currentName) + '" data-original="' + self.escHtml(currentName) + '" />'
+				'<input type="text" class="iu-rename-input" value="' + self.escAttr(currentName) + '" data-original="' + self.escAttr(currentName) + '" />'
 			);
 
 			var $input = $row.find('.iu-rename-input');
@@ -617,7 +624,7 @@
 				'<div class="iu-node-row">' +
 				'<span class="iu-node-toggle iu-leaf">' + self.chevronSvg + '</span>' +
 				self.folderSvg +
-				'<input type="text" class="iu-rename-input" value="' + self.escHtml(iuMediaFolders.new_folder) + '" />' +
+				'<input type="text" class="iu-rename-input" value="' + self.escAttr(iuMediaFolders.new_folder) + '" />' +
 				'<span class="iu-count-badge">0</span>' +
 				'</div>' +
 				'</li>'
