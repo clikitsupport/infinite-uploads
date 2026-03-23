@@ -885,6 +885,12 @@
 				items += '<button class="iu-context-menu-item" data-action="paste"><span class="dashicons dashicons-clipboard"></span>' + iuMediaFolders.paste + '</button>';
 			}
 
+			// Show 'Move to top level' only when the folder is currently nested.
+			var folderObj = self.folders.filter(function (f) { return f.id === nodeId; })[0];
+			if (folderObj && folderObj.parent !== '#') {
+				items += '<button class="iu-context-menu-item" data-action="move-to-root"><span class="dashicons dashicons-arrow-up-alt"></span>' + iuMediaFolders.move_to_root + '</button>';
+			}
+
 			var folderId     = parseInt( String(nodeId).replace('folder_', ''), 10 );
 			var currentColor = self.folderColors[folderId] || '';
 			var palette = [
@@ -1474,6 +1480,21 @@
 		},
 
 		/**
+		 * Force a grid re-query without clearing the collection first.
+		 * Safe to call even when the folder/sort props haven't changed --
+		 * the timestamp guarantees Backbone sees a change and fires _requery.
+		 */
+		_forceGridRequery: function () {
+			var activeFrame = this._activeFrame || (typeof wp !== 'undefined' && wp.media && wp.media.frame);
+			if (!activeFrame) return;
+			var content = activeFrame.content && activeFrame.content.get();
+			if (!content) return;
+			var browserCollection = content.collection || (content.options && content.options.collection);
+			if (!browserCollection || !browserCollection.props) return;
+			browserCollection.props.set('iu_query_time', Date.now());
+		},
+
+		/**
 		 * Map of our sort keys → WP-native orderby values.
 		 * These are handled entirely by WordPress core; no PHP intervention needed.
 		 */
@@ -2040,6 +2061,26 @@
 				}
 			});
 
+			// --- Right-click on "All Files" virtual folder (paste cut folder to root) ---
+			$(document).on('contextmenu', '.iu-virtual-folder[data-folder="all"]', function (e) {
+				if (!self.cutNode) return;
+				e.preventDefault();
+				e.stopPropagation();
+				var items = '<button class="iu-context-menu-item" data-action="paste-root"><span class="dashicons dashicons-clipboard"></span>' + iuMediaFolders.paste_to_root + '</button>';
+				var $menu = $('<div class="iu-context-menu" data-node="#">' + items + '</div>');
+				$('body').append($menu);
+				var left = e.clientX, top = e.clientY;
+				if (left + $menu.outerWidth()  > window.innerWidth  - 5) left = window.innerWidth  - $menu.outerWidth()  - 5;
+				if (top  + $menu.outerHeight() > window.innerHeight - 5) top  = e.clientY - $menu.outerHeight();
+				$menu.css({left: left, top: top});
+			});
+
+			$(document).on('click', '.iu-context-menu-item[data-action="paste-root"]', function (e) {
+				e.preventDefault();
+				self.closeContextMenu();
+				self.pasteFolder('#');
+			});
+
 			// --- Tree node right-click (context menu) ---
 			$(document).on('contextmenu', '#iu-folders-tree .iu-node-row', function (e) {
 				var nodeId = $(this).closest('.iu-tree-node').data('id');
@@ -2080,6 +2121,9 @@
 						break;
 					case 'paste':
 						self.pasteFolder(nodeId);
+						break;
+					case 'move-to-root':
+						self.bulkMoveFolders([nodeId], '#');
 						break;
 					case 'delete':
 						if (confirm(iuMediaFolders.confirm_delete)) {
@@ -2220,16 +2264,27 @@
 				$('.iu-node-row.iu-drop-hover, .iu-virtual-folder.iu-drop-hover').removeClass('iu-drop-hover');
 				if ($row.length) { $row.addClass('iu-drop-hover'); }
 				else if ($vf.length) { $vf.addClass('iu-drop-hover'); }
+				// Highlight 'All Files' when dragging a folder over empty sidebar space
+				// (drop will move folder to root).
+				else if (self.folderDragNodeIds.length && $(e.target).closest('#iu-media-folders-sidebar').length) {
+					$('.iu-virtual-folder[data-folder="all"]').addClass('iu-drop-hover');
+				}
 			}, true);
 
 			document.addEventListener('dragover', function (e) {
 				var isDragging = self.dragIds.length || self.folderDragNodeIds.length;
 				if (!isDragging) return;
 				e.stopPropagation();
-				// Allow drop on folder targets; deny everywhere else.
+				// Allow drop on folder node rows and virtual folders.
 				var overFolder = $(e.target).closest('.iu-node-row, .iu-virtual-folder').length > 0;
-				e.dataTransfer.dropEffect = overFolder ? 'move' : 'none';
-				if (overFolder) e.preventDefault();
+				// Also allow drop on empty sidebar space when dragging a folder
+				// (moves to root). Without this, e.preventDefault() is never called
+				// during dragover → browser never fires the drop event over empty space.
+				var overSidebarEmpty = !overFolder && self.folderDragNodeIds.length > 0 &&
+					$(e.target).closest('#iu-media-folders-sidebar').length > 0;
+				var canDrop = overFolder || overSidebarEmpty;
+				e.dataTransfer.dropEffect = canDrop ? 'move' : 'none';
+				if (canDrop) e.preventDefault();
 			}, true);
 
 			// --- Drop targets: custom tree node rows (delegated from document so
@@ -2681,7 +2736,11 @@
 						if (self.isListMode) {
 							window.location.reload();
 						} else {
-							self.filterGridMode(self.currentFolder);
+							// Force a fresh re-query by bumping a timestamp prop.
+							// filterGridMode() calls reset() + more() which clears the grid;
+							// when iu_folder prop is unchanged Backbone fires no change event
+							// so _requery never runs, leaving the grid permanently empty.
+							self._forceGridRequery();
 						}
 					}
 				}
