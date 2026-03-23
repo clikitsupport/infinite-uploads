@@ -272,6 +272,11 @@ class InfiniteUploadsHelper {
 	}
 
 	public static function is_media_folders_enabled() {
+		// Require an active IU connection (token present) before enabling the folder sidebar.
+		if ( ! get_site_option( 'iup_apitoken' ) ) {
+			return false;
+		}
+
 		return get_site_option( 'iu_media_folders_enabled', 'yes' ) !== 'no';
 	}
 
