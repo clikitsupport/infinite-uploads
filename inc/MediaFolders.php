@@ -651,6 +651,10 @@ class MediaFolders {
 			wp_send_json_error( __( 'Invalid folder or name.', 'infinite-uploads' ) );
 		}
 
+		if ( ! $this->user_can_manage_folder( $folder_id ) ) {
+			wp_send_json_error( __( 'Permission denied.', 'infinite-uploads' ) );
+		}
+
 		global $wpdb;
 
 		$updated = $wpdb->update(
@@ -695,6 +699,10 @@ class MediaFolders {
 
 		if ( ! $folder ) {
 			wp_send_json_error( __( 'Folder not found.', 'infinite-uploads' ) );
+		}
+
+		if ( ! $this->user_can_manage_folder( $folder_id ) ) {
+			wp_send_json_error( __( 'Permission denied.', 'infinite-uploads' ) );
 		}
 
 		// Reassign child folders to this folder's parent.
@@ -742,6 +750,10 @@ class MediaFolders {
 			wp_send_json_error( __( 'Invalid folder.', 'infinite-uploads' ) );
 		}
 
+		if ( ! $this->user_can_manage_folder( $folder_id ) ) {
+			wp_send_json_error( __( 'Permission denied.', 'infinite-uploads' ) );
+		}
+
 		global $wpdb;
 
 		$wpdb->update(
@@ -783,6 +795,10 @@ class MediaFolders {
 			) );
 
 			if ( ! $folder ) {
+				continue;
+			}
+
+			if ( ! $this->user_can_manage_folder( $folder_id ) ) {
 				continue;
 			}
 
@@ -836,6 +852,10 @@ class MediaFolders {
 			wp_send_json_error( __( 'Invalid folder.', 'infinite-uploads' ) );
 		}
 
+		if ( ! $this->user_can_manage_folder( $folder_id ) ) {
+			wp_send_json_error( __( 'Permission denied.', 'infinite-uploads' ) );
+		}
+
 		// Prevent moving a folder into itself or its own descendant.
 		if ( $parent_id && $this->is_descendant_of( $parent_id, $folder_id ) ) {
 			wp_send_json_error( __( 'Cannot move a folder into its own subfolder.', 'infinite-uploads' ) );
@@ -884,6 +904,12 @@ class MediaFolders {
 				continue;
 			}
 
+			// Only the folder owner (or admin) may move it.
+			if ( ! $this->user_can_manage_folder( $folder_id ) ) {
+				$skipped[] = $folder_id;
+				continue;
+			}
+
 			// Prevent circular nesting.
 			if ( $parent_id && $this->is_descendant_of( $parent_id, $folder_id ) ) {
 				$skipped[] = $folder_id;
@@ -909,6 +935,24 @@ class MediaFolders {
 		}
 
 		wp_send_json_success( $data );
+	}
+
+	/**
+	 * Check if the current user may modify the given folder.
+	 * Admins can manage any folder; other users may only manage folders they created.
+	 * Returns false for folders with created_by = 0 (legacy/system rows) unless the
+	 * user is an admin.
+	 */
+	private function user_can_manage_folder( int $folder_id ): bool {
+		if ( current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+		global $wpdb;
+		$created_by = (int) $wpdb->get_var( $wpdb->prepare(
+			"SELECT created_by FROM {$this->folders_table()} WHERE id = %d",
+			$folder_id
+		) );
+		return $created_by !== 0 && $created_by === get_current_user_id();
 	}
 
 	/**
@@ -949,14 +993,31 @@ class MediaFolders {
 			wp_send_json_error( 'Permission denied.' );
 		}
 
-		$attachment_ids = array_map( 'absint', (array) ( $_POST['attachment_ids'] ?? [] ) );
+		$attachment_ids = array_filter( array_map( 'absint', (array) ( $_POST['attachment_ids'] ?? [] ) ) );
 		$folder_id      = intval( $_POST['folder_id'] ?? - 1 );
 
 		if ( empty( $attachment_ids ) ) {
 			wp_send_json_error( __( 'No media selected.', 'infinite-uploads' ) );
 		}
 
+		// Verify the current user can edit every attachment being moved.
+		foreach ( $attachment_ids as $attachment_id ) {
+			if ( ! current_user_can( 'edit_post', $attachment_id ) ) {
+				wp_send_json_error( __( 'Permission denied.', 'infinite-uploads' ) );
+			}
+		}
+
+		// Verify the target folder exists (when a specific folder is requested).
 		global $wpdb;
+		if ( $folder_id > 0 ) {
+			$folder_exists = (bool) $wpdb->get_var( $wpdb->prepare(
+				"SELECT 1 FROM {$this->folders_table()} WHERE id = %d",
+				$folder_id
+			) );
+			if ( ! $folder_exists ) {
+				wp_send_json_error( __( 'Target folder not found.', 'infinite-uploads' ) );
+			}
+		}
 
 		// Collect source folders before removing relationships (for updated_at touch).
 		$placeholders = implode( ',', array_fill( 0, count( $attachment_ids ), '%d' ) );
@@ -1352,6 +1413,9 @@ class MediaFolders {
 
 		foreach ( $order as $position => $folder_id ) {
 			if ( ! $folder_id ) {
+				continue;
+			}
+			if ( ! $this->user_can_manage_folder( $folder_id ) ) {
 				continue;
 			}
 			$wpdb->update(

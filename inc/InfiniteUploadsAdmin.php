@@ -1866,7 +1866,9 @@ class InfiniteUploadsAdmin {
      * Enable or disable url rewriting
      */
     public function ajax_toggle() {
-        if ( ! current_user_can( $this->iup_instance->capability ) || ! wp_verify_nonce( $_POST['nonce'], 'iup_toggle' ) ) {
+        check_ajax_referer( 'iup_toggle', 'nonce' );
+
+        if ( ! current_user_can( $this->iup_instance->capability ) ) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
 
@@ -2399,14 +2401,16 @@ class InfiniteUploadsAdmin {
             }
 
             // Normalize and verify the path is within the upload basedir.
+            // realpath() resolves symlinks and eliminates traversal sequences; if it
+            // returns false the path does not exist on disk and cannot be trusted.
             $requested_dir = realpath( $requested_dir );
             if ( $requested_dir === false ) {
-                // Path doesn't exist on disk — could be a virtual-only directory.
-                // Reconstruct from the sanitized input for virtual path injection.
-                $requested_dir = sanitize_text_field( wp_unslash( $_REQUEST['dir'] ) );
+                wp_send_json_error( 'Invalid directory path.' );
             }
 
-            if ( strpos( $requested_dir, $upload_dir ) !== 0 ) {
+            // Use realpath on the upload_dir too so both sides are canonical.
+            $real_upload_dir = realpath( $upload_dir );
+            if ( $real_upload_dir === false || strpos( $requested_dir, $real_upload_dir ) !== 0 ) {
                 wp_send_json_error( 'Directory is outside the uploads folder.' );
             }
 
@@ -2425,8 +2429,7 @@ class InfiniteUploadsAdmin {
 
         $tree = $this->prepare_directory_tree( $scan_dir, $excluded_files, $virtual_paths, $upload_dir );
 
-        echo json_encode( $tree );
-        die();
+        wp_send_json_success( $tree );
 
     }
 
@@ -2458,8 +2461,29 @@ class InfiniteUploadsAdmin {
             wp_send_json_error( 'Insufficient permissions' );
         }
 
-        $excluded_files_array           = isset( $_POST['excluded_files'] ) ? $_POST['excluded_files'] : [];
+        $raw_excluded                   = isset( $_POST['excluded_files'] ) ? (array) $_POST['excluded_files'] : [];
         $current_file_exclusion_setting = isset( $_POST['enabled_excluded_files'] ) ? $_POST['enabled_excluded_files'] : 'no';
+
+        // Sanitize each path fragment: strip whitespace, remove traversal sequences,
+        // and reject entries that resolve outside the uploads directory.
+        $upload_basedir       = $this->iup_instance->get_original_upload_dir()['basedir'];
+        $real_upload_basedir  = realpath( $upload_basedir ) ?: $upload_basedir;
+        $excluded_files_array = [];
+        foreach ( $raw_excluded as $entry ) {
+            $entry = sanitize_text_field( wp_unslash( $entry ) );
+            // Reject entries that contain path traversal sequences.
+            if ( strpos( $entry, '..' ) !== false ) {
+                continue;
+            }
+            // Reject absolute paths that escape the uploads directory.
+            if ( path_is_absolute( $entry ) ) {
+                $real_entry = realpath( $entry );
+                if ( $real_entry === false || strpos( $real_entry, $real_upload_basedir ) !== 0 ) {
+                    continue;
+                }
+            }
+            $excluded_files_array[] = $entry;
+        }
 
         $previous_file_exclusion_setting = InfiniteUploadsHelper::get_file_exclusion_setting();
 
