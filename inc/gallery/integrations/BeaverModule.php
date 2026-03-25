@@ -124,21 +124,3 @@ function _iu_bb_get_folder_options() {
 	],
 ] );
 
-// Create the frontend template file if it doesn't exist.
-$tpl_file = __DIR__ . '/beaver-frontend.php';
-if ( ! file_exists( $tpl_file ) ) {
-	file_put_contents( $tpl_file, '<?php
-// Beaver Builder frontend template for IU Gallery module.
-namespace ClikIT\InfiniteUploads;
-echo iu_render_gallery([
-    \'folderId\'  => (int) $module->settings->folder_id,
-    \'columns\'   => (int) $module->settings->columns,
-    \'imageSize\' => $module->settings->image_size,
-    \'linkTo\'    => $module->settings->link_to,
-    \'orderby\'   => $module->settings->orderby,
-    \'order\'     => $module->settings->order,
-    \'lightbox\'  => (bool) $module->settings->lightbox,
-    \'caption\'   => (bool) $module->settings->caption,
-]);
-' );
-}

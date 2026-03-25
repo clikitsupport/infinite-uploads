@@ -129,4 +129,6 @@ add_action( 'et_builder_ready', function () {
 			] );
 		}
 	}
+
+	new IU_Gallery_Divi_Module();
 } );
