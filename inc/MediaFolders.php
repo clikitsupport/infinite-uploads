@@ -1208,7 +1208,7 @@ class MediaFolders {
 
 	/**
 	 * Apply custom ORDER BY clauses for file_size, extension, and file_type sorts.
-	 * Fires only when $_custom_orderby has been set by the query-arg filter.
+	 * Fires only when iu_custom_orderby has been set on the WP_Query object.
 	 *
 	 * @param array    $clauses
 	 * @param WP_Query $query
@@ -1216,14 +1216,15 @@ class MediaFolders {
 	 * @return array
 	 */
 	public function handle_custom_media_orderby( $clauses, $query ) {
-		if ( ! $this->_custom_orderby ) {
+		$orderby = $query->get( 'iu_custom_orderby' );
+		if ( ! $orderby ) {
 			return $clauses;
 		}
 
 		global $wpdb;
-		$order = $this->_custom_order;
+		$order = $query->get( 'iu_custom_order' ) ?: 'DESC';
 
-		switch ( $this->_custom_orderby ) {
+		switch ( $orderby ) {
 			case 'file_size':
 				// Primary: _iu_filesize meta (set on every upload via store_attachment_filesize_from_meta).
 				// Fallback: extract filesize from _wp_attachment_metadata serialized string (WP 6.0+).
@@ -1255,8 +1256,8 @@ class MediaFolders {
 	 * Uses EXISTS subqueries for postmeta fields (alt, filename) and for folder
 	 * name lookup to avoid row-multiplication from JOINs.
 	 *
-	 * Called only when $_search_term and $_search_fields have been populated by
-	 * filter_ajax_attachments_args() or filter_media_query().
+	 * Called only when iu_search_term and iu_search_fields_parsed have been set
+	 * on the WP_Query object by filter_ajax_attachments_args() or filter_media_query().
 	 *
 	 * @param string   $where
 	 * @param WP_Query $query
@@ -1264,15 +1265,18 @@ class MediaFolders {
 	 * @return string
 	 */
 	public function handle_custom_media_search( $where, $query ) {
-		if ( $this->_search_term === '' || empty( $this->_search_fields ) ) {
+		$search_term   = $query->get( 'iu_search_term' );
+		$search_fields = $query->get( 'iu_search_fields_parsed' );
+
+		if ( $search_term === '' || empty( $search_fields ) ) {
 			return $where;
 		}
 
 		global $wpdb;
-		$term    = '%' . $wpdb->esc_like( $this->_search_term ) . '%';
+		$term    = '%' . $wpdb->esc_like( $search_term ) . '%';
 		$clauses = [];
 
-		foreach ( $this->_search_fields as $field ) {
+		foreach ( $search_fields as $field ) {
 			switch ( $field ) {
 				case 'title':
 					$clauses[] = $wpdb->prepare( "{$wpdb->posts}.post_title LIKE %s", $term );
@@ -1373,11 +1377,6 @@ class MediaFolders {
 	 */
 	private $folder_cache = null;
 
-	/** Orderby key for custom media sorts (file_size, extension, file_type). */
-	private $_custom_orderby  = '';
-	private $_custom_order    = 'DESC';
-	private $_search_term     = '';
-	private $_search_fields   = [];
 
 	/**
 	 * Add "Folder" column to the media list table.
@@ -1621,8 +1620,8 @@ class MediaFolders {
 				$query->set( 'orderby', $native );
 				$query->set( 'order', $order );
 			} else {
-				$this->_custom_orderby = $orderby;
-				$this->_custom_order   = $order;
+				$query->set( 'iu_custom_orderby', $orderby );
+				$query->set( 'iu_custom_order', $order );
 				$query->set( 'orderby', 'none' );
 				if ( 'file_size' === $orderby ) {
 					$this->maybe_schedule_filesize_backfill();
@@ -1632,8 +1631,8 @@ class MediaFolders {
 
 		// Apply custom per-field media search (list mode).
 		if ( $search !== '' && ! empty( $searchFields ) ) {
-			$this->_search_term   = $search;
-			$this->_search_fields = $searchFields;
+			$query->set( 'iu_search_term', $search );
+			$query->set( 'iu_search_fields_parsed', $searchFields );
 			// Suppress WP's native search; handle_custom_media_search provides the WHERE.
 			$query->set( 's', '' );
 		}
@@ -1668,11 +1667,11 @@ class MediaFolders {
 		$orderby = sanitize_text_field( $_REQUEST['iu_media_orderby'] ?? '' );
 
 		if ( $orderby !== '' && $this->_get_native_orderby( $orderby ) === '' ) {
-			$order                 = strtoupper( sanitize_text_field( $_REQUEST['iu_media_order'] ?? 'DESC' ) );
-			$order                 = in_array( $order, [ 'ASC', 'DESC' ], true ) ? $order : 'DESC';
-			$this->_custom_orderby = $orderby;
-			$this->_custom_order   = $order;
-			$query['orderby']      = 'none';
+			$order            = strtoupper( sanitize_text_field( $_REQUEST['iu_media_order'] ?? 'DESC' ) );
+			$order            = in_array( $order, [ 'ASC', 'DESC' ], true ) ? $order : 'DESC';
+			$query['orderby']            = 'none';
+			$query['iu_custom_orderby']  = $orderby;
+			$query['iu_custom_order']    = $order;
 			if ( 'file_size' === $orderby ) {
 				$this->maybe_schedule_filesize_backfill();
 			}
@@ -1685,11 +1684,9 @@ class MediaFolders {
 		$fields = array_filter( array_map( 'sanitize_key', (array) ( $_REQUEST['iu_search_fields'] ?? [] ) ) );
 
 		if ( $search !== '' && ! empty( $fields ) ) {
-			$this->_search_term   = $search;
-			$this->_search_fields = $fields;
-			// Suppress WP's native full-text search so handle_custom_media_search
-			// fully controls the WHERE clause.
-			$query['s'] = '';
+			$query['s']                      = '';
+			$query['iu_search_term']         = $search;
+			$query['iu_search_fields_parsed'] = $fields;
 		}
 
 		return $query;
