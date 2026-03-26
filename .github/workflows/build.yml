@@ -85,7 +85,7 @@ jobs:
             -o -name "postcss.config.js" -o -name "tailwind.config.js" -o -name "deploy.sh" -o -name "Gruntfile.js" \
             -o -name "webpack.config.js" -o -name "CLAUDE.md" -o -name "openapi.json" \
             -o -name "build-aws3.sh" \
-            -o -name "AGENTS.md" -0 -name "travis.yml" -o -name ".phpcsignore" \
+            -o -name "AGENTS.md" -o -name "travis.yml" -o -name ".phpcsignore" \
           \) -delete
           find . -type d \( -name "tests" -o -name "bin" \) -exec rm -rf {} +
           find . -mindepth 1 -name ".*" -exec rm -rf {} +
