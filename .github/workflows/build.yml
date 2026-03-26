@@ -1,0 +1,119 @@
+name: Build Plugin Package
+
+on:
+  workflow_dispatch:
+
+env:
+  PLUGIN_SLUG: infnite-uploads
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ----------------------------------------
+      # 1. Checkout Repository
+      # ----------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # ----------------------------------------
+      # 2. Generate Short Commit Hash
+      # ----------------------------------------
+      - name: Set build variables
+        id: vars
+        run: |
+          SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "zip_name=${{ env.PLUGIN_SLUG }}-$SHORT_SHA" >> $GITHUB_OUTPUT
+
+      # ----------------------------------------
+      # 3. Setup PHP & Install Dependencies
+      # ----------------------------------------
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          extensions: mbstring, xml
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+      # ----------------------------------------
+      # 4. Setup Node & Build Assets
+      # ----------------------------------------
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install NPM dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+      # ----------------------------------------
+      # 5. Prepare Clean Plugin Directory
+      # ----------------------------------------
+      - name: Prepare plugin package
+        run: |
+          WORKDIR="$RUNNER_TEMP/${{ env.PLUGIN_SLUG }}"
+          rm -rf "$WORKDIR"
+          mkdir -p "$WORKDIR"
+          
+          cp -a . "$WORKDIR/"
+          cd "$WORKDIR"
+
+          # Remove development-only files
+          find . -type d -name "node_modules" -exec rm -rf {} +
+          find . -type d -name ".claude" -exec rm -rf {} +
+          find . -type d -name ".github" -exec rm -rf {} +
+          find . -type d -name ".wordpress-org" -exec rm -rf {} +
+          find . -type d -name "bin" -exec rm -rf {} +
+          find . -type d -name "tests" -exec rm -rf {} +
+          find . -type f \( \
+            -name ".distignore" -o -name ".gitattributes" -o -name ".gitignore" \
+            -o -name "composer.lock" -o -name "composer.json" -o -name "composer-dev.json" \
+            -o -name "LICENSE.txt" -o -name "README.md" -o -name "phpunit.xml" \
+            -o -name "phpunit.xml.dist" -o -name "package.json" -o -name "package-lock.json" \
+            -o -name "readme.md" -o -name "gulpfile.js" -o -name "deploy.sh" \
+            -o -name "postcss.config.js" -o -name "tailwind.config.js" -o -name "deploy.sh" -o -name "Gruntfile.js" \
+            -o -name "webpack.config.js" -o -name "CLAUDE.md" -o -name "openapi.json" \
+            -o -name "build-aws3.sh" \
+            -o -name "AGENTS.md" -0 -name "travis.yml" -o -name ".phpcsignore" \
+          \) -delete
+          find . -type d \( -name "tests" -o -name "bin" \) -exec rm -rf {} +
+          find . -mindepth 1 -name ".*" -exec rm -rf {} +
+
+          # Create versioned zip file
+          zip -r "$RUNNER_TEMP/${{ steps.vars.outputs.zip_name }}.zip" .
+
+      # ----------------------------------------
+      # 6. Upload Artifact
+      # ----------------------------------------
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.vars.outputs.zip_name }}
+          path: ${{ runner.temp }}/${{ steps.vars.outputs.zip_name }}.zip
+          retention-days: 3
+
+      # ----------------------------------------
+      # 7. Build Summary
+      # ----------------------------------------
+      - name: Build summary
+        run: |
+          cat <<EOF >> $GITHUB_STEP_SUMMARY
+          ## ✅ Plugin Build Complete
+
+          **Branch:** ${GITHUB_REF_NAME}  
+          **Commit:** ${{ steps.vars.outputs.short_sha }}  
+          **File:** \`${{ steps.vars.outputs.zip_name }}\`
+
+          Go to the **Artifacts** section below to download the build.
+          EOF
