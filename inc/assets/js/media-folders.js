@@ -21,6 +21,7 @@
 			return stored ? JSON.parse(stored) : ['title', 'filename', 'alt', 'description', 'caption', 'folders'];
 		}()),
 		cutNode: null,
+		_pendingCreates: {}, // tempId → jQuery Deferred, resolved with real nodeId on AJAX success
 		totalCount: 0,
 		uncategorizedCount: 0,
 		folderCounts: {},
@@ -691,12 +692,18 @@
 				'<span class="iu-node-text">' + self.escHtml(name) + '</span>'
 			);
 
+			// Track the in-flight create so right-clicks on the pending node can wait.
+			var deferred = $.Deferred();
+			self._pendingCreates[tempId] = deferred;
+
 			$.post(iuMediaFolders.ajax_url, {
 				action: 'iu_create_folder',
 				nonce: iuMediaFolders.nonce,
 				name: name,
 				parent: parentFolderId,
 			}, function (response) {
+				delete self._pendingCreates[tempId];
+
 				if (response.success) {
 					var newId = response.data.id; // 'folder_X'
 					$tempNode.attr('data-id', newId);
@@ -711,9 +718,12 @@
 
 					// Make row draggable
 					$tempNode.children('.iu-node-row').attr('draggable', 'true');
+
+					deferred.resolve(newId);
 				} else {
 					$tempNode.remove();
 					self.cleanEmptyParent(parentId);
+					deferred.reject();
 					alert(response.data);
 				}
 			}, 'json');
@@ -2139,9 +2149,22 @@
 
 			// --- Tree node right-click (context menu) ---
 			$(document).on('contextmenu', '#iu-folders-tree .iu-node-row', function (e) {
-				var nodeId = $(this).closest('.iu-tree-node').data('id');
-				if (nodeId && String(nodeId).indexOf('folder_') === 0) {
+				var nodeId = String($(this).closest('.iu-tree-node').data('id') || '');
+				if (!nodeId) return;
+
+				if (nodeId.indexOf('folder_') === 0) {
 					self.showContextMenu(e, nodeId);
+					return;
+				}
+
+				// AJAX still in-flight for a newly created folder: wait for it.
+				if (nodeId.indexOf('iu_temp_') === 0 && self._pendingCreates[nodeId]) {
+					e.preventDefault();
+					e.stopPropagation();
+					var pos = { clientX: e.clientX, clientY: e.clientY };
+					self._pendingCreates[nodeId].done(function (realNodeId) {
+						self.showContextMenu(pos, realNodeId);
+					});
 				}
 			});
 
