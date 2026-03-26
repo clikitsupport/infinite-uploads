@@ -1547,13 +1547,48 @@
 				return;
 			}
 
-			// Grid mode — same frame/collection resolution as filterGridMode.
+			// Grid mode — same three-path resolution as filterGridMode.
 			var activeFrame = this._activeFrame || wp.media.frame;
-			var collection  = activeFrame && activeFrame.content && activeFrame.content.get();
-			if (!collection) return;
+			if (!activeFrame) return;
 
-			var browserCollection = collection.collection || (collection.options && collection.options.collection);
+			var browserCollection = null;
+
+			// Path 1: named 'library' state (works even in edit-attachment state).
+			try {
+				var libraryState = activeFrame.states && activeFrame.states.get('library');
+				if (libraryState) {
+					var lib = libraryState.get('library');
+					if (lib && lib.props) { browserCollection = lib; }
+				}
+			} catch (e) {}
+
+			// Path 2: current state library (page builder modals).
+			if (!browserCollection) {
+				try {
+					var lib2 = activeFrame.state && activeFrame.state() && activeFrame.state().get('library');
+					if (lib2 && lib2.props) { browserCollection = lib2; }
+				} catch (e) {}
+			}
+
+			// Path 3: active content view's collection.
+			if (!browserCollection) {
+				try {
+					var cv = activeFrame.content && activeFrame.content.get();
+					var bc = cv && (cv.collection || (cv.options && cv.options.collection));
+					if (bc && bc.props) { browserCollection = bc; }
+				} catch (e) {}
+			}
+
 			if (!browserCollection) return;
+
+			// If in edit-attachment state, switch back to library so changes are visible.
+			try {
+				if (activeFrame.states && activeFrame.states.get('library') &&
+					activeFrame.state && activeFrame.state() &&
+					activeFrame.state().id !== 'library') {
+					activeFrame.setState('library');
+				}
+			} catch (e) {}
 
 			var props    = browserCollection.props;
 			var nativeWp = this._nativeSortMap[this.mediaSortMode];
