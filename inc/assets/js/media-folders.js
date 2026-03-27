@@ -1392,23 +1392,28 @@
 		injectMediaSortBar: function ($scope) {
 			if (!$scope || !$scope.length) return;
 
+			// Limit searches to .attachments-browser when present so we never
+			// accidentally inject into the bottom footer bar of the modal.
+			var $browser = $scope.find('.attachments-browser');
+			var $root    = $browser.length ? $browser : $scope;
+
 			// Inject sort controls only once; search-fields button is always attempted.
-			if (!$scope.find('.iu-media-sort-wrap').length) {
+			if (!$root.find('.iu-media-sort-wrap').length) {
 				var html = this.buildMediaSortBarHtml();
 
 				// List mode: insert after the "Filter" submit button in the tablenav.
-				var $filterBtn = $scope.find('#post-query-submit');
+				var $filterBtn = $root.find('#post-query-submit');
 				if ($filterBtn.length) {
 					$filterBtn.after(html);
 				} else {
 					// Grid mode: insert after the "All dates" dropdown in the media toolbar.
-					var $after = $scope.find('#media-attachment-date-filters');
+					var $after = $root.find('#media-attachment-date-filters');
 					if ($after.length) {
 						$after.after(html);
 						$after.closest('.media-toolbar-secondary').addClass('iu-has-sort');
 					} else {
 						// Fallback: append to secondary toolbar.
-						var $secondary = $scope.find('.media-toolbar-secondary');
+						var $secondary = $root.find('.media-toolbar-secondary').first();
 						if ($secondary.length) {
 							$secondary.append(html);
 							$secondary.addClass('iu-has-sort');
@@ -1418,7 +1423,7 @@
 			}
 
 			// Always inject the search-fields button (guarded inside).
-			this.injectSearchFieldsBtn($scope);
+			this.injectSearchFieldsBtn($root);
 		},
 
 		/**
@@ -1468,7 +1473,7 @@
 				this.buildSearchFieldsHtml() +
 				'</span>'
 			);
-			var $primary = $scope.find('.media-toolbar-primary');
+			var $primary = $scope.find('.media-toolbar-primary').first();
 			if ($primary.length) {
 				$primary.prepend(btnHtml);
 				// Remove only the direct-child label (the visible 'Search media' heading).
