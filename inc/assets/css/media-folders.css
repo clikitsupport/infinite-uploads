@@ -954,7 +954,7 @@
 
 .iu-context-menu {
 	position: fixed;
-	z-index: 100001;
+	z-index: 999999; /* must exceed WP media modal (160000) and other builder overlays */
 	background: #fff;
 	border: 1px solid #c3c4c7;
 	border-radius: 4px;

@@ -2156,8 +2156,14 @@
 			});
 
 			// --- Tree node right-click (context menu) ---
-			$(document).on('contextmenu', '#iu-folders-tree .iu-node-row', function (e) {
-				var nodeId = String($(this).closest('.iu-tree-node').data('id') || '');
+			// Use a native capture-phase listener so Elementor / WooCommerce / other
+			// builders cannot block the event with stopPropagation() before it reaches
+			// our handler (capture fires top-down, before any bubble-phase handler).
+			document.addEventListener('contextmenu', function (e) {
+				var $row = $(e.target).closest('#iu-folders-tree .iu-node-row');
+				if (!$row.length) return;
+
+				var nodeId = String($row.closest('.iu-tree-node').data('id') || '');
 				if (!nodeId) return;
 
 				if (nodeId.indexOf('folder_') === 0) {
@@ -2174,7 +2180,7 @@
 						self.showContextMenu(pos, realNodeId);
 					});
 				}
-			});
+			}, true /* capture */);
 
 			// --- Context menu item click ---
 			$(document).on('click', '.iu-context-menu-item', function (e) {
