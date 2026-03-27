@@ -1489,6 +1489,22 @@ body.iu-resizing .iu-sidebar-handle::before {
 	vertical-align: middle;
 }
 
+/* In modal context (Elementor and other page builders), make the primary
+   toolbar a flex row so the funnel button and the search input sit on the
+   same line and are vertically centred. The label is removed via JS and
+   replaced with a placeholder on the input. */
+.media-modal-content .media-toolbar-primary {
+	display: flex;
+	align-items: baseline;
+	flex-wrap: nowrap;
+	gap: 4px;
+}
+
+.media-modal-content .media-toolbar-primary input[type="search"] {
+	flex: 1;
+	min-width: 120px;
+}
+
 /* ==========================================================================
    Suppress WP's "Drop files to upload" overlay during attachment→folder drags.
    The .iu-dragging-media class is added to <body> in dragstart and removed in
@@ -1526,4 +1542,9 @@ body.iu-dragging-media .uploader-inline-content.has-upload-message {
 
 @keyframes iu-spin {
 	to { transform: rotate(360deg); }
+}
+
+
+.media-modal .media-frame .media-search-input-label {
+	left: 40px;
 }

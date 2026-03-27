@@ -269,6 +269,7 @@ class MediaFolders {
 			'search_field_description' => __( 'Description', 'infinite-uploads' ),
 			'search_field_caption'     => __( 'Caption', 'infinite-uploads' ),
 			'search_field_folders'     => __( 'Folder Name', 'infinite-uploads' ),
+			'search_placeholder'       => __( 'Search Media...', 'infinite-uploads' ),
 			// is_list_mode is only meaningful on upload.php; never on post.php/post-new.php.
 			'is_list_mode'       => $hook === 'upload.php' && (
 				( isset( $_GET['mode'] ) && $_GET['mode'] === 'list' ) ||
@@ -389,6 +390,7 @@ class MediaFolders {
 			'search_field_description' => __( 'Description', 'infinite-uploads' ),
 			'search_field_caption'     => __( 'Caption', 'infinite-uploads' ),
 			'search_field_folders'     => __( 'Folder Name', 'infinite-uploads' ),
+			'search_placeholder'       => __( 'Search Media...', 'infinite-uploads' ),
 			// The iframe is always grid mode; none of the page-specific flags apply.
 			'is_list_mode'           => false,
 			'is_upload_page'         => false,
@@ -482,6 +484,7 @@ class MediaFolders {
 			'search_field_description' => __( 'Description', 'infinite-uploads' ),
 			'search_field_caption'     => __( 'Caption', 'infinite-uploads' ),
 			'search_field_folders'     => __( 'Folder Name', 'infinite-uploads' ),
+			'search_placeholder'       => __( 'Search Media...', 'infinite-uploads' ),
 			// BB editor is always grid mode; none of the page-specific flags apply.
 			'is_list_mode'           => false,
 			'is_upload_page'         => false,

@@ -1471,6 +1471,9 @@
 			var $primary = $scope.find('.media-toolbar-primary');
 			if ($primary.length) {
 				$primary.prepend(btnHtml);
+				// Remove only the direct-child label (the visible 'Search media' heading).
+				$primary.children('label').remove();
+				$primary.find('input[type="search"]').attr('placeholder', iuMediaFolders.search_placeholder || 'Search Media...');
 				return;
 			}
 			// List mode: inject before the search-box paragraph.
