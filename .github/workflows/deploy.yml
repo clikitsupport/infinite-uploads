@@ -77,12 +77,17 @@ jobs:
 
           # Remove development-only files
           find . -type d -name "node_modules" -exec rm -rf {} +
+          find . -type d -name ".claude" -exec rm -rf {} +
+          find . -type d -name "tests" -exec rm -rf {} +
+          find . -type d -name "bin" -exec rm -rf {} +
           find . -type f \( \
             -name ".distignore" -o -name ".gitattributes" -o -name ".gitignore" \
             -o -name "composer.lock" -o -name "composer.json" -o -name "composer-dev.json" \
             -o -name "LICENSE.txt" -o -name "README.md" -o -name "phpunit.xml" \
             -o -name "phpunit.xml.dist" -o -name "package.json" -o -name "package-lock.json" \
             -o -name "readme.md" -o -name "gulpfile.js" -o -name "build-aws3.sh" \
+            -o -name "AGENTS.md" -o -name "CLAUDE.md" \
+            -o -name "AGENTS.md" -o -name "travis.yml" -o -name ".phpcsignore" \
             -o -name "webpack.config.js" \
           \) -delete
           find . -type d \( -name "tests" -o -name "bin" \) -exec rm -rf {} +
