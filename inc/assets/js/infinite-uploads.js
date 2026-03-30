@@ -404,6 +404,23 @@ jQuery(document).ready(function ($) {
 			iupProcessingLoop = false;
 		});
 
+	// Disconnect confirmation when folders are in use.
+	$('#iup-disconnect-btn').on('click', function (e) {
+		var folderCount = parseInt($(this).data('folder-count'), 10) || 0;
+		if (folderCount > 0) {
+			var confirmed = confirm(
+				'Disconnecting will place your site in an unlicensed state. Your folder structure and media customizations (' + folderCount + ' folder(s)) will be removed, but no media files will be deleted.\n\n' +
+				'All items will remain safely available in the default WordPress Media Library. If you reconnect and license this site again, your folders may be restored.\n\n' +
+				'Are you sure you want to disconnect?'
+			);
+			if (!confirmed) {
+				e.preventDefault();
+				e.stopPropagation();
+				return false;
+			}
+		}
+	});
+
 	//Compare to live
 	$('#scan-remote-modal')
 		.on('show.bs.modal', function (e) {
@@ -783,6 +800,53 @@ jQuery(document).ready(function ($) {
 						});
 					}, 3000);
 				}
+			}
+		});
+	});
+
+	// Save media folders setting.
+	$('#saveMediaFoldersSetting').on('click', function () {
+		var $btn = $(this);
+		var enabled = $('input[name="iu_media_folders_enabled"]:checked').val();
+		var folderCount = parseInt($btn.data('folder-count'), 10) || 0;
+
+		// Show confirmation if disabling while folders exist.
+		if (enabled === 'no' && folderCount > 0) {
+			var confirmed = confirm(
+				'You currently have ' + folderCount + ' folder(s) in use. ' +
+				'Disabling advanced features will hide the folder sidebar and all media will appear in the default WordPress view as uncategorized.\n\n' +
+				'Your folder structure will be preserved and can be restored by re-enabling this setting.\n\n' +
+				'Are you sure you want to disable?'
+			);
+			if (!confirmed) {
+				// Revert radio back to enabled.
+				$('input[name="iu_media_folders_enabled"][value="yes"]').prop('checked', true);
+				return;
+			}
+		}
+
+		$btn.prop('disabled', true);
+		$('#mediaFoldersSaveStatus').hide();
+
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'save_iu_media_folders_setting',
+				enabled: enabled,
+				nonce: iup_data.nonce.saveMediaFolders
+			},
+			success: function (response) {
+				$btn.prop('disabled', false);
+				if (response.success) {
+					$('#mediaFoldersSaveStatus').fadeIn();
+					setTimeout(function () {
+						$('#mediaFoldersSaveStatus').fadeOut();
+					}, 5000);
+				}
+			},
+			error: function () {
+				$btn.prop('disabled', false);
 			}
 		});
 	});

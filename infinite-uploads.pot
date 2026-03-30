@@ -2,14 +2,14 @@
 # This file is distributed under the GPLv2.
 msgid ""
 msgstr ""
-"Project-Id-Version: Infinite Uploads 3.1.2\n"
+"Project-Id-Version: Infinite Uploads 3.2.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/infinite-uploads\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-02-13T05:13:28+00:00\n"
+"POT-Creation-Date: 2026-03-30T13:24:00+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.9.0\n"
 "X-Domain: infinite-uploads\n"
@@ -17,10 +17,10 @@ msgstr ""
 #. Plugin Name of the plugin
 #. Author of the plugin
 #. translators: %s: Plugin name.
-#: inc/InfiniteUploadsAdmin.php:254
-#: inc/InfiniteUploadsAdmin.php:1917
-#: inc/InfiniteUploadsAdmin.php:1966
-#: inc/InfiniteUploadsAdmin.php:1967
+#: inc/InfiniteUploadsAdmin.php:255
+#: inc/InfiniteUploadsAdmin.php:1920
+#: inc/InfiniteUploadsAdmin.php:1969
+#: inc/InfiniteUploadsAdmin.php:1970
 msgid "Infinite Uploads"
 msgstr ""
 
@@ -32,295 +32,562 @@ msgstr ""
 msgid "https://infiniteuploads.com/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin&utm_content=meta"
 msgstr ""
 
-#: inc/InfiniteUploads.php:447
+#: inc/gallery/integrations/AvadaElement.php:48
+#: inc/gallery/integrations/BeaverModule.php:38
+#: inc/gallery/integrations/BricksElement.php:32
+#: inc/gallery/integrations/DiviModule.php:37
+#: inc/gallery/integrations/Elementor.php:143
+#: inc/gallery/block/edit.js:87
+msgid "— Select a folder —"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:54
+#: inc/gallery/integrations/BeaverModule.php:21
+#: inc/gallery/integrations/BricksElement.php:25
+#: inc/gallery/integrations/DiviModule.php:30
+#: inc/gallery/integrations/Elementor.php:23
+#: inc/gallery/block/edit.js:104
+msgid "IU Media Folder Gallery"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:60
+#: inc/gallery/integrations/BeaverModule.php:54
+#: inc/gallery/integrations/BricksElement.php:39
+#: inc/gallery/integrations/DiviModule.php:44
+#: inc/gallery/integrations/Elementor.php:45
+#: inc/MediaFolders.php:1464
+#: inc/gallery/block/edit.js:169
+msgid "Folder"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:67
+#: inc/gallery/integrations/BeaverModule.php:60
+#: inc/gallery/integrations/BricksElement.php:47
+#: inc/gallery/integrations/DiviModule.php:52
+#: inc/gallery/integrations/Elementor.php:52
+#: inc/gallery/block/edit.js:177
+msgid "Columns"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:76
+#: inc/gallery/integrations/BeaverModule.php:65
+#: inc/gallery/integrations/BricksElement.php:56
+#: inc/gallery/integrations/DiviModule.php:59
+#: inc/gallery/integrations/Elementor.php:60
+#: inc/gallery/block/edit.js:185
+msgid "Image Size"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:79
+#: inc/gallery/integrations/BeaverModule.php:68
+#: inc/gallery/integrations/BricksElement.php:59
+#: inc/gallery/integrations/DiviModule.php:63
+#: inc/gallery/integrations/Elementor.php:63
+#: inc/gallery/block/edit.js:188
+msgid "Thumbnail"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:80
+#: inc/gallery/integrations/BeaverModule.php:69
+#: inc/gallery/integrations/BricksElement.php:60
+#: inc/gallery/integrations/DiviModule.php:64
+#: inc/gallery/integrations/Elementor.php:64
+#: inc/gallery/block/edit.js:189
+msgid "Medium"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:81
+#: inc/gallery/integrations/BeaverModule.php:70
+#: inc/gallery/integrations/BricksElement.php:61
+#: inc/gallery/integrations/DiviModule.php:65
+#: inc/gallery/integrations/Elementor.php:65
+#: inc/gallery/block/edit.js:190
+msgid "Large"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:82
+#: inc/gallery/integrations/BeaverModule.php:71
+#: inc/gallery/integrations/BricksElement.php:62
+#: inc/gallery/integrations/DiviModule.php:66
+#: inc/gallery/integrations/Elementor.php:66
+#: inc/gallery/block/edit.js:191
+msgid "Full Size"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:88
+#: inc/gallery/integrations/BeaverModule.php:76
+#: inc/gallery/integrations/BricksElement.php:69
+#: inc/gallery/integrations/DiviModule.php:71
+#: inc/gallery/integrations/Elementor.php:72
+#: inc/gallery/block/edit.js:197
+msgid "Link To"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:91
+#: inc/gallery/integrations/BeaverModule.php:79
+#: inc/gallery/integrations/BricksElement.php:72
+#: inc/gallery/integrations/DiviModule.php:75
+#: inc/gallery/integrations/Elementor.php:75
+#: inc/gallery/block/edit.js:200
+msgid "None"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:92
+#: inc/gallery/integrations/BeaverModule.php:80
+#: inc/gallery/integrations/BricksElement.php:73
+#: inc/gallery/integrations/DiviModule.php:76
+#: inc/gallery/integrations/Elementor.php:76
+#: inc/gallery/block/edit.js:201
+msgid "Media File"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:93
+#: inc/gallery/integrations/BeaverModule.php:81
+#: inc/gallery/integrations/BricksElement.php:74
+#: inc/gallery/integrations/DiviModule.php:77
+#: inc/gallery/integrations/Elementor.php:77
+#: inc/gallery/block/edit.js:202
+msgid "Attachment Page"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:99
+#: inc/gallery/integrations/BeaverModule.php:86
+#: inc/gallery/integrations/BricksElement.php:81
+#: inc/gallery/integrations/DiviModule.php:82
+#: inc/gallery/integrations/Elementor.php:83
+#: inc/gallery/block/edit.js:208
+msgid "Order By"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:102
+#: inc/gallery/integrations/BeaverModule.php:89
+#: inc/gallery/integrations/BricksElement.php:84
+#: inc/gallery/integrations/DiviModule.php:86
+#: inc/gallery/integrations/Elementor.php:86
+#: inc/gallery/block/edit.js:211
+#: inc/video/admin/components/Header.jsx:59
+msgid "Date"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:103
+#: inc/gallery/integrations/BeaverModule.php:90
+#: inc/gallery/integrations/BricksElement.php:85
+#: inc/gallery/integrations/DiviModule.php:87
+#: inc/gallery/integrations/Elementor.php:87
+#: inc/MediaFolders.php:256
+#: inc/MediaFolders.php:266
+#: inc/MediaFolders.php:377
+#: inc/MediaFolders.php:387
+#: inc/MediaFolders.php:471
+#: inc/MediaFolders.php:481
+#: inc/gallery/block/edit.js:212
+#: inc/video/admin/components/Header.jsx:56
+#: inc/video/admin/components/VideoModal.jsx:356
+#: inc/video/admin/components/VideoModal.jsx:360
+msgid "Title"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:104
+#: inc/gallery/integrations/BeaverModule.php:91
+#: inc/gallery/integrations/BricksElement.php:86
+#: inc/gallery/integrations/DiviModule.php:88
+#: inc/gallery/integrations/Elementor.php:88
+#: inc/gallery/block/edit.js:213
+msgid "Random"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:110
+#: inc/gallery/integrations/BeaverModule.php:96
+#: inc/gallery/integrations/BricksElement.php:93
+#: inc/gallery/integrations/DiviModule.php:93
+#: inc/gallery/integrations/Elementor.php:94
+#: inc/gallery/block/edit.js:219
+msgid "Order"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:113
+#: inc/gallery/integrations/BeaverModule.php:99
+#: inc/gallery/integrations/BricksElement.php:96
+#: inc/gallery/integrations/DiviModule.php:97
+#: inc/gallery/integrations/Elementor.php:97
+#: inc/MediaFolders.php:263
+#: inc/MediaFolders.php:384
+#: inc/MediaFolders.php:478
+#: inc/gallery/block/edit.js:222
+msgid "Descending"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:114
+#: inc/gallery/integrations/BeaverModule.php:100
+#: inc/gallery/integrations/BricksElement.php:97
+#: inc/gallery/integrations/DiviModule.php:98
+#: inc/gallery/integrations/Elementor.php:98
+#: inc/MediaFolders.php:262
+#: inc/MediaFolders.php:383
+#: inc/MediaFolders.php:477
+#: inc/gallery/block/edit.js:223
+msgid "Ascending"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:120
+#: inc/gallery/integrations/BeaverModule.php:105
+#: inc/gallery/integrations/BricksElement.php:104
+#: inc/gallery/integrations/DiviModule.php:103
+#: inc/gallery/integrations/Elementor.php:104
+#: inc/gallery/block/edit.js:229
+msgid "Enable Lightbox"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:123
+#: inc/gallery/integrations/AvadaElement.php:133
+#: inc/gallery/integrations/BeaverModule.php:108
+#: inc/gallery/integrations/BeaverModule.php:117
+#: inc/gallery/integrations/DiviModule.php:106
+#: inc/gallery/integrations/DiviModule.php:113
+#: inc/gallery/integrations/Elementor.php:107
+#: inc/gallery/integrations/Elementor.php:116
+#: inc/templates/settings.php:127
+msgid "No"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:124
+#: inc/gallery/integrations/AvadaElement.php:134
+#: inc/gallery/integrations/BeaverModule.php:109
+#: inc/gallery/integrations/BeaverModule.php:118
+#: inc/gallery/integrations/DiviModule.php:106
+#: inc/gallery/integrations/DiviModule.php:113
+#: inc/gallery/integrations/Elementor.php:106
+#: inc/gallery/integrations/Elementor.php:115
+#: inc/templates/settings.php:122
+msgid "Yes"
+msgstr ""
+
+#: inc/gallery/integrations/AvadaElement.php:130
+#: inc/gallery/integrations/BeaverModule.php:114
+#: inc/gallery/integrations/BricksElement.php:111
+#: inc/gallery/integrations/DiviModule.php:110
+#: inc/gallery/integrations/Elementor.php:113
+#: inc/gallery/block/edit.js:236
+msgid "Show Captions"
+msgstr ""
+
+#: inc/gallery/integrations/BeaverModule.php:22
+msgid "Display images from an Infinite Uploads media folder."
+msgstr ""
+
+#: inc/gallery/integrations/BeaverModule.php:23
+#: inc/gallery/integrations/BeaverModule.php:24
+msgid "Media"
+msgstr ""
+
+#: inc/gallery/integrations/BeaverModule.php:47
+msgid "General"
+msgstr ""
+
+#: inc/gallery/integrations/BeaverModule.php:50
+#: inc/gallery/integrations/Elementor.php:40
+#: inc/gallery/block/edit.js:164
+msgid "Gallery Settings"
+msgstr ""
+
+#: inc/gallery/integrations/DiviModule.php:49
+msgid "Select a media folder."
+msgstr ""
+
+#: inc/gallery/render.php:50
+#: inc/gallery/render.php:69
+msgid "No images found in this folder."
+msgstr ""
+
+#: inc/InfiniteUploads.php:453
 msgid "Infinite Uploads is almost ready!"
 msgstr ""
 
-#: inc/InfiniteUploads.php:449
+#: inc/InfiniteUploads.php:455
 msgid "Create or connect your account to move your images, audio, and video to the cloud - with a click!"
 msgstr ""
 
-#: inc/InfiniteUploads.php:455
+#: inc/InfiniteUploads.php:461
 msgid "Finish Sync"
 msgstr ""
 
-#: inc/InfiniteUploads.php:455
-#: inc/InfiniteUploadsAdmin.php:1906
+#: inc/InfiniteUploads.php:461
+#: inc/InfiniteUploadsAdmin.php:1909
 #: inc/templates/connect.php:54
 msgid "Connect"
 msgstr ""
 
-#: inc/InfiniteUploads.php:529
+#: inc/InfiniteUploads.php:535
 msgid "%s file totalling %s"
 msgid_plural "%s files totalling %s"
 msgstr[0] ""
 msgstr[1] ""
 
-#: inc/InfiniteUploads.php:534
+#: inc/InfiniteUploads.php:540
 msgid "%s / %s File"
 msgid_plural "%s / %s Files"
 msgstr[0] ""
 msgstr[1] ""
 
-#: inc/InfiniteUploads.php:544
+#: inc/InfiniteUploads.php:550
 msgid "Images"
 msgstr ""
 
-#: inc/InfiniteUploads.php:545
+#: inc/InfiniteUploads.php:551
 msgid "Audio"
 msgstr ""
 
-#: inc/InfiniteUploads.php:546
+#: inc/InfiniteUploads.php:552
 msgid "Video"
 msgstr ""
 
-#: inc/InfiniteUploads.php:547
+#: inc/InfiniteUploads.php:553
 msgid "Documents"
 msgstr ""
 
-#: inc/InfiniteUploads.php:548
+#: inc/InfiniteUploads.php:554
 msgid "Archives"
 msgstr ""
 
-#: inc/InfiniteUploads.php:549
+#: inc/InfiniteUploads.php:555
 msgid "Code"
 msgstr ""
 
-#: inc/InfiniteUploads.php:550
+#: inc/InfiniteUploads.php:556
 msgid "Other"
 msgstr ""
 
-#: inc/InfiniteUploads.php:809
+#: inc/InfiniteUploads.php:815
 msgid "Files can't be uploaded due to a billing issue with your Infinite Uploads account. <a href='%s'>Please resolve the issue</a> to resume uploading."
 msgstr ""
 
-#: inc/InfiniteUploads.php:814
-#: inc/InfiniteUploads.php:845
-#: inc/InfiniteUploads.php:864
+#: inc/InfiniteUploads.php:820
+#: inc/InfiniteUploads.php:851
+#: inc/InfiniteUploads.php:870
 msgid "Files can't be uploaded due to a billing issue with your Infinite Uploads account."
 msgstr ""
 
-#: inc/InfiniteUploads.php:832
+#: inc/InfiniteUploads.php:838
 msgid "Files can't be uploaded and your CDN is disabled due to a billing issue with your Infinite Uploads account. <a href='%s'>Please resolve the issue</a> to resume uploading. <a href='%s'>Already fixed?</a>"
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:251
+#: inc/InfiniteUploadsAdmin.php:252
 msgid "When you upload files on this site, your files are transferred to and stored in the Infinite Uploads cloud. When you visit pages on this site media files may be downloaded from the Infinite Uploads cloud CDN which stores web log information including IP, User Agent, referrer, Location, and ISP info of site visitors for 7 days. The Infinite Uploads privacy policy is %1$s here %2$s."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:276
-#: inc/InfiniteUploadsAdmin.php:287
-#: inc/InfiniteUploadsAdmin.php:308
-#: inc/InfiniteUploadsAdmin.php:326
-#: inc/InfiniteUploadsAdmin.php:399
-#: inc/InfiniteUploadsAdmin.php:496
-#: inc/InfiniteUploadsAdmin.php:1139
-#: inc/InfiniteUploadsAdmin.php:1421
-#: inc/InfiniteUploadsAdmin.php:1869
-#: inc/InfiniteUploadsAdmin.php:2064
-#: inc/InfiniteUploadsVideo.php:265
-#: inc/InfiniteUploadsVideo.php:270
+#: inc/InfiniteUploadsAdmin.php:277
+#: inc/InfiniteUploadsAdmin.php:288
+#: inc/InfiniteUploadsAdmin.php:309
+#: inc/InfiniteUploadsAdmin.php:327
+#: inc/InfiniteUploadsAdmin.php:400
+#: inc/InfiniteUploadsAdmin.php:497
+#: inc/InfiniteUploadsAdmin.php:1140
+#: inc/InfiniteUploadsAdmin.php:1422
+#: inc/InfiniteUploadsAdmin.php:1872
+#: inc/InfiniteUploadsAdmin.php:2068
+#: inc/InfiniteUploadsVideo.php:289
+#: inc/InfiniteUploadsVideo.php:294
 msgid "Permissions Error: Please refresh the page and try again."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:617
-#: inc/InfiniteUploadsAdmin.php:712
-#: inc/InfiniteUploadsAdmin.php:721
-#: inc/InfiniteUploadsAdmin.php:1113
-#: inc/InfiniteUploadsAdmin.php:1129
-#: inc/InfiniteUploadsAdmin.php:2954
-#: inc/InfiniteUploadsAdmin.php:3049
-#: inc/InfiniteUploadsAdmin.php:3058
+#: inc/InfiniteUploadsAdmin.php:618
+#: inc/InfiniteUploadsAdmin.php:713
+#: inc/InfiniteUploadsAdmin.php:722
+#: inc/InfiniteUploadsAdmin.php:1114
+#: inc/InfiniteUploadsAdmin.php:1130
+#: inc/InfiniteUploadsAdmin.php:3006
+#: inc/InfiniteUploadsAdmin.php:3101
+#: inc/InfiniteUploadsAdmin.php:3110
 #: inc/InfiniteUploadsWPCLICommand.php:300
 msgid "Error uploading %s. Retries exceeded."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:619
-#: inc/InfiniteUploadsAdmin.php:714
-#: inc/InfiniteUploadsAdmin.php:723
-#: inc/InfiniteUploadsAdmin.php:1114
-#: inc/InfiniteUploadsAdmin.php:1130
-#: inc/InfiniteUploadsAdmin.php:2956
-#: inc/InfiniteUploadsAdmin.php:3051
-#: inc/InfiniteUploadsAdmin.php:3060
+#: inc/InfiniteUploadsAdmin.php:620
+#: inc/InfiniteUploadsAdmin.php:715
+#: inc/InfiniteUploadsAdmin.php:724
+#: inc/InfiniteUploadsAdmin.php:1115
+#: inc/InfiniteUploadsAdmin.php:1131
+#: inc/InfiniteUploadsAdmin.php:3008
+#: inc/InfiniteUploadsAdmin.php:3103
+#: inc/InfiniteUploadsAdmin.php:3112
 msgid "Error uploading %s. Queued for retry."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:622
-#: inc/InfiniteUploadsAdmin.php:1118
-#: inc/InfiniteUploadsAdmin.php:2959
+#: inc/InfiniteUploadsAdmin.php:623
+#: inc/InfiniteUploadsAdmin.php:1119
+#: inc/InfiniteUploadsAdmin.php:3011
 msgid "Error uploading file. Queued for retry."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:755
-#: inc/InfiniteUploadsAdmin.php:1168
-#: inc/InfiniteUploadsAdmin.php:1518
+#: inc/InfiniteUploadsAdmin.php:756
+#: inc/InfiniteUploadsAdmin.php:1169
+#: inc/InfiniteUploadsAdmin.php:1519
 msgid "Permissions Error: Insufficient privileges."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:759
-#: inc/InfiniteUploadsAdmin.php:1175
-#: inc/InfiniteUploadsAdmin.php:1525
+#: inc/InfiniteUploadsAdmin.php:760
+#: inc/InfiniteUploadsAdmin.php:1176
+#: inc/InfiniteUploadsAdmin.php:1526
 msgid "Security Error: Invalid nonce. Please refresh and try again."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:791
-#: inc/InfiniteUploadsAdmin.php:1187
-#: inc/InfiniteUploadsAdmin.php:1549
+#: inc/InfiniteUploadsAdmin.php:792
+#: inc/InfiniteUploadsAdmin.php:1188
+#: inc/InfiniteUploadsAdmin.php:1550
 msgid "Error: Invalid upload directory."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:956
+#: inc/InfiniteUploadsAdmin.php:957
 msgid "Security error for file %s."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:1261
-#: inc/InfiniteUploadsAdmin.php:1652
+#: inc/InfiniteUploadsAdmin.php:1262
+#: inc/InfiniteUploadsAdmin.php:1653
 msgid "Error: Unable to resolve base directory."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:1287
+#: inc/InfiniteUploadsAdmin.php:1288
 msgid "Security: Invalid file path detected: %s"
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:1298
+#: inc/InfiniteUploadsAdmin.php:1299
 msgid "Error: Not a file: %s"
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:1309
+#: inc/InfiniteUploadsAdmin.php:1310
 msgid "Error: File not writable: %s"
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:1326
+#: inc/InfiniteUploadsAdmin.php:1327
 msgid "Error deleting file: %s"
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:1485
-#: inc/InfiniteUploadsAdmin.php:1850
-#: inc/InfiniteUploadsAdmin.php:2809
+#: inc/InfiniteUploadsAdmin.php:1486
+#: inc/InfiniteUploadsAdmin.php:1851
+#: inc/InfiniteUploadsAdmin.php:2861
 #: inc/InfiniteUploadsWPCLICommand.php:559
 msgid "Error downloading %s. Retries exceeded."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:1487
-#: inc/InfiniteUploadsAdmin.php:1854
-#: inc/InfiniteUploadsAdmin.php:2811
+#: inc/InfiniteUploadsAdmin.php:1488
+#: inc/InfiniteUploadsAdmin.php:1855
+#: inc/InfiniteUploadsAdmin.php:2863
 #: inc/InfiniteUploadsWPCLICommand.php:561
 msgid "Error downloading %s. Queued for retry."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:1490
-#: inc/InfiniteUploadsAdmin.php:1860
-#: inc/InfiniteUploadsAdmin.php:2814
+#: inc/InfiniteUploadsAdmin.php:1491
+#: inc/InfiniteUploadsAdmin.php:1861
+#: inc/InfiniteUploadsAdmin.php:2866
 msgid "Error downloading file. Queued for retry."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:1557
+#: inc/InfiniteUploadsAdmin.php:1558
 msgid "Error: Upload directory is not writable."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:1645
+#: inc/InfiniteUploadsAdmin.php:1646
 msgid "Error: Invalid S3 bucket configuration."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:1677
+#: inc/InfiniteUploadsAdmin.php:1678
 msgid "Error: Cannot create directory for %s"
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:1689
+#: inc/InfiniteUploadsAdmin.php:1690
 msgid "Security: Invalid file path: %s"
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:1904
+#: inc/InfiniteUploadsAdmin.php:1907
 #: inc/templates/video-overview.php:42
 #: inc/video/admin/components/Header.jsx:87
-#: inc/video/admin/components/Settings.jsx:170
+#: inc/video/admin/components/Settings.jsx:179
 msgid "Settings"
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:1908
+#: inc/InfiniteUploadsAdmin.php:1911
 #: inc/templates/footer.php:16
 msgid "Support"
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:2005
+#: inc/InfiniteUploadsAdmin.php:2008
 msgid "Are you sure you want to leave this tab? The current bulk action will be canceled and you will need to continue where it left off later."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:2006
+#: inc/InfiniteUploadsAdmin.php:2009
 msgid "Too many server errors. Please try again."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:2007
+#: inc/InfiniteUploadsAdmin.php:2010
 msgid "If you leave this page the sync will be interrupted and you will have to continue where you left off later."
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:2099
+#: inc/InfiniteUploadsAdmin.php:2107
 msgid "United States"
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:2100
+#: inc/InfiniteUploadsAdmin.php:2108
 msgid "Europe"
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:2132
-#: inc/InfiniteUploadsVideo.php:642
+#: inc/InfiniteUploadsAdmin.php:2140
+#: inc/InfiniteUploadsVideo.php:666
 msgid "Files can't be uploaded and your CDN is disabled due to a billing issue with your Infinite Uploads account. Please <a href='%s' class='alert-link'>visit your account page</a> to fix, or disconnect this site from the cloud. Images and links to media on your site may be broken until you take action. <a href='%s' class='alert-link' data-toggle='tooltip' title='Refresh account data'>Already fixed?</a>"
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:2138
-#: inc/InfiniteUploadsVideo.php:648
+#: inc/InfiniteUploadsAdmin.php:2146
+#: inc/InfiniteUploadsVideo.php:672
 msgid "Files can't be uploaded and your CDN will be disabled soon due to a billing issue with your Infinite Uploads account. Please <a href='%s' class='alert-link'>visit your account page</a> to fix, or disconnect this site from the cloud. <a href='%s' class='alert-link' data-toggle='tooltip' title='Refresh account data'>Already fixed?</a>"
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:2149
+#: inc/InfiniteUploadsAdmin.php:2157
 msgid "There is uploaded media from your site that may only exist in the Infinite Uploads cloud. <strong>You MUST download your media files before deactivating this plugin to prevent data loss!</strong>"
 msgstr ""
 
-#: inc/InfiniteUploadsAdmin.php:2154
+#: inc/InfiniteUploadsAdmin.php:2162
 #: inc/templates/modal-download.php:5
-#: inc/templates/settings.php:140
+#: inc/templates/settings.php:164
 msgid "Download & Disconnect"
 msgstr ""
 
-#: inc/InfiniteUploadsVideo.php:275
+#: inc/InfiniteUploadsVideo.php:299
 msgid "Infinite Uploads Video is disabled due to an issue with your account."
 msgstr ""
 
-#: inc/InfiniteUploadsVideo.php:385
+#: inc/InfiniteUploadsVideo.php:409
 msgid "Invalid request"
 msgstr ""
 
-#: inc/InfiniteUploadsVideo.php:460
+#: inc/InfiniteUploadsVideo.php:484
 msgid "Video Library - Infinite Uploads"
 msgstr ""
 
-#: inc/InfiniteUploadsVideo.php:461
-#: inc/InfiniteUploadsVideo.php:633
+#: inc/InfiniteUploadsVideo.php:485
+#: inc/InfiniteUploadsVideo.php:657
 #: inc/templates/video-overview.php:38
-#: inc/video/admin/components/Settings.jsx:73
+#: inc/video/admin/components/Settings.jsx:82
 msgid "Video Library"
 msgstr ""
 
-#: inc/InfiniteUploadsVideo.php:478
+#: inc/InfiniteUploadsVideo.php:502
 #: inc/video/block/edit.js:295
 msgid "Infinite Uploads Video"
 msgstr ""
 
-#: inc/InfiniteUploadsVideo.php:479
+#: inc/InfiniteUploadsVideo.php:503
 #: inc/templates/video-disabled.php:4
 msgid "Video Cloud"
 msgstr ""
 
-#: inc/InfiniteUploadsVideo.php:661
+#: inc/InfiniteUploadsVideo.php:685
 msgid "Upload Video"
 msgstr ""
 
-#: inc/InfiniteUploadsVideo.php:671
+#: inc/InfiniteUploadsVideo.php:695
 msgid "Add a New Video to the Infinite Uploads Cloud"
 msgstr ""
 
-#: inc/InfiniteUploadsVideo.php:673
+#: inc/InfiniteUploadsVideo.php:697
 msgid "Drop your videos here to upload them to your cloud video library for encoding and embedding on your site."
 msgstr ""
 
@@ -404,6 +671,347 @@ msgstr ""
 
 #: inc/InfiniteUploadsWPCLICommand.php:582
 msgid "Download complete!"
+msgstr ""
+
+#: inc/MediaFolders.php:220
+#: inc/MediaFolders.php:342
+#: inc/MediaFolders.php:436
+msgid "All Files"
+msgstr ""
+
+#: inc/MediaFolders.php:221
+#: inc/MediaFolders.php:343
+#: inc/MediaFolders.php:437
+msgid "Uncategorized"
+msgstr ""
+
+#: inc/MediaFolders.php:222
+#: inc/MediaFolders.php:344
+#: inc/MediaFolders.php:438
+msgid "New Folder"
+msgstr ""
+
+#: inc/MediaFolders.php:223
+#: inc/MediaFolders.php:345
+#: inc/MediaFolders.php:439
+msgid "New Subfolder"
+msgstr ""
+
+#: inc/MediaFolders.php:224
+#: inc/MediaFolders.php:346
+#: inc/MediaFolders.php:440
+msgid "Rename"
+msgstr ""
+
+#: inc/MediaFolders.php:225
+#: inc/MediaFolders.php:347
+#: inc/MediaFolders.php:441
+msgid "Cut"
+msgstr ""
+
+#: inc/MediaFolders.php:226
+#: inc/MediaFolders.php:348
+#: inc/MediaFolders.php:442
+msgid "Paste"
+msgstr ""
+
+#: inc/MediaFolders.php:227
+#: inc/MediaFolders.php:349
+#: inc/MediaFolders.php:443
+msgid "Move to top level"
+msgstr ""
+
+#: inc/MediaFolders.php:228
+#: inc/MediaFolders.php:350
+#: inc/MediaFolders.php:444
+msgid "Paste here (top level)"
+msgstr ""
+
+#: inc/MediaFolders.php:229
+#: inc/MediaFolders.php:351
+#: inc/MediaFolders.php:445
+#: inc/templates/settings.php:151
+#: inc/video/admin/components/DeleteModal.jsx:72
+msgid "Delete"
+msgstr ""
+
+#: inc/MediaFolders.php:230
+#: inc/MediaFolders.php:352
+#: inc/MediaFolders.php:446
+msgid "Delete this folder? Media files inside will be moved to Uncategorized."
+msgstr ""
+
+#: inc/MediaFolders.php:231
+#: inc/MediaFolders.php:353
+#: inc/MediaFolders.php:447
+msgid "Delete %d folders? Media files inside will be moved to Uncategorized."
+msgstr ""
+
+#: inc/MediaFolders.php:232
+#: inc/MediaFolders.php:354
+#: inc/MediaFolders.php:448
+msgid "Delete (%d)"
+msgstr ""
+
+#: inc/MediaFolders.php:233
+#: inc/MediaFolders.php:355
+#: inc/MediaFolders.php:449
+msgid "Enter folder name…"
+msgstr ""
+
+#: inc/MediaFolders.php:234
+#: inc/MediaFolders.php:356
+#: inc/MediaFolders.php:450
+msgid "Name: A → Z"
+msgstr ""
+
+#: inc/MediaFolders.php:235
+#: inc/MediaFolders.php:357
+#: inc/MediaFolders.php:451
+msgid "Name: Z → A"
+msgstr ""
+
+#: inc/MediaFolders.php:236
+#: inc/MediaFolders.php:358
+#: inc/MediaFolders.php:452
+msgid "Date Created: Oldest"
+msgstr ""
+
+#: inc/MediaFolders.php:237
+#: inc/MediaFolders.php:359
+#: inc/MediaFolders.php:453
+msgid "Date Created: Newest"
+msgstr ""
+
+#: inc/MediaFolders.php:238
+#: inc/MediaFolders.php:360
+#: inc/MediaFolders.php:454
+msgid "Date Modified: Oldest"
+msgstr ""
+
+#: inc/MediaFolders.php:239
+#: inc/MediaFolders.php:361
+#: inc/MediaFolders.php:455
+msgid "Date Modified: Newest"
+msgstr ""
+
+#: inc/MediaFolders.php:240
+#: inc/MediaFolders.php:362
+#: inc/MediaFolders.php:456
+msgid "Size: Smallest"
+msgstr ""
+
+#: inc/MediaFolders.php:241
+#: inc/MediaFolders.php:363
+#: inc/MediaFolders.php:457
+msgid "Size: Largest"
+msgstr ""
+
+#: inc/MediaFolders.php:242
+#: inc/MediaFolders.php:364
+#: inc/MediaFolders.php:458
+#: inc/video/admin/components/Header.jsx:44
+msgid "Sort"
+msgstr ""
+
+#: inc/MediaFolders.php:243
+#: inc/MediaFolders.php:365
+#: inc/MediaFolders.php:459
+msgid "Set Color"
+msgstr ""
+
+#: inc/MediaFolders.php:244
+#: inc/MediaFolders.php:366
+#: inc/MediaFolders.php:460
+msgid "No Color"
+msgstr ""
+
+#: inc/MediaFolders.php:245
+#: inc/MediaFolders.php:367
+#: inc/MediaFolders.php:461
+msgid "Custom"
+msgstr ""
+
+#: inc/MediaFolders.php:246
+#: inc/MediaFolders.php:368
+#: inc/MediaFolders.php:462
+msgid "Expand All"
+msgstr ""
+
+#: inc/MediaFolders.php:247
+#: inc/MediaFolders.php:369
+#: inc/MediaFolders.php:463
+msgid "Collapse All"
+msgstr ""
+
+#: inc/MediaFolders.php:248
+#: inc/MediaFolders.php:370
+#: inc/MediaFolders.php:464
+msgid "Folders"
+msgstr ""
+
+#: inc/MediaFolders.php:249
+#: inc/MediaFolders.php:371
+#: inc/MediaFolders.php:465
+msgid "More"
+msgstr ""
+
+#: inc/MediaFolders.php:250
+#: inc/MediaFolders.php:372
+#: inc/MediaFolders.php:466
+msgid "Upload to folder:"
+msgstr ""
+
+#: inc/MediaFolders.php:251
+#: inc/MediaFolders.php:373
+#: inc/MediaFolders.php:467
+msgid "No folder (Uncategorized)"
+msgstr ""
+
+#: inc/MediaFolders.php:253
+#: inc/MediaFolders.php:374
+#: inc/MediaFolders.php:468
+msgid "Sort:"
+msgstr ""
+
+#: inc/MediaFolders.php:254
+#: inc/MediaFolders.php:375
+#: inc/MediaFolders.php:469
+msgid "Date Added"
+msgstr ""
+
+#: inc/MediaFolders.php:255
+#: inc/MediaFolders.php:376
+#: inc/MediaFolders.php:470
+msgid "Date Modified"
+msgstr ""
+
+#: inc/MediaFolders.php:257
+#: inc/MediaFolders.php:267
+#: inc/MediaFolders.php:378
+#: inc/MediaFolders.php:388
+#: inc/MediaFolders.php:472
+#: inc/MediaFolders.php:482
+msgid "Filename"
+msgstr ""
+
+#: inc/MediaFolders.php:258
+#: inc/MediaFolders.php:379
+#: inc/MediaFolders.php:473
+msgid "Author"
+msgstr ""
+
+#: inc/MediaFolders.php:259
+#: inc/MediaFolders.php:380
+#: inc/MediaFolders.php:474
+msgid "File Type"
+msgstr ""
+
+#: inc/MediaFolders.php:260
+#: inc/MediaFolders.php:381
+#: inc/MediaFolders.php:475
+msgid "Extension"
+msgstr ""
+
+#: inc/MediaFolders.php:261
+#: inc/MediaFolders.php:382
+#: inc/MediaFolders.php:476
+msgid "File Size"
+msgstr ""
+
+#: inc/MediaFolders.php:265
+#: inc/MediaFolders.php:386
+#: inc/MediaFolders.php:480
+msgid "Search in:"
+msgstr ""
+
+#: inc/MediaFolders.php:268
+#: inc/MediaFolders.php:389
+#: inc/MediaFolders.php:483
+msgid "Alt Text"
+msgstr ""
+
+#: inc/MediaFolders.php:269
+#: inc/MediaFolders.php:390
+#: inc/MediaFolders.php:484
+msgid "Description"
+msgstr ""
+
+#: inc/MediaFolders.php:270
+#: inc/MediaFolders.php:391
+#: inc/MediaFolders.php:485
+msgid "Caption"
+msgstr ""
+
+#: inc/MediaFolders.php:271
+#: inc/MediaFolders.php:392
+#: inc/MediaFolders.php:486
+msgid "Folder Name"
+msgstr ""
+
+#: inc/MediaFolders.php:272
+#: inc/MediaFolders.php:393
+#: inc/MediaFolders.php:487
+msgid "Search Media..."
+msgstr ""
+
+#: inc/MediaFolders.php:598
+msgid "Folder name cannot be empty."
+msgstr ""
+
+#: inc/MediaFolders.php:621
+msgid "Failed to create folder."
+msgstr ""
+
+#: inc/MediaFolders.php:654
+msgid "Invalid folder or name."
+msgstr ""
+
+#: inc/MediaFolders.php:658
+#: inc/MediaFolders.php:708
+#: inc/MediaFolders.php:757
+#: inc/MediaFolders.php:859
+#: inc/MediaFolders.php:1009
+msgid "Permission denied."
+msgstr ""
+
+#: inc/MediaFolders.php:672
+msgid "Failed to rename folder."
+msgstr ""
+
+#: inc/MediaFolders.php:692
+#: inc/MediaFolders.php:753
+#: inc/MediaFolders.php:855
+msgid "Invalid folder."
+msgstr ""
+
+#: inc/MediaFolders.php:704
+msgid "Folder not found."
+msgstr ""
+
+#: inc/MediaFolders.php:787
+#: inc/MediaFolders.php:895
+msgid "No folders specified."
+msgstr ""
+
+#: inc/MediaFolders.php:864
+msgid "Cannot move a folder into its own subfolder."
+msgstr ""
+
+#: inc/MediaFolders.php:937
+msgid "Some folders could not be moved (circular nesting)."
+msgstr ""
+
+#: inc/MediaFolders.php:1003
+msgid "No media selected."
+msgstr ""
+
+#: inc/MediaFolders.php:1021
+msgid "Target folder not found."
+msgstr ""
+
+#: inc/MediaFolders.php:1412
+msgid "No folder order provided."
 msgstr ""
 
 #: inc/templates/cloud-overview.php:4
@@ -501,7 +1109,7 @@ msgid "Contact Support"
 msgstr ""
 
 #: inc/templates/modal-delete.php:5
-#: inc/templates/settings.php:118
+#: inc/templates/settings.php:142
 msgid "Free Up Local Storage"
 msgstr ""
 
@@ -705,51 +1313,79 @@ msgid "Region can only be selected when first connecting your site."
 msgstr ""
 
 #: inc/templates/settings.php:86
-msgid "Files to exclude"
+msgid "Advanced Media Library"
 msgstr ""
 
 #: inc/templates/settings.php:87
-msgid "Specify files or directories to exclude from cloud sync. For example, exclude log files with \".log\" or specific directories with \"/directory-path/\". One entry per line."
+msgid "Enable folder management, custom sorting, search filters, and the enhanced sidebar in the WordPress Media Library."
 msgstr ""
 
 #: inc/templates/settings.php:91
-msgid "Enable File Exclusions"
+msgid "Disable Advanced Media Library Features"
+msgstr ""
+
+#: inc/templates/settings.php:95
+msgid "No (features enabled)"
+msgstr ""
+
+#: inc/templates/settings.php:96
+msgid "Yes (features disabled)"
 msgstr ""
 
 #: inc/templates/settings.php:98
-msgid "Yes"
+msgid "When disabled, the folder sidebar, custom sorting, and all enhanced UI elements are hidden. Your existing folder structure is preserved but media files will appear in the default WordPress view as if they are uncategorized. Re-enabling will restore your folders and assignments."
+msgstr ""
+
+#: inc/templates/settings.php:102
+#: inc/video/admin/components/Settings.jsx:222
+msgid "Save Settings"
 msgstr ""
 
 #: inc/templates/settings.php:103
-msgid "No"
+msgid "Saved! Please reload the Media Library page."
 msgstr ""
 
-#: inc/templates/settings.php:119
+#: inc/templates/settings.php:110
+msgid "Files to exclude"
+msgstr ""
+
+#: inc/templates/settings.php:111
+msgid "Specify files or directories to exclude from cloud sync. For example, exclude log files with \".log\" or specific directories with \"/directory-path/\". One entry per line."
+msgstr ""
+
+#: inc/templates/settings.php:115
+msgid "Enable File Exclusions"
+msgstr ""
+
+#: inc/templates/settings.php:143
 msgid "There are unused local copies of files already synced to the cloud. You can optionally delete these to free up local storage space."
 msgstr ""
 
-#: inc/templates/settings.php:123
+#: inc/templates/settings.php:147
 msgid "This saves space and improves server performance."
 msgstr ""
 
-#: inc/templates/settings.php:127
-#: inc/video/admin/components/DeleteModal.jsx:72
-msgid "Delete"
-msgstr ""
-
-#: inc/templates/settings.php:132
+#: inc/templates/settings.php:156
 msgid "%s / %s deletable files"
 msgstr ""
 
-#: inc/templates/settings.php:141
+#: inc/templates/settings.php:165
 msgid "Download your media files and disconnect from our cloud. To cancel or manage your storage plan please visit <a href=\"%s\" class=\"text-warning\">account management</a>."
 msgstr ""
 
-#: inc/templates/settings.php:145
+#: inc/templates/settings.php:169
 msgid "We will download your files back to the uploads directory before disconnecting to prevent broken media on your site."
 msgstr ""
 
-#: inc/templates/settings.php:149
+#: inc/templates/settings.php:173
+msgid "Important:"
+msgstr ""
+
+#: inc/templates/settings.php:174
+msgid "Disconnecting will place your site in an unlicensed state. Your folder structure and media customizations will be removed, but no media files will be deleted. All items will remain safely available in the default WordPress Media Library. If you reconnect and license this site again, your folders may be restored."
+msgstr ""
+
+#: inc/templates/settings.php:179
 msgid "Disconnect"
 msgstr ""
 
@@ -872,12 +1508,41 @@ msgstr ""
 msgid "Run Scan"
 msgstr ""
 
-#: infinite-uploads.php:156
+#: infinite-uploads.php:217
 msgid "The Infinite Uploads plugin requires PHP version 5.5.0 or higher. Your server is running PHP version %s."
 msgstr ""
 
-#: infinite-uploads.php:170
+#: infinite-uploads.php:231
 msgid "The Infinite Uploads plugin requires WordPress version 5.3 or higher. Your server is running WordPress version %s."
+msgstr ""
+
+#: inc/gallery/block/edit.js:57
+msgid "Failed to load folders."
+msgstr ""
+
+#: inc/gallery/block/edit.js:80
+msgid "Failed to load images."
+msgstr ""
+
+#: inc/gallery/block/edit.js:105
+msgid "Select a media folder from the sidebar to display its images as a gallery."
+msgstr ""
+
+#: inc/gallery/block/edit.js:120
+msgid "Loading images…"
+msgstr ""
+
+#. translators: %s: folder name
+#: inc/gallery/block/edit.js:136
+msgid "No images found in \"%s\"."
+msgstr ""
+
+#: inc/gallery/block/edit.js:137
+msgid "this folder"
+msgstr ""
+
+#: inc/gallery/block/edit.js:230
+msgid "Open full-size images in a PhotoSwipe lightbox."
 msgstr ""
 
 #: inc/video/admin/components/DeleteModal.jsx:51
@@ -901,22 +1566,8 @@ msgstr ""
 msgid "Search"
 msgstr ""
 
-#: inc/video/admin/components/Header.jsx:44
-msgid "Sort"
-msgstr ""
-
 #: inc/video/admin/components/Header.jsx:47
 msgid "Sort by select"
-msgstr ""
-
-#: inc/video/admin/components/Header.jsx:56
-#: inc/video/admin/components/VideoModal.jsx:356
-#: inc/video/admin/components/VideoModal.jsx:360
-msgid "Title"
-msgstr ""
-
-#: inc/video/admin/components/Header.jsx:59
-msgid "Date"
 msgstr ""
 
 #: inc/video/admin/components/Header.jsx:71
@@ -932,113 +1583,121 @@ msgstr ""
 msgid "No videos found."
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:52
+#: inc/video/admin/components/Settings.jsx:47
+msgid "Failed to save settings."
+msgstr ""
+
+#: inc/video/admin/components/Settings.jsx:54
+msgid "An unexpected error occurred."
+msgstr ""
+
+#: inc/video/admin/components/Settings.jsx:61
 msgid "Video library not yet connected."
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:68
+#: inc/video/admin/components/Settings.jsx:77
 msgid "Infinite Uploads Video Settings"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:85
+#: inc/video/admin/components/Settings.jsx:94
 msgid "Player"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:88
+#: inc/video/admin/components/Settings.jsx:97
 msgid "Main Player Color"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:89
+#: inc/video/admin/components/Settings.jsx:98
 msgid "Select the primary color that will be displayed for the controls in the video player."
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:97
+#: inc/video/admin/components/Settings.jsx:106
 msgid "Enable Direct Play"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:98
+#: inc/video/admin/components/Settings.jsx:107
 msgid "Enables video playback in the browser using the direct video URL. Anyone with the URL or video ID will be able to watch the video."
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:120
+#: inc/video/admin/components/Settings.jsx:129
 msgid "Player Language"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:121
+#: inc/video/admin/components/Settings.jsx:130
 msgid "Select the default language that will be displayed in the video player."
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:160
+#: inc/video/admin/components/Settings.jsx:169
 msgid "Player Controls"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:161
+#: inc/video/admin/components/Settings.jsx:170
 msgid "Select the UI controls that will be displayed on the player."
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:165
+#: inc/video/admin/components/Settings.jsx:174
 msgid "Play / Pause"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:166
+#: inc/video/admin/components/Settings.jsx:175
 msgid "Center Play Button"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:167
+#: inc/video/admin/components/Settings.jsx:176
 msgid "Volume"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:168
+#: inc/video/admin/components/Settings.jsx:177
 msgid "Mute"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:169
+#: inc/video/admin/components/Settings.jsx:178
 msgid "Picture-in-Picture"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:171
+#: inc/video/admin/components/Settings.jsx:180
 #: inc/video/admin/components/VideoModal.jsx:672
 msgid "Captions"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:172
+#: inc/video/admin/components/Settings.jsx:181
 msgid "Current Time"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:173
+#: inc/video/admin/components/Settings.jsx:182
 msgid "Duration"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:174
+#: inc/video/admin/components/Settings.jsx:183
 msgid "10s Backward"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:175
+#: inc/video/admin/components/Settings.jsx:184
 msgid "10s Forward"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:176
+#: inc/video/admin/components/Settings.jsx:185
 msgid "Progress Bar"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:177
+#: inc/video/admin/components/Settings.jsx:186
 msgid "Full Screen"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:182
+#: inc/video/admin/components/Settings.jsx:191
 msgid "Encoding"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:185
+#: inc/video/admin/components/Settings.jsx:194
 msgid "Enabled Resolutions"
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:186
+#: inc/video/admin/components/Settings.jsx:195
 msgid "Select the enabled resolutions that will be encoded on upload. More resolutions provide a more efficient streaming service to users, but require more storage space. Resolutions larger than the original video will be skipped."
 msgstr ""
 
-#: inc/video/admin/components/Settings.jsx:203
-msgid "Save Settings"
+#: inc/video/admin/components/Settings.jsx:212
+msgid "Settings saved successfully."
 msgstr ""
 
 #: inc/video/admin/components/UploadModal.jsx:86
@@ -1212,6 +1871,16 @@ msgstr ""
 
 #: inc/video/block/edit.js:309
 msgid "Drop video file here or %{browse}."
+msgstr ""
+
+#: inc/gallery/block/block.json
+msgctxt "block title"
+msgid "IU Media Folder Gallery"
+msgstr ""
+
+#: inc/gallery/block/block.json
+msgctxt "block description"
+msgid "Display images from an Infinite Uploads media folder as a gallery."
 msgstr ""
 
 #: inc/video/block/block.json

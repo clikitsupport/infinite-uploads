@@ -2,12 +2,12 @@
 /*
  * Plugin Name: Infinite Uploads
  * Description: Infinitely scalable cloud storage and delivery for your videos and uploads made easy! Upload directly to cloud storage and manage your files right from the WordPress Media Library.
- * Version: 3.1.7
+ * Version: 3.2.0
  * Author: Infinite Uploads
  * Author URI: https://infiniteuploads.com/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin&utm_content=meta
  * Text Domain: infinite-uploads
  * Requires at least: 6.0
- * Tested up to: 6.9.1
+ * Tested up to: 6.9
  * Requires PHP: 8.0
  * License: GPLv2
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -18,7 +18,7 @@
  * Copyright 2021-2025 ClikIT, LLC
 */
 
-define( 'INFINITE_UPLOADS_VERSION', '3.1.7' );
+define( 'INFINITE_UPLOADS_VERSION', '3.2.0' );
 
 if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
     require_once __DIR__ . '/vendor/autoload.php';
@@ -78,10 +78,16 @@ function infinite_uploads_init() {
 
 function infinite_uploads_upgrade() {
 
-	// Install the needed DB table if not already.
+	// Network-wide table (infinite_uploads_files) — one option gates the whole network.
 	$installed = get_site_option( 'iup_installed' );
 	if ( INFINITE_UPLOADS_VERSION != $installed ) {
 		infinite_uploads_install();
+	}
+
+	// Per-site folder tables — each subsite tracks its own version independently.
+	$folders_installed = get_option( 'iup_folders_installed' );
+	if ( INFINITE_UPLOADS_VERSION != $folders_installed ) {
+		infinite_uploads_install_folders();
 	}
 }
 
@@ -118,8 +124,63 @@ function infinite_uploads_install() {
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 	}
 
-	return dbDelta( $sql );
+	dbDelta( $sql );
+
+	// Create per-site folder tables for the current site.
+	infinite_uploads_install_folders();
 }
+
+/**
+ * Create (or upgrade) the per-site media-folder tables for the current subsite.
+ *
+ * Uses $wpdb->prefix so each subsite gets its own tables, keeping folder
+ * assignments isolated to the site that owns the attachment posts.
+ * Gated by a per-site option so it runs independently on every subsite.
+ */
+function infinite_uploads_install_folders() {
+	global $wpdb;
+
+	// Prevent race conditions by marking done before the potentially slow dbDelta.
+	update_option( 'iup_folders_installed', INFINITE_UPLOADS_VERSION, true );
+
+	$charset_collate = $wpdb->get_charset_collate();
+
+	// Media folders table.
+	$sql = "CREATE TABLE {$wpdb->prefix}infinite_uploads_media_folders (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            name VARCHAR(255) NOT NULL,
+            parent_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+            created_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            color VARCHAR(20) NOT NULL DEFAULT '',
+            PRIMARY KEY  (id),
+            KEY parent_id (parent_id),
+            KEY sort_order (sort_order)
+        ) {$charset_collate};";
+
+	// Media-to-folder relationship table.
+	$sql .= "\nCREATE TABLE {$wpdb->prefix}infinite_uploads_media_folder_relationships (
+            folder_id BIGINT UNSIGNED NOT NULL,
+            attachment_id BIGINT UNSIGNED NOT NULL,
+            PRIMARY KEY  (folder_id, attachment_id),
+            KEY attachment_id (attachment_id)
+        ) {$charset_collate};";
+
+	if ( ! function_exists( 'dbDelta' ) ) {
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+	}
+
+	dbDelta( $sql );
+}
+
+// Create folder tables for each new subsite when it is provisioned.
+add_action( 'wp_initialize_site', function ( $new_site ) {
+	switch_to_blog( $new_site->blog_id );
+	infinite_uploads_install_folders();
+	restore_current_blog();
+} );
 
 /**
  * Check whether the environment meets the plugin's requirements, like the minimum PHP version.

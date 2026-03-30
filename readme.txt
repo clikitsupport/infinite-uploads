@@ -1,11 +1,11 @@
 === Infinite Uploads - Offload Media and Video to Cloud Storage ===
 
 Requires at least: 6.0
-Tested up to: 6.9.1
-Stable tag: 3.1.7
+Tested up to: 6.9
+Stable tag: 3.2.0
 Requires PHP: 8.0
 Contributors: bww
-Tags: cloud storage, media cloud, encoding, offload, video, streaming, s3, google cloud storage, spaces, storage, cdn, cloud sync
+Tags: cloud storage, offload media, offload, video streaming, cdn
 License: GPLv2
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,6 +16,14 @@ Move, encode, and serve all your video and other media files from the cloud to b
 **Infinite Uploads is your all-in-one media solution with video hosting, encoding, and streaming, and a cloud storage and CDN delivery provider for your WordPress media library. It allows you to easily connect an unlimited number of sites to your Infinite Uploads cloud account for offloading your files, handling massive video uploads and encoding them, lowering hosting costs, improving site performance, and serving files faster to your visitors.**
 
 [youtube https://youtu.be/wanINaK0u5M]
+
+### NEW: Media Library Folders
+
+Organize your WordPress Media Library with unlimited nested folders, drag-and-drop file management, sorting, search, and color-coded folders. Included with all paid Infinite Uploads plans. No extra plugin. No extra cost.
+
+Create folders, nest them as deep as you need, and move files individually or in bulk. Upload directly into specific folders from your computer, including full folder structures. Sort files by name, title, author, date, size, or file type. Search files and folders by name in the grid and modal views.
+
+Folders appear in the media picker across all major page builders: Elementor, Divi, Bricks, Gutenberg/FSE, Beaver Builder, Oxygen, Brizy, and WooCommerce product galleries.
 
 ### NEW: Simple, Unbranded, GDPR-compliant Video Hosting!
 
@@ -47,6 +55,11 @@ Upload directly to your Infinite Uploads cloud storage and manage your files rig
 - **Bulk transfer** - move existing media files to or from the cloud with a click or WP CLI command
 - **Simple restore** - no contract and easy to restore all your files to your media library
 - **Universal compatibility** - Works with most well-coded plugins and themes including eCommerce and performance optimization
+- **Media Library folders** – unlimited nested folders with drag-and-drop, color coding, and bulk actions
+- **Folder upload** – upload files directly into a specific folder, including full folder structures from your computer
+- **Sort and enhanced search** – sort files by name, title, author, date added, date modified, size, or file type. Search files and folders by name.
+- **Resizable folder sidebar** – multiple folder tree themes including a Dropbox-style icon view
+- **Page builder folder support** – folders appear in the media picker inside Elementor, Divi, Bricks, Gutenberg, Beaver Builder, Oxygen, Brizy, and WooCommerce
 
 ### Better Performance, Less Time, Lower-cost
 If you upload a lot of images, publish video content, share motion graphics, want to add big beautiful video backgrounds, have a podcast, or stream large audio files for sermons or lectures, you will save time, resources, and improve performance by moving your files to Infinite Uploads. Keep your site moving at top-speed with dedicated media delivery that seamlessly integrates with WordPress.
@@ -194,8 +207,93 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 6. Video cloud settings.
 7. Cloud video Gutenberg block.
 8. Create a custom CDN URL, track storage, and free up space.
+9. Media Library Folders.
+
+== Upgrade Notice ==
+
+3.2.0
+----------------------------------------------------------------------
+
+* **What's New**
+    * This release adds full folder management, improved filtering, and enhanced search to the WordPress Media Library, included with all paid Infinite Uploads subscriptions.
+
+* **Core Folder Management**
+    * Unlimited nested folder creation in the WordPress Media Library
+    * Drag-and-drop to move files into folders, including bulk selection
+    * Direct upload into a specific folder, including full folder structures from your computer
+    * Rename folders inline
+    * Color-code folders for visual distinction
+    * Bulk folder actions: select multiple folders, then move or delete in one step
+    * Files in deleted folders automatically move to Uncategorized
+    * Auto-enables on active paid plans (toggle to disable in settings)
+    * Full revert to standard WordPress behavior when disabled
+    * Resizable folder sidebar
+
+* **Sorting and Enhanced Search**
+    * Sort files by name, title, author, date added, date modified, size, and file type
+    * Sort folders by name, date created, date modified, and folder size
+    * Search files and folders by name in the Media Library grid and modal
+
+* **Page Builder Compatibility**
+    * Folders appear in the media picker across all major page builders and plugins:
+        * Elementor
+        * Divi
+        * Bricks
+        * Gutenberg / FSE
+        * Beaver Builder
+        * Oxygen
+        * Brizy
+        * WooCommerce product galleries
+
+* **Notes**
+    * Folder data is stored in a custom table. Core WP tables are not modified.
+    * Folder actions respect user roles: admins manage all, editors manage their own.
+    * Disabling Media Library features in settings will flatten folders to Uncategorized with a confirmation prompt if folders are in use.
+    * Folders are removed in an unlicensed state, but no media files are deleted.
+    * Enabled by default on all sites with Infinite Uploads, disabling is possible via Infinite Uploads settings.
 
 == Changelog ==
+
+3.2.0
+----------------------------------------------------------------------
+
+* **What's New**
+    * This release adds full folder management, improved filtering, and enhanced search to the WordPress Media Library, included with all paid Infinite Uploads subscriptions.
+
+* **Core Folder Management**
+    * Unlimited nested folder creation in the WordPress Media Library
+    * Drag-and-drop to move files into folders, including bulk selection
+    * Direct upload into a specific folder, including full folder structures from your computer
+    * Rename folders inline
+    * Color-code folders for visual distinction
+    * Bulk folder actions: select multiple folders, then move or delete in one step
+    * Files in deleted folders automatically move to Uncategorized
+    * Auto-enables on active paid plans (toggle to disable in settings)
+    * Full revert to standard WordPress behavior when disabled
+    * Resizable folder sidebar
+
+* **Sorting and Enhanced Search**
+    * Sort files by name, title, author, date added, date modified, size, and file type
+    * Sort folders by name, date created, date modified, and folder size
+    * Search files and folders by name in the Media Library grid and modal
+
+* **Page Builder Compatibility**
+    * Folders appear in the media picker across all major page builders and plugins:
+        * Elementor
+        * Divi
+        * Bricks
+        * Gutenberg / FSE
+        * Beaver Builder
+        * Oxygen
+        * Brizy
+        * WooCommerce product galleries
+
+* **Notes**
+    * Folder data is stored in a custom table. Core WP tables are not modified.
+    * Folder actions respect user roles: admins manage all, editors manage their own.
+    * Disabling Media Library features in settings will flatten folders to Uncategorized with a confirmation prompt if folders are in use.
+    * Folders are removed in an unlicensed state, but no media files are deleted.
+    * Enabled by default on all sites with Infinite Uploads, disabling is possible via Infinite Uploads settings.
 
 3.1.7
 ----------------------------------------------------------------------

@@ -1,0 +1,1550 @@
+/* ==========================================================================
+   Infinite Uploads - Media Folders Sidebar (Custom Tree)
+   ========================================================================== */
+
+/* -----------------------------------------------------------------
+   Brand colour tokens — change these two lines to re-theme the sidebar
+   ----------------------------------------------------------------- */
+:root {
+	--iu-primary:       #26a9e0;  /* main accent: buttons, active states, icons */
+	--iu-primary-bg:    #eef8fd;  /* 8% tint  — hover / selected row background */
+	--iu-primary-badge: #d4eef9;  /* 20% tint — count-badge background */
+	--iu-primary-muted: #a8ddf3;  /* 40% tint — multi-select outline */
+}
+
+/* Layout wrapper for list mode */
+.iu-media-wrapper {
+	display: flex;
+	width: 100%;
+	gap: 0;
+	align-items: flex-start;
+	min-height: calc(100vh - 32px);
+	box-sizing: border-box;
+}
+
+.iu-media-wrapper .iu-media-content {
+	flex: 1 1 0%;
+	min-width: 0;
+	width: 0; /* forces flex shrink/grow to control the width */
+}
+
+/* Sidebar wrap (sidebar + resize + toggle) */
+#iu-media-folders-wrap {
+	display: flex;
+	position: sticky;
+	top: 32px;
+	align-self: flex-start;
+	height: calc(100vh - 32px);
+	z-index: 10;
+	flex-shrink: 0;
+	margin-right: 10px;
+}
+
+/* ==========================================================================
+   Sidebar Handle (resize strip + circular toggle)
+   ========================================================================== */
+
+.iu-sidebar-handle {
+	position: sticky;
+	width: 16px;
+	cursor: col-resize;
+	flex-shrink: 0;
+	align-self: stretch;
+	z-index: 11;
+	transition: width 0.2s ease, margin 0.2s ease;
+}
+
+/* Vertical line via pseudo-element */
+.iu-sidebar-handle::before {
+	content: '';
+	position: absolute;
+	right: 0;
+	top: 0;
+	width: 1px;
+	height: 100%;
+	background: #c1c3c5b4;
+	transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.iu-sidebar-handle:hover::before {
+	background: var(--iu-primary);
+	box-shadow: 1px 0 0 0 var(--iu-primary);
+}
+
+/* Circular toggle button - flex item after handle */
+.iu-sidebar-toggle {
+	position: relative;
+	margin-top: 50px;
+	margin-left: -12px;
+	z-index: 999;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	cursor: pointer;
+	border-radius: 50%;
+	background: #fff;
+	color: #6b778c;
+	border: none;
+	padding: 0;
+	box-shadow: 0 0 0 1px #c3c4c7, 0 2px 5px rgba(51, 51, 51, 0.1);
+	transform: scaleX(-1);
+	transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.2s ease;
+	flex-shrink: 0;
+	align-self: flex-start;
+}
+
+.iu-sidebar-toggle:hover {
+	background: var(--iu-primary);
+	color: #fff;
+	box-shadow: 0 0 0 1px var(--iu-primary), 0 2px 5px rgba(51, 51, 51, 0.1);
+}
+
+.iu-sidebar-toggle svg {
+	width: 24px;
+	height: 24px;
+}
+
+/* ==========================================================================
+   Sidebar
+   ========================================================================== */
+
+#iu-media-folders-sidebar {
+	width: 280px;
+	min-width: 280px;
+	background: #f0f0f1;
+	border-right: none;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+	padding: 0;
+	box-sizing: border-box;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	transition: width 0.2s ease, min-width 0.2s ease, opacity 0.2s ease;
+}
+
+/* Collapsed state */
+#iu-media-folders-wrap.iu-collapsed #iu-media-folders-sidebar {
+	width: 0;
+	min-width: 0;
+	overflow: hidden;
+	display: none;
+	border-width: 0;
+	opacity: 0;
+	padding: 0;
+}
+
+#iu-media-folders-wrap.iu-collapsed {
+	margin-left: 10px;
+	margin-right: 10px;
+}
+
+#iu-media-folders-wrap.iu-collapsed .iu-sidebar-handle {
+	width: 0;
+	margin-right: 0;
+	cursor: default;
+}
+
+#iu-media-folders-wrap.iu-collapsed .iu-sidebar-toggle {
+	transform: scaleX(1);
+}
+
+/* Grid mode: sidebar is inside the media frame */
+.media-frame.iu-has-folders {
+	display: flex !important;
+}
+
+.media-frame-tab-panel {
+	width: 100%;
+}
+
+.media-frame.iu-has-folders #iu-media-folders-wrap {
+	position: relative;
+	top: 0;
+	max-height: 100%;
+	margin: 12px;
+}
+
+.media-frame.iu-has-folders #iu-media-folders-sidebar {
+	position: relative;
+	top: 0;
+	border: none;
+	/*border-right: 1px solid #c3c4c7;*/
+	box-shadow: none;
+	max-height: 100%;
+}
+
+.media-frame.iu-has-folders #iu-media-folders-wrap.iu-collapsed #iu-media-folders-sidebar {
+	border-right-width: 0;
+}
+
+.media-frame.iu-has-folders .iu-sidebar-handle::before {
+	background: #c3c4c7;
+}
+
+.media-frame.iu-has-folders .media-frame-content,
+.media-frame.iu-has-folders .media-toolbar,
+.media-frame.iu-has-folders .attachments-browser {
+	flex: 1;
+	min-width: 0;
+}
+
+/* Modal mode: sidebar injected into .media-frame-menu.
+   We widen the menu column from WordPress's default 200px to 240px and push
+   .media-frame-content over to match.
+   ========================================================================== */
+
+.media-frame.iu-has-menu-sidebar .media-frame-menu {
+	overflow: hidden;
+	width: 240px !important;
+}
+
+.media-frame.iu-has-menu-sidebar .media-frame-content,
+.media-frame.iu-has-menu-sidebar .media-frame-toolbar,
+.media-frame.iu-has-menu-sidebar .media-frame-router,
+.media-frame.iu-has-menu-sidebar .media-frame-title {
+	left: 240px !important;
+}
+
+/* Reset position/size so sidebar fills the 200px menu column naturally. */
+.media-frame.iu-has-menu-sidebar #iu-media-folders-wrap {
+	position: relative;
+	top: auto;
+	height: 100%;
+	align-self: stretch;
+	margin-right: 0;
+}
+
+.media-frame.iu-has-menu-sidebar #iu-media-folders-sidebar {
+	width: 100% !important;
+	min-width: 0 !important;
+	height: 100%;
+	max-height: none;
+	border: none;
+	box-shadow: none;
+}
+
+/* Hide the resize handle and toggle in the modal — sidebar is always visible. */
+.media-frame.iu-has-menu-sidebar .iu-sidebar-handle,
+.media-frame.iu-has-menu-sidebar .iu-sidebar-toggle {
+	display: none;
+}
+
+/* ==========================================================================
+   Header Row 1: Title + New Folder Button
+   ========================================================================== */
+
+.iu-folders-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px;
+	background: #fff;
+	box-shadow: 0 5px 35px #00000008;
+	border-bottom: 1px solid #e2e4e7;
+	margin-bottom: 15px;
+}
+
+.iu-folders-title {
+	font-weight: 600;
+	font-size: 14px;
+	color: #1d2327;
+}
+
+.iu-folder-add-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	background: var(--iu-primary);
+	color: #fff;
+	border: 1px solid var(--iu-primary);
+	border-radius: 4px;
+	cursor: pointer;
+	padding: 5px 12px;
+	font-size: 13px;
+	font-weight: 500;
+	line-height: 1.4;
+	transition: all .2s;
+	white-space: nowrap;
+}
+
+.iu-folder-add-btn:hover {
+	background: var(--iu-primary);
+	border-color: var(--iu-primary);
+	color: #fff;
+}
+
+.iu-folder-add-btn:active {
+	background: var(--iu-primary);
+	border-color: var(--iu-primary);
+}
+
+.iu-folder-add-btn .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	line-height: 16px;
+}
+
+.iu-btn-label {
+	font-size: 13px;
+}
+
+/* ==========================================================================
+   Header Row 2: Actions (Rename, Delete, Sort, More)
+   ========================================================================== */
+
+.iu-folders-actions {
+	display: flex;
+	align-items: center;
+	padding: 6px 10px;
+	border-bottom: 1px solid #e2e4e7;
+	gap: 4px;
+}
+
+.iu-action-rename,
+.iu-action-delete {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	background: var(--iu-primary);
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	padding: 3px 8px;
+	font-size: 14px;
+	color: #fff;
+	line-height: 1.4;
+	transition: all .2s;
+}
+
+.iu-action-rename:hover:not(:disabled),
+.iu-action-delete:hover:not(:disabled) {
+	background: var(--iu-primary);
+	color: #fff;
+}
+
+.iu-action-rename:disabled,
+.iu-action-delete:disabled {
+	opacity: 0.5;
+	cursor: default;
+	background: #fff;
+	color: #000
+}
+
+.iu-action-rename .dashicons,
+.iu-action-delete .dashicons {
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
+}
+
+.iu-actions-right {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	margin-left: auto;
+}
+
+.iu-sort-btn,
+.iu-action-more {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	background: #f6f7f7;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	padding: 0;
+	color: #33302f;
+	transition: all .2s;
+	margin-righ: 7px;
+}
+
+.iu-sort-btn:hover,
+.iu-action-more:hover {
+	background: var(--iu-primary);
+	color: #fff;
+}
+
+.iu-sort-btn.iu-active {
+	background: var(--iu-primary);
+	color: #fff;
+}
+
+.iu-sort-btn .dashicons,
+.iu-action-more .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+}
+
+/* Rotate ellipsis to vertical dots */
+.iu-action-more .dashicons {
+	transform: rotate(90deg);
+}
+
+/* ==========================================================================
+   Sort Dropdown Menu
+   ========================================================================== */
+
+.iu-sort-dropdown {
+	position: relative;
+}
+
+.iu-sort-menu {
+	display: none;
+	position: absolute;
+	right: 0;
+	top: 100%;
+	margin-top: 4px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+	z-index: 100;
+	min-width: 190px;
+	padding: 4px 0;
+}
+
+.iu-sort-menu.iu-open {
+	display: block;
+}
+
+.iu-sort-item {
+	display: block;
+	width: 100%;
+	padding: 6px 12px;
+	border: none;
+	background: none;
+	cursor: pointer;
+	font-size: 13px;
+	color: #50575e;
+	line-height: 1.4;
+	text-align: left;
+}
+
+.iu-sort-item:hover {
+	background: #f0f0f1;
+	color: #1d2327;
+}
+
+.iu-sort-item.iu-sort-active {
+	color: var(--iu-primary);
+	font-weight: 600;
+}
+
+.iu-sort-divider {
+	height: 1px;
+	background: #f0f0f1;
+	margin: 4px 0;
+}
+
+/* ==========================================================================
+   More Dropdown Menu
+   ========================================================================== */
+
+.iu-more-dropdown {
+	position: relative;
+}
+
+.iu-more-menu {
+	display: none;
+	position: absolute;
+	right: 0;
+	top: 100%;
+	margin-top: 4px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+	z-index: 100;
+	min-width: 150px;
+	padding: 4px 0;
+}
+
+.iu-more-menu.iu-open {
+	display: block;
+}
+
+.iu-more-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	padding: 6px 12px;
+	border: none;
+	background: none;
+	cursor: pointer;
+	font-size: 13px;
+	color: #50575e;
+	line-height: 1.4;
+	text-align: left;
+}
+
+.iu-more-item:hover {
+	background: #f0f0f1;
+	color: #1d2327;
+}
+
+.iu-more-item .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	color: #787c82;
+}
+
+/* ==========================================================================
+   Virtual Folders (All Files + Uncategorized)
+   ========================================================================== */
+
+.iu-virtual-folders {
+	padding: 4px 0;
+	border-bottom: 1px solid #e2e4e7;
+}
+
+.iu-virtual-folder {
+	display: flex;
+	align-items: center;
+	padding: 6px 16px;
+	cursor: pointer;
+	transition: all .2s;
+	position: relative;
+	user-select: none;
+	border-radius: 3px;
+	margin: 0 16px;
+}
+
+.iu-virtual-folder:hover {
+	background: #e3e3e3;
+}
+
+.iu-virtual-folder.iu-vf-selected {
+	background: var(--iu-primary-bg);
+}
+
+.iu-virtual-folder.iu-vf-selected .iu-vf-name {
+	color: var(--iu-primary);
+	font-weight: 500;
+}
+
+.iu-virtual-folder.iu-vf-selected .iu-vf-icon {
+	color: var(--iu-primary);
+}
+
+.iu-vf-icon {
+	font-size: 16px;
+	width: 20px;
+	height: 20px;
+	line-height: 20px;
+	margin-right: 6px;
+	color: #8f8f8f;
+}
+
+.iu-vf-name {
+	flex: 1;
+	font-size: 13px;
+	color: #1d2327;
+	line-height: 20px;
+}
+
+/* Virtual folder drop hover */
+.iu-virtual-folder.iu-drop-hover {
+	background: var(--iu-primary-bg);
+}
+
+.iu-virtual-folder.iu-drop-hover .iu-vf-name {
+	color: var(--iu-primary);
+	font-weight: 600;
+}
+
+/* ==========================================================================
+   Folder column in the media list table
+   ========================================================================== */
+
+.column-iu_folder {
+	width: 130px;
+}
+
+.iu-folder-col-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	color: #2271b1;
+	text-decoration: none;
+	font-size: 13px;
+}
+
+.iu-folder-col-link:hover {
+	color: #135e96;
+	text-decoration: underline;
+}
+
+.iu-folder-col-link .dashicons {
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
+	line-height: 14px;
+	color: #8f8f8f;
+	flex-shrink: 0;
+}
+
+.iu-folder-col-empty {
+	color: #999;
+}
+
+/* ==========================================================================
+   Upload to Folder bar (media-new.php)
+   ========================================================================== */
+
+.iu-upload-folder-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 10px 16px;
+	margin-bottom: 16px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.iu-upload-folder-bar .dashicons {
+	font-size: 18px;
+	width: 18px;
+	height: 18px;
+	color: var(--iu-primary);
+	flex-shrink: 0;
+}
+
+.iu-upload-folder-bar-label {
+	font-size: 13px;
+	font-weight: 500;
+	color: #1d2327;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.iu-upload-folder-select {
+	font-size: 13px;
+	padding: 5px 8px;
+	border: 1px solid #c3c4c7;
+	border-radius: 3px;
+	background: #fff;
+	color: #1d2327;
+	cursor: pointer;
+	line-height: 1.4;
+}
+
+.iu-upload-folder-select:focus {
+	border-color: var(--iu-primary);
+	box-shadow: 0 0 0 1px var(--iu-primary);
+	outline: none;
+}
+
+.iu-upload-folder-bar .iu-upload-folder-select {
+	min-width: 200px;
+	max-width: 400px;
+}
+
+/* ==========================================================================
+   Search Input
+   ========================================================================== */
+
+.iu-folders-search {
+	position: relative;
+	padding: 8px 16px;
+	border-bottom: 1px solid #e2e4e7;
+}
+
+.iu-search-icon {
+	position: absolute;
+	left: 22px;
+	top: 50%;
+	transform: translateY(-50%);
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
+	color: #82878c;
+	pointer-events: none;
+}
+
+.iu-folders-search input.iu-folder-search-input {
+	width: 100%;
+	padding: 6px 25px 6px 28px;
+	border: 1px solid #CDD0D4;
+	border-radius: 4px;
+	font-size: 13px;
+	line-height: 1.4;
+	background: #fff;
+	color: #1d2327;
+	box-sizing: border-box;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+	/*padding: 3px 25px;*/
+}
+
+.iu-folder-search-input:focus {
+	border-color: var(--iu-primary);
+	box-shadow: 0 0 0 1px var(--iu-primary);
+	outline: none;
+}
+
+.iu-folder-search-input::placeholder {
+	color: #82878c;
+}
+
+/* ==========================================================================
+   Count Badges (right-aligned pill)
+   ========================================================================== */
+
+.iu-count-badge {
+	display: inline-block;
+	min-width: 20px;
+	height: 20px;
+	line-height: 20px;
+	padding: 0 6px;
+	font-size: 11px;
+	font-weight: 500;
+	text-align: center;
+	color: #50575e;
+	background: #f0f0f1;
+	border-radius: 10px;
+	box-sizing: border-box;
+	margin-left: auto;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+/* Badge inside virtual folder */
+.iu-virtual-folder .iu-count-badge {
+	position: static;
+	transform: none;
+}
+
+.iu-virtual-folder.iu-vf-selected .iu-count-badge {
+	color: var(--iu-primary);
+	background: var(--iu-primary-badge);
+}
+
+/* ==========================================================================
+   Custom Folder Tree
+   ========================================================================== */
+
+#iu-folders-tree {
+	padding: 4px 0;
+	flex: 1;
+	overflow-y: auto;
+}
+
+/* Tree node list resets */
+#iu-folders-tree ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+#iu-folders-tree > ul {
+	padding: 0 8px;
+}
+
+#iu-folders-tree .iu-node-children {
+	padding-left: 20px;
+}
+
+/* Node row */
+.iu-node-row {
+	display: flex;
+	align-items: center;
+	height: 36px;
+	padding: 0 8px;
+	cursor: pointer;
+	border-radius: 3px;
+	transition: background-color 0.15s ease;
+	user-select: none;
+	position: relative;
+}
+
+.iu-node-row:hover {
+	background: var(--iu-primary-bg);
+	color: var(--iu-primary);
+}
+
+/* Selected state */
+.iu-node-row.iu-selected {
+	background: var(--iu-primary-bg);
+}
+
+.iu-node-row.iu-selected .iu-node-text {
+	color: var(--iu-primary);
+	font-weight: 500;
+}
+
+.iu-node-row.iu-selected .iu-node-icon {
+	color: var(--iu-primary);
+}
+
+.iu-node-row.iu-selected .iu-count-badge {
+	color: var(--iu-primary);
+	background: var(--iu-primary-badge);
+}
+
+/* Multi-select state */
+.iu-node-row.iu-multi-selected {
+	background: var(--iu-primary-bg);
+	outline: 1px solid var(--iu-primary-muted);
+	outline-offset: -1px;
+}
+
+.iu-node-row.iu-multi-selected .iu-node-text {
+	color: var(--iu-primary);
+	font-weight: 500;
+}
+
+.iu-node-row.iu-multi-selected .iu-node-icon {
+	color: var(--iu-primary);
+}
+
+.iu-node-row.iu-multi-selected .iu-count-badge {
+	color: var(--iu-primary);
+	background: var(--iu-primary-badge);
+}
+
+.iu-tree-node.iu-dragging > .iu-node-row.iu-multi-selected {
+	opacity: 0.4;
+}
+
+.iu-node-row:hover .iu-count-badge {
+	background: #e2e4e7;
+}
+
+/* Toggle (chevron) */
+.iu-node-toggle {
+	width: 20px;
+	height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #8f8f8f;
+	flex-shrink: 0;
+	transition: transform 0.15s ease;
+	border-radius: 3px;
+}
+
+.iu-node-toggle:hover {
+	background: rgba(0, 0, 0, 0.06);
+}
+
+.iu-node-toggle svg {
+	width: 16px;
+	height: 16px;
+}
+
+.iu-node-toggle.iu-expanded {
+	transform: rotate(90deg);
+}
+
+/* Empty toggle placeholder (leaf nodes) */
+.iu-node-toggle.iu-leaf {
+	visibility: hidden;
+}
+
+/* Folder icon */
+.iu-node-icon {
+	font-size: 16px;
+	width: 20px;
+	height: 20px;
+	line-height: 20px;
+	margin-right: 4px;
+	color: #8f8f8f;
+	flex-shrink: 0;
+}
+
+/* Node text */
+.iu-node-text {
+	flex: 1;
+	font-size: 13px;
+	/*color: var(--iu-primary);*/
+	line-height: 36px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
+}
+
+/* Count badge inside tree node */
+.iu-node-row .iu-count-badge {
+	margin-left: 6px;
+}
+
+/* ==========================================================================
+   Cut Indicator
+   ========================================================================== */
+
+.iu-tree-node.iu-cut > .iu-node-row {
+	opacity: 0.5;
+	font-style: italic;
+}
+
+/* ==========================================================================
+   Search match highlight
+   ========================================================================== */
+
+.iu-tree-node.iu-search-match > .iu-node-row .iu-node-text {
+	color: #1d2327;
+	font-weight: 600;
+}
+
+/* Hidden nodes during search */
+.iu-tree-node.iu-search-hidden {
+	display: none;
+}
+
+/* ==========================================================================
+   Inline Rename Input
+   ========================================================================== */
+
+.iu-node-row .iu-rename-input {
+	flex: 1;
+	font-size: 13px;
+	line-height: 1.4;
+	padding: 2px 6px;
+	border: 1px solid var(--iu-primary);
+	border-radius: 3px;
+	outline: none;
+	box-shadow: 0 0 0 1px var(--iu-primary);
+	min-width: 0;
+	background: #fff;
+	color: #1d2327;
+}
+
+/* ==========================================================================
+   Drop Hover (media drag onto tree nodes)
+   ========================================================================== */
+
+.iu-node-row.iu-drop-hover {
+	background: var(--iu-primary-bg);
+}
+
+.iu-node-row.iu-drop-hover .iu-node-text {
+	color: var(--iu-primary);
+	font-weight: 600;
+}
+
+/* Folder DnD: being dragged */
+.iu-tree-node.iu-dragging > .iu-node-row {
+	opacity: 0.4;
+}
+
+/* Moved folder highlight (fades out over 3s) */
+@keyframes iu-moved-flash {
+	0%   { background: #d4f5d4; }
+	70%  { background: #d4f5d4; }
+	100% { background: transparent; }
+}
+.iu-node-row.iu-node-moved {
+	animation: iu-moved-flash 3s ease-out forwards;
+}
+
+/* ==========================================================================
+   Context Menu
+   ========================================================================== */
+
+.iu-context-menu {
+	position: fixed;
+	z-index: 999999; /* must exceed WP media modal (160000) and other builder overlays */
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 3px 8px rgba(0, 0, 0, 0.16);
+	padding: 4px 0;
+	min-width: 160px;
+}
+
+.iu-context-menu-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	padding: 6px 12px;
+	border: none;
+	background: none;
+	cursor: pointer;
+	font-size: 13px;
+	color: #50575e;
+	line-height: 1.4;
+	text-align: left;
+	box-sizing: border-box;
+}
+
+.iu-context-menu-item:hover {
+	background: #f0f0f1;
+	color: #1d2327;
+}
+
+.iu-context-menu-item .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	color: #787c82;
+}
+
+.iu-context-menu-item.iu-danger {
+	color: #d63638;
+}
+
+.iu-context-menu-item.iu-danger .dashicons {
+	color: #d63638;
+}
+
+.iu-context-menu-separator {
+	height: 1px;
+	background: #e2e4e7;
+	margin: 4px 0;
+}
+
+/* ==========================================================================
+   Folder Color — context menu submenu
+   ========================================================================== */
+
+/* Wrapper that holds the "Set Color" item + its submenu panel */
+.iu-submenu-wrap {
+	position: relative;
+}
+
+/* Arrow indicator on the "Set Color" item */
+.iu-has-submenu {
+	justify-content: flex-start;
+}
+
+.iu-submenu-arrow {
+	margin-left: auto;
+	font-size: 9px;
+	color: #787c82;
+	line-height: 1;
+}
+
+/* Submenu panel — flies out to the right by default */
+.iu-color-submenu {
+	display: none;
+	position: absolute;
+	left: 100%;
+	top: -4px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 3px 8px rgba(0, 0, 0, 0.16);
+	padding: 10px;
+	z-index: 100002;
+	white-space: nowrap;
+}
+
+.iu-color-submenu.iu-open {
+	display: block;
+}
+
+/* Flip to the left when too close to the right viewport edge */
+.iu-color-submenu.iu-flip-left {
+	left: auto;
+	right: 100%;
+}
+
+/* Swatch grid */
+.iu-color-swatches {
+	display: grid;
+	grid-template-columns: repeat(4, 26px);
+	gap: 6px;
+	margin-bottom: 8px;
+}
+
+.iu-color-swatch {
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	border: 2px solid transparent;
+	cursor: pointer;
+	padding: 0;
+	outline: none;
+	transition: transform 0.1s ease, border-color 0.1s ease;
+}
+
+.iu-color-swatch:hover {
+	transform: scale(1.15);
+	border-color: rgba(0, 0, 0, 0.2);
+}
+
+.iu-color-swatch.iu-swatch-active {
+	border-color: #1d2327;
+	transform: scale(1.1);
+}
+
+/* "No Color" clear swatch */
+.iu-color-none {
+	background: #f0f0f1;
+	color: #787c82;
+	font-size: 12px;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.iu-color-none:hover {
+	background: #e0e0e1;
+	border-color: transparent;
+}
+
+/* Custom color row */
+.iu-custom-color-wrap {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding-top: 6px;
+	border-top: 1px solid #f0f0f1;
+}
+
+.iu-custom-color-input {
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	border: 2px solid transparent;
+	padding: 0;
+	cursor: pointer;
+	outline: none;
+	background: none;
+	flex-shrink: 0;
+	transition: border-color 0.1s ease;
+}
+
+.iu-custom-color-input:hover {
+	border-color: rgba(0, 0, 0, 0.2);
+}
+
+.iu-custom-color-input::-webkit-color-swatch-wrapper { padding: 0; }
+.iu-custom-color-input::-webkit-color-swatch { border: none; border-radius: 50%; }
+.iu-custom-color-input::-moz-color-swatch { border: none; border-radius: 50%; }
+
+.iu-custom-color-label {
+	font-size: 12px;
+	color: #50575e;
+}
+
+/* ==========================================================================
+   Resizing state
+   ========================================================================== */
+
+body.iu-resizing {
+	user-select: none;
+	-webkit-user-select: none;
+	cursor: col-resize;
+}
+
+body.iu-resizing * {
+	cursor: col-resize !important;
+}
+
+body.iu-resizing .iu-sidebar-handle::before {
+	background: var(--iu-primary);
+	box-shadow: 1px 0 0 0 var(--iu-primary);
+}
+
+/* ==========================================================================
+   Drag-and-Drop (media items)
+   ========================================================================== */
+
+.iu-drag-helper {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+	padding: 4px;
+	max-width: 60px;
+	max-height: 60px;
+	overflow: hidden;
+	position: relative;
+	cursor: grabbing;
+}
+
+.iu-drag-helper img {
+	width: 50px;
+	height: 50px;
+	object-fit: cover;
+	display: block;
+	border-radius: 2px;
+}
+
+.iu-drag-helper-list {
+	max-width: 200px;
+	max-height: none;
+	padding: 6px 10px;
+	font-size: 12px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.iu-drag-count {
+	position: absolute;
+	top: -6px;
+	right: -6px;
+	background: var(--iu-primary);
+	color: #fff;
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 18px;
+	width: 18px;
+	height: 18px;
+	text-align: center;
+	border-radius: 50%;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.iu-drag-helper-list .iu-drag-count {
+	position: static;
+	display: inline-block;
+	margin-left: 6px;
+	vertical-align: middle;
+}
+
+/* Drop target highlighting on sidebar */
+#iu-media-folders-sidebar.iu-drop-active {
+	border-color: var(--iu-primary);
+	box-shadow: 0 0 0 1px var(--iu-primary);
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media screen and (max-width: 782px) {
+	#iu-media-folders-sidebar {
+		width: 220px;
+		min-width: 220px;
+	}
+
+	.iu-sidebar-handle {
+		display: none;
+	}
+
+	.iu-folder-add-btn .iu-btn-label {
+		display: none;
+	}
+
+	.iu-folder-add-btn {
+		padding: 5px 8px;
+	}
+
+	.iu-action-rename span:not(.dashicons),
+	.iu-action-delete span:not(.dashicons) {
+		display: none;
+	}
+
+	.iu-action-rename,
+	.iu-action-delete {
+		padding: 3px 6px;
+	}
+}
+
+@media screen and (max-width: 600px) {
+	.iu-media-wrapper {
+		flex-direction: column;
+		min-height: auto;
+	}
+
+	#iu-media-folders-wrap {
+		position: static;
+		width: 100%;
+		height: auto;
+		align-self: auto;
+	}
+
+	#iu-media-folders-sidebar {
+		width: 100% !important;
+		min-width: 100% !important;
+		max-height: none;
+	}
+
+	#iu-media-folders-wrap.iu-collapsed #iu-media-folders-sidebar {
+		width: 0 !important;
+		min-width: 0 !important;
+	}
+
+	#iu-folders-tree {
+		max-height: 200px;
+		overflow-y: auto;
+	}
+
+	.media-frame.iu-has-folders {
+		flex-direction: column !important;
+	}
+
+	.media-frame.iu-has-folders #iu-media-folders-sidebar {
+		border-right: none;
+		border-bottom: 1px solid #c3c4c7;
+	}
+
+	.iu-sidebar-handle {
+		display: none;
+	}
+}
+
+/* ==========================================================================
+ *    Fix: Tailwind CSS .fixed utility conflicts with WordPress table .fixed class.
+*    Tailwind sets .fixed { position: fixed } which breaks the WP media list table.
+   ========================================================================== */
+.wp-list-table.fixed {
+	    position: static !important;
+}
+
+/* ==========================================================================
+   Media File Sort Controls
+   Injected inline next to the "All dates" filter in the media toolbar.
+   ========================================================================== */
+
+/* Wrapper keeps the select + button together as a single inline unit */
+.iu-media-sort-wrap {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	vertical-align: middle;
+}
+
+.media-modal-content .iu-media-sort-wrap {
+	margin-left: 10px;
+	margin-top: 30px;
+}
+
+/* Sort dropdown — self-contained, does NOT use .attachment-filters to avoid
+   WP modal overrides (margin-top:32px, width:calc(48% - 12px)) */
+.iu-media-sort-select {
+	min-width: 160px;
+	height: 28px;
+	font-size: 13px;
+	border: 1px solid #c3c4c7;
+	border-radius: 3px;
+	padding: 0 4px;
+	background: #fff;
+	color: #2c3338;
+	margin: 0;
+	line-height: 2;
+}
+
+/* Asc / desc order toggle — sits immediately after the sort select */
+.iu-media-sort-order {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	align-self: center;
+	flex-shrink: 0;
+	width: 28px;
+	height: 28px;
+	margin-right: 8px;
+	padding: 0;
+	border: 1px solid #c3c4c7;
+	border-radius: 3px;
+	background: #fff;
+	cursor: pointer;
+	color: #50575e;
+	line-height: 1;
+}
+
+.iu-media-sort-order:hover {
+	border-color: var(--iu-primary);
+	color: var(--iu-primary);
+	background: var(--iu-primary-bg);
+}
+
+.iu-media-sort-order .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	line-height: 1;
+}
+
+/* Modal / grid: expand the secondary toolbar to fit our extra controls.
+   WP normally sets overflow:hidden and right:50% on .media-toolbar-secondary,
+   which clips anything beyond the two native filter selects. */
+.media-frame .media-toolbar-secondary.iu-has-sort {
+	overflow: visible;
+	width: auto;
+	right: 130px; /* leave room for the search input in .media-toolbar-primary */
+	display: flex;
+	align-items: center;
+	flex-wrap: nowrap;
+}
+
+/* Reset WP's percentage-based widths on the two native selects so they
+   size to content instead of calc(48% - 12px) of the now-wider container. */
+.media-frame .media-toolbar-secondary.iu-has-sort select.attachment-filters {
+	width: auto;
+	max-width: none;
+}
+
+/* List-mode: sits inline after the Filter button in .tablenav.top */
+.tablenav .iu-media-sort-wrap {
+	float: left;
+	margin-left: 6px;
+	line-height: 2;
+}
+
+/* ==========================================================================
+   Media Search Fields Selector
+   A filter-icon button that opens a popover of checkboxes letting the user
+   choose which fields (title, filename, alt, description, caption, folders)
+   are included in media library searches.
+   ========================================================================== */
+
+/* Wrapper — positions the popover relative to the button */
+.iu-search-fields-wrap {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	vertical-align: middle;
+	margin-right: 6px;
+}
+
+/* Filter toggle button */
+.iu-search-fields-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 1px solid #c3c4c7;
+	border-radius: 3px;
+	background: #fff;
+	cursor: pointer;
+	color: #50575e;
+	line-height: 1;
+	flex-shrink: 0;
+}
+
+.iu-search-fields-btn:hover,
+.iu-search-fields-btn.iu-active {
+	border-color: var(--iu-primary);
+	color: var(--iu-primary);
+	background: var(--iu-primary-bg);
+}
+
+.iu-search-fields-btn .dashicons {
+	font-size: 16px;
+	width: 16px;
+	height: 16px;
+	line-height: 1;
+}
+
+/* Popover panel */
+.iu-search-fields-popover {
+	/* position/top/left are set to fixed via JS on click to escape overflow:hidden parents */
+	z-index: 999999;
+	min-width: 160px;
+	padding: 8px 0 6px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
+}
+
+.iu-search-fields-title {
+	padding: 0 12px 6px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: .04em;
+	color: #646970;
+	border-bottom: 1px solid #f0f0f1;
+	margin-bottom: 4px;
+}
+
+.iu-search-field-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 5px 12px;
+	font-size: 13px;
+	color: #2c3338;
+	cursor: pointer;
+	white-space: nowrap;
+	user-select: none;
+	font-weight: normal;
+}
+
+.iu-search-field-item:hover {
+	background: var(--iu-primary-bg);
+	color: var(--iu-primary);
+}
+
+.iu-search-field-item input[type="checkbox"] {
+	margin: 0;
+	cursor: pointer;
+}
+
+/* In list mode, position the wrap inline next to the search box */
+.search-box .iu-search-fields-wrap {
+	display: inline-flex;
+	margin-right: 4px;
+	vertical-align: middle;
+}
+
+/* In modal context (Elementor and other page builders), make the primary
+   toolbar a flex row so the funnel button and the search input sit on the
+   same line and are vertically centred. The label is removed via JS and
+   replaced with a placeholder on the input. */
+.media-modal-content .media-toolbar-primary {
+	display: flex;
+	align-items: baseline;
+	flex-wrap: nowrap;
+	gap: 4px;
+}
+
+.media-modal-content .media-toolbar-primary input[type="search"] {
+	flex: 1;
+	min-width: 120px;
+}
+
+/* ==========================================================================
+   Suppress WP's "Drop files to upload" overlay during attachment→folder drags.
+   The .iu-dragging-media class is added to <body> in dragstart and removed in
+   dragend, so these rules are active only for the duration of a folder-move drag.
+   ========================================================================== */
+body.iu-dragging-media .uploader-window,
+body.iu-dragging-media .media-uploader-status,
+body.iu-dragging-media .uploader-inline-content.has-upload-message {
+	display: none !important;
+	pointer-events: none !important;
+}
+
+/* ==========================================================================
+   Sidebar loading indicator
+   Shown during folder move / media move AJAX operations.
+   ========================================================================== */
+
+#iu-media-folders-sidebar.iu-loading #iu-folders-tree {
+	opacity: 0.4;
+	pointer-events: none;
+	user-select: none;
+	transition: opacity 0.15s;
+}
+
+.iu-tree-spinner {
+	display: block;
+	width: 22px;
+	height: 22px;
+	margin: 14px auto 0;
+	border: 3px solid rgba(0, 0, 0, .08);
+	border-top-color: var(--iu-primary);
+	border-radius: 50%;
+	animation: iu-spin 0.65s linear infinite;
+}
+
+@keyframes iu-spin {
+	to { transform: rotate(360deg); }
+}
+
+
+.media-modal .media-frame .media-search-input-label {
+	left: 40px;
+}
