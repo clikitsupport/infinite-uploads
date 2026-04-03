@@ -468,10 +468,16 @@ class InfiniteUploads {
      * Tear down the hooks, url filtering etc for Infinite Uploads
      */
     public function tear_down() {
-        remove_filter( 'upload_dir', [ $this, 'filter_upload_dir' ] );
+        // Priority must match the value used in add_filter() — without it remove_filter() silently fails.
+        remove_filter( 'upload_dir', [ $this, 'filter_upload_dir' ], 1 );
         remove_filter( 'wp_image_editors', [ $this, 'filter_editors' ], 9 );
         remove_filter( 'pre_wp_unique_filename_file_list', [ $this, 'get_files_for_unique_filename_file_list' ], 10 );
         remove_action( 'delete_attachment', [ $this, 'delete_attachment_files' ] );
+
+        // Unregister the iu:// stream wrapper so plugin/theme ZIPs are never routed through cloud storage.
+        if ( in_array( 'iu', stream_get_wrappers(), true ) ) {
+            stream_wrapper_unregister( 'iu' );
+        }
     }
 
     public function get_sync_stats() {
@@ -1299,13 +1305,13 @@ add_action( 'admin_init', '\ClikIT\InfiniteUploads\wc_iu_export_fix' );
 function wc_iu_export_fix() {
     if ( defined( 'DOING_AJAX' ) && DOING_AJAX && current_user_can( 'manage_options' ) ) {
         if ( isset( $_POST['action'] ) && $_POST['action'] == 'woocommerce_do_ajax_product_export' && class_exists( '\ClikIT\InfiniteUploads\InfiniteUploads' ) ) {
-            remove_filter( 'upload_dir', array( InfiniteUploads::get_instance(), 'filter_upload_dir' ) );
+            remove_filter( 'upload_dir', array( InfiniteUploads::get_instance(), 'filter_upload_dir' ), 1 );
         }
     }
 
     if ( isset( $_GET['page'] ) && $_GET['page'] == 'product_exporter' ) {
         if ( class_exists( '\ClikIT\InfiniteUploads\InfiniteUploads' ) ) {
-            remove_filter( 'upload_dir', array( InfiniteUploads::get_instance(), 'filter_upload_dir' ) );
+            remove_filter( 'upload_dir', array( InfiniteUploads::get_instance(), 'filter_upload_dir' ), 1 );
         }
     }
 }
@@ -1404,7 +1410,7 @@ add_filter( 'wpforo_working_folders', '\ClikIT\InfiniteUploads\psx_wpforo_init',
  */
 function psx_wpdiscuz_init() {
     if ( ( class_exists( 'WpdiscuzCore' ) && is_single() ) || defined( 'PT_CV_PATH' ) ) {
-        remove_filter( 'upload_dir', array( InfiniteUploads::get_instance(), 'filter_upload_dir' ) );
+        remove_filter( 'upload_dir', array( InfiniteUploads::get_instance(), 'filter_upload_dir' ), 1 );
     }
 }
 
