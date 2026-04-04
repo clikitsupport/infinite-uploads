@@ -474,6 +474,15 @@ class InfiniteUploads {
         remove_filter( 'pre_wp_unique_filename_file_list', [ $this, 'get_files_for_unique_filename_file_list' ], 10 );
         remove_action( 'delete_attachment', [ $this, 'delete_attachment_files' ] );
 
+        // Remove file-exclusion upload filters. Plugin/theme ZIP installs go through
+        // wp_handle_upload() which fires these filters. Without removing them,
+        // handle_upload() converts the local ZIP path to iu:// after the upload_dir
+        // filter is removed — pclzip then receives an iu:// path with the stream
+        // wrapper already unregistered, causing "archive incompatible" errors.
+        $admin = InfiniteUploadsAdmin::get_instance();
+        remove_filter( 'wp_handle_upload', [ $admin, 'handle_upload' ], 10 );
+        remove_filter( 'pre_move_uploaded_file', [ $admin, 'set_the_new_file_path' ], 10 );
+
         // Unregister the iu:// stream wrapper so plugin/theme ZIPs are never routed through cloud storage.
         if ( in_array( 'iu', stream_get_wrappers(), true ) ) {
             stream_wrapper_unregister( 'iu' );
