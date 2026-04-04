@@ -12,6 +12,7 @@ class InfiniteUploadsRewriter {
 	protected $replacements = [];    // urls to be searched for and replaced with CDN URL
 	protected $cdn_url = null;    // CDN URL
 	protected $exclusions = [];
+	protected $smush_url_fix_pairs = [];    // bad smush next-gen URL => correct URL
 
 	/**
 	 * constructor
@@ -46,6 +47,27 @@ class InfiniteUploadsRewriter {
 
 		// Make sure we replace urls in REST API responses
 		add_filter( 'the_content', [ &$this, 'rewrite_the_content' ], 100 );
+
+		// Build Smush Pro next-gen URL correction pairs.
+		// Smush derives its WebP/AVIF base URL via dirname(wp_upload_dir()['baseurl']), which
+		// strips the last path segment (site_id) from the CDN URL. We fix the resulting bad
+		// CDN URLs in HTML output.
+		// e.g. https://cdn.example.com/user_id/smush-webp/ → https://cdn.example.com/user_id/site_id/smush-webp/
+		$cdn_no_slash = rtrim( $this->cdn_url, '/' );
+		$last_slash   = strrpos( $cdn_no_slash, '/' );
+		if ( $last_slash !== false ) {
+			$parent_base = substr( $cdn_no_slash, 0, $last_slash );
+			// Guard: parent must still be a full URL (not just "https:").
+			if ( strpos( $parent_base, '://' ) !== false ) {
+				foreach ( [ 'smush-webp', 'smush-avif' ] as $next_gen_dir ) {
+					$bad  = $parent_base . '/' . $next_gen_dir . '/';
+					$good = $this->cdn_url . $next_gen_dir . '/'; // cdn_url already has trailing slash
+					if ( $bad !== $good ) {
+						$this->smush_url_fix_pairs[ $bad ] = $good;
+					}
+				}
+			}
+		}
 	}
 
 	/**
@@ -106,6 +128,13 @@ class InfiniteUploadsRewriter {
 
 		// call the cdn rewriter callback
 		$cdn_html = preg_replace_callback( $regex_rule, [ $this, 'rewrite_url' ], $html );
+
+		// Fix Smush next-gen (WebP/AVIF) URLs where dirname() stripped the site_id from the CDN path.
+		foreach ( $this->smush_url_fix_pairs as $bad_url => $good_url ) {
+			if ( strpos( $cdn_html, $bad_url ) !== false ) {
+				$cdn_html = str_replace( $bad_url, $good_url, $cdn_html );
+			}
+		}
 
 		return $cdn_html;
 	}

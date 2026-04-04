@@ -138,14 +138,10 @@ class InfiniteUploadsStreamWrapper {
 	 * Replace your existing stream_open method with this version
 	 */
 	public function stream_open( $path, $mode, $options, &$opened_path ) {
-		error_log( '[stream_open] Checking for Path: ' . $path );
 		$path = $this->normalizeSmushPath( $path );
-		error_log( '[stream_open] Normalised Path: ' . $path );
 
 		$validation_result = $this->validateStreamPath( $path, $options );
 		if ( $validation_result !== true ) {
-			error_log( '[stream_open] REJECTED: ' . $validation_result );
-
 			return false;
 		}
 

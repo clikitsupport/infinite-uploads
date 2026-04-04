@@ -2429,7 +2429,9 @@ class InfiniteUploadsAdmin {
 
         $tree = $this->prepare_directory_tree( $scan_dir, $excluded_files, $virtual_paths, $upload_dir );
 
-        wp_send_json_success( $tree );
+        // jstree's core.data AJAX loader expects a raw JSON array — not WordPress's
+        // {"success":true,"data":[...]} envelope — so use wp_send_json() directly.
+        wp_send_json( $tree );
 
     }
 
