@@ -2,7 +2,7 @@
 
 Requires at least: 6.0
 Tested up to: 6.9
-Stable tag: 3.2.0
+Stable tag: 3.2.1
 Requires PHP: 8.0
 Contributors: bww
 Tags: cloud storage, offload media, offload, video streaming, cdn
@@ -211,48 +211,19 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Upgrade Notice ==
 
-3.2.0
-----------------------------------------------------------------------
+3.2.1
+-------------
 
-* **What's New**
-    * This release adds full folder management, improved filtering, and enhanced search to the WordPress Media Library, included with all paid Infinite Uploads subscriptions.
-
-* **Core Folder Management**
-    * Unlimited nested folder creation in the WordPress Media Library
-    * Drag-and-drop to move files into folders, including bulk selection
-    * Direct upload into a specific folder, including full folder structures from your computer
-    * Rename folders inline
-    * Color-code folders for visual distinction
-    * Bulk folder actions: select multiple folders, then move or delete in one step
-    * Files in deleted folders automatically move to Uncategorized
-    * Auto-enables on active paid plans (toggle to disable in settings)
-    * Full revert to standard WordPress behavior when disabled
-    * Resizable folder sidebar
-
-* **Sorting and Enhanced Search**
-    * Sort files by name, title, author, date added, date modified, size, and file type
-    * Sort folders by name, date created, date modified, and folder size
-    * Search files and folders by name in the Media Library grid and modal
-
-* **Page Builder Compatibility**
-    * Folders appear in the media picker across all major page builders and plugins:
-        * Elementor
-        * Divi
-        * Bricks
-        * Gutenberg / FSE
-        * Beaver Builder
-        * Oxygen
-        * Brizy
-        * WooCommerce product galleries
-
-* **Notes**
-    * Folder data is stored in a custom table. Core WP tables are not modified.
-    * Folder actions respect user roles: admins manage all, editors manage their own.
-    * Disabling Media Library features in settings will flatten folders to Uncategorized with a confirmation prompt if folders are in use.
-    * Folders are removed in an unlicensed state, but no media files are deleted.
-    * Enabled by default on all sites with Infinite Uploads, disabling is possible via Infinite Uploads settings.
+* Fixed an issue where the exclusion file tree was not showing.
+* Fixed a bug causing Infinite Uploads to corrupt plugin ZIP installations from the WordPress admin.
 
 == Changelog ==
+
+3.2.1
+----------------------------------------------------------------------
+
+* Fixed an issue where the exclusion file tree was not showing.
+* Fixed a bug causing Infinite Uploads to corrupt plugin ZIP installations from the WordPress admin.
 
 3.2.0
 ----------------------------------------------------------------------
