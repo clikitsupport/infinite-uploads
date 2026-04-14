@@ -51,7 +51,7 @@ class InfiniteUploadsRewriter {
 		// Build Smush Pro next-gen URL correction pairs.
 		// Smush derives its WebP/AVIF base URL via dirname(wp_upload_dir()['baseurl']), which
 		// strips the last path segment (site_id) from the CDN URL. We fix the resulting bad
-		// CDN URLs in HTML output.
+		// CDN URLs in HTML output and REST API responses.
 		// e.g. https://cdn.example.com/user_id/smush-webp/ → https://cdn.example.com/user_id/site_id/smush-webp/
 		$cdn_no_slash = rtrim( $this->cdn_url, '/' );
 		$last_slash   = strrpos( $cdn_no_slash, '/' );
@@ -68,6 +68,56 @@ class InfiniteUploadsRewriter {
 				}
 			}
 		}
+
+		// Fix Smush next-gen URLs in REST API responses.
+		// WordPress REST API requests bypass template_redirect, so the ob_start approach
+		// does not capture them. Page builders (Elementor, Gutenberg, etc.) fetch attachment
+		// data via /wp-json/wp/v2/media/{id} and use the returned URLs directly; without
+		// this filter those URLs contain the wrong smush-webp CDN path.
+		if ( ! empty( $this->smush_url_fix_pairs ) ) {
+			add_filter( 'rest_prepare_attachment', [ &$this, 'rewrite_rest_attachment' ], 100, 3 );
+		}
+	}
+
+	/**
+	 * Fix Smush next-gen (WebP/AVIF) URLs in WordPress REST API attachment responses.
+	 *
+	 * The ob_start hook on template_redirect does not capture REST API responses.
+	 * This filter serialises the response data to JSON, applies the same
+	 * smush_url_fix_pairs substitutions used by the HTML rewriter, and restores
+	 * the corrected data so consumers receive valid CDN URLs.
+	 *
+	 * @param  \WP_REST_Response  $response  The REST API response object.
+	 * @param  \WP_Post           $post      The attachment post.
+	 * @param  \WP_REST_Request   $request   The REST request.
+	 *
+	 * @return \WP_REST_Response
+	 */
+	public function rewrite_rest_attachment( $response, $post, $request ) {
+		if ( empty( $this->smush_url_fix_pairs ) || ! ( $response instanceof \WP_REST_Response ) ) {
+			return $response;
+		}
+
+		$data = $response->get_data();
+		$json = wp_json_encode( $data );
+
+		if ( $json === false ) {
+			return $response;
+		}
+
+		$changed = false;
+		foreach ( $this->smush_url_fix_pairs as $bad => $good ) {
+			if ( strpos( $json, $bad ) !== false ) {
+				$json    = str_replace( $bad, $good, $json );
+				$changed = true;
+			}
+		}
+
+		if ( $changed ) {
+			$response->set_data( json_decode( $json, true ) );
+		}
+
+		return $response;
 	}
 
 	/**
