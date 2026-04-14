@@ -1193,6 +1193,125 @@ class InfiniteUploads {
     }
 
     /**
+     * EWWW Image Optimizer compatibility: copy iu:// files to a local temp path so EWWW
+     * can optimize them. Hooked to `ewww_image_optimizer_remote_fetched`.
+     *
+     * @param  string|false  $filename  Local path resolved so far (false when not yet found).
+     * @param  int           $id        Attachment post ID.
+     * @param  array         $meta      Attachment metadata.
+     *
+     * @return string|false  Local path to the full-size image, or original $filename on failure.
+     */
+    public function ewww_remote_fetch( $filename, $id, $meta ) {
+        $iu_path = get_attached_file( $id );
+        if ( ! $iu_path || strpos( $iu_path, 'iu://' ) !== 0 ) {
+            return $filename;
+        }
+
+        $root_dirs  = $this->get_original_upload_dir_root();
+        $iu_basedir = $this->get_s3_basedir();
+        if ( ! $iu_basedir ) {
+            return $filename;
+        }
+
+        // Map iu:// path → local path.
+        $local_path = str_replace( $iu_basedir, $root_dirs['basedir'], $iu_path );
+        if ( $local_path === $iu_path ) {
+            return $filename;
+        }
+
+        if ( ! is_dir( dirname( $local_path ) ) ) {
+            wp_mkdir_p( dirname( $local_path ) );
+        }
+
+        // Copy full-size image to local.
+        if ( ! file_exists( $local_path ) ) {
+            copy( $iu_path, $local_path );
+        }
+
+        // Copy resized versions to local so EWWW can optimize them too.
+        if ( isset( $meta['sizes'] ) && is_array( $meta['sizes'] ) ) {
+            $base_iu    = trailingslashit( dirname( $iu_path ) );
+            $base_local = trailingslashit( dirname( $local_path ) );
+            foreach ( $meta['sizes'] as $size => $data ) {
+                if ( empty( $data['file'] ) ) {
+                    continue;
+                }
+                $iu_resize    = $base_iu . wp_basename( $data['file'] );
+                $local_resize = $base_local . wp_basename( $data['file'] );
+                if ( ! file_exists( $local_resize ) ) {
+                    copy( $iu_resize, $local_resize );
+                }
+            }
+        }
+
+        return file_exists( $local_path ) ? $local_path : $filename;
+    }
+
+    /**
+     * EWWW Image Optimizer compatibility: push the locally-optimized files back to iu://
+     * and remove the local copies. Hooked to `ewww_image_optimizer_after_optimize_attachment`.
+     *
+     * @param  int    $id    Attachment post ID.
+     * @param  array  $meta  Attachment metadata.
+     */
+    public function ewww_remote_push( $id, $meta ) {
+        $iu_path = get_attached_file( $id );
+        if ( ! $iu_path || strpos( $iu_path, 'iu://' ) !== 0 ) {
+            return;
+        }
+
+        $root_dirs  = $this->get_original_upload_dir_root();
+        $iu_basedir = $this->get_s3_basedir();
+        if ( ! $iu_basedir ) {
+            return;
+        }
+
+        $local_path = str_replace( $iu_basedir, $root_dirs['basedir'], $iu_path );
+        if ( $local_path === $iu_path ) {
+            return;
+        }
+
+        // Push full-size back to iu://.
+        if ( file_exists( $local_path ) ) {
+            copy( $local_path, $iu_path );
+            unlink( $local_path );
+        }
+
+        // Push resized versions back to iu://.
+        if ( isset( $meta['sizes'] ) && is_array( $meta['sizes'] ) ) {
+            $base_iu    = trailingslashit( dirname( $iu_path ) );
+            $base_local = trailingslashit( dirname( $local_path ) );
+            foreach ( $meta['sizes'] as $size => $data ) {
+                if ( empty( $data['file'] ) ) {
+                    continue;
+                }
+                $local_resize = $base_local . wp_basename( $data['file'] );
+                $iu_resize    = $base_iu . wp_basename( $data['file'] );
+                if ( file_exists( $local_resize ) ) {
+                    copy( $local_resize, $iu_resize );
+                    unlink( $local_resize );
+                }
+            }
+        }
+    }
+
+    /**
+     * Get the iu:// basedir (e.g. "iu://bucket-name/path/to/uploads").
+     *
+     * @return string|false
+     */
+    private function get_s3_basedir() {
+        $upload_dir = wp_upload_dir();
+        $basedir    = $upload_dir['basedir'];
+        if ( strpos( $basedir, 'iu://' ) !== 0 ) {
+            return false;
+        }
+
+        return untrailingslashit( $basedir );
+    }
+
+    /**
      * Handle compatibility for various third party plugins
      */
     function plugin_compatibility() {
@@ -1206,6 +1325,10 @@ class InfiniteUploads {
 
         // Smush Pro: redirect excluded file sizes to local paths.
         add_filter( 'wp_smush_media_item_size', [ $this, 'filter_smush_media_item_size' ], 10, 4 );
+
+        // EWWW Image Optimizer: provide local copies of iu:// files for optimization.
+        add_filter( 'ewww_image_optimizer_remote_fetched', [ $this, 'ewww_remote_fetch' ], 10, 3 );
+        add_action( 'ewww_image_optimizer_after_optimize_attachment', [ $this, 'ewww_remote_push' ], 10, 2 );
 
         //Handle WooCommerce CSV imports
         add_filter( 'woocommerce_product_csv_importer_check_import_file_path', '__return_false' );
