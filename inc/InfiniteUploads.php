@@ -593,6 +593,7 @@ class InfiniteUploads {
                         'svg',
                         'svgz',
                         'webp',
+                        'avif',
                 ],
                 'audio'    => [
                         'aac',
@@ -787,6 +788,12 @@ class InfiniteUploads {
         foreach ( $to_purge as $key => $file ) {
             $to_purge[ $key ] = str_replace( $dirs['basedir'], $dirs['baseurl'], $file );
         }
+
+        if ( interface_exists( '\Imagify\CDN\PushCDNInterface' ) ) {
+            $to_purge = array_merge( $to_purge, InfiniteUploadsImagify::get_attachment_nextgen_urls( $post_id ) );
+        }
+
+        $to_purge = array_values( array_unique( $to_purge ) );
 
         //purge these from CDN cache
         $this->api->purge( $to_purge );
@@ -1329,6 +1336,11 @@ class InfiniteUploads {
         // EWWW Image Optimizer: provide local copies of iu:// files for optimization.
         add_filter( 'ewww_image_optimizer_remote_fetched', [ $this, 'ewww_remote_fetch' ], 10, 3 );
         add_action( 'ewww_image_optimizer_after_optimize_attachment', [ $this, 'ewww_remote_push' ], 10, 2 );
+
+        // Imagify: support offloaded media and next-gen picture-tag delivery on IU CDN.
+        if ( interface_exists( '\Imagify\CDN\PushCDNInterface' ) ) {
+            InfiniteUploadsImagify::get_instance()->init();
+        }
 
         //Handle WooCommerce CSV imports
         add_filter( 'woocommerce_product_csv_importer_check_import_file_path', '__return_false' );
