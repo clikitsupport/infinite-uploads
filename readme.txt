@@ -21,7 +21,7 @@ Move, encode, and serve all your video and other media files from the cloud to b
 
 Organize your WordPress Media Library with unlimited nested folders, drag-and-drop file management, sorting, search, and color-coded folders. Included with all paid Infinite Uploads plans. No extra plugin. No extra cost.
 
-Create folders, nest them as deep as you need, and move files individually or in bulk. Upload directly into specific folders from your computer, including full folder structures. Sort files by name, title, author, date, size, or file type. Search files and folders by name in the grid and modal views.
+Create folders, nest them as deep as you need, and move files individually or in bulk. Upload directly into specific folders from your computer, including full folder structures. Sort files by date added, date modified, title, filename, author, file type, extension, or file size. Search across title, filename, alt text, description, caption, and folder name in the grid and modal views.
 
 Folders appear in the media picker across all major page builders: Elementor, Divi, Bricks, Gutenberg/FSE, Beaver Builder, Oxygen, Brizy, and WooCommerce product galleries.
 
@@ -57,7 +57,7 @@ Upload directly to your Infinite Uploads cloud storage and manage your files rig
 - **Universal compatibility** - Works with most well-coded plugins and themes including eCommerce and performance optimization
 - **Media Library folders** – unlimited nested folders with drag-and-drop, color coding, and bulk actions
 - **Folder upload** – upload files directly into a specific folder, including full folder structures from your computer
-- **Sort and enhanced search** – sort files by name, title, author, date added, date modified, size, or file type. Search files and folders by name.
+- **Sort and enhanced search** – sort files by 8 fields (date added, date modified, title, filename, author, file type, extension, file size) and sort folders by name, date created, date modified, or folder size. Search by title, filename, alt text, description, caption, or folder name.
 - **Resizable folder sidebar** – multiple folder tree themes including a Dropbox-style icon view
 - **Page builder folder support** – folders appear in the media picker inside Elementor, Divi, Bricks, Gutenberg, Beaver Builder, Oxygen, Brizy, and WooCommerce
 
@@ -244,9 +244,9 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
     * Resizable folder sidebar
 
 * **Sorting and Enhanced Search**
-    * Sort files by name, title, author, date added, date modified, size, and file type
+    * Sort files by date added, date modified, title, filename, author, file type, extension, and file size
     * Sort folders by name, date created, date modified, and folder size
-    * Search files and folders by name in the Media Library grid and modal
+    * Search files and folders across title, filename, alt text, description, caption, and folder name in the Media Library grid and modal
 
 * **Page Builder Compatibility**
     * Folders appear in the media picker across all major page builders and plugins:
