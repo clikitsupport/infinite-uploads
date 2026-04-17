@@ -1304,6 +1304,53 @@ class InfiniteUploads {
     }
 
     /**
+     * When file exclusion is enabled, convert CDN URLs for excluded paths to local server URLs.
+     * If the local file doesn't yet exist (was written to cloud before exclusion was configured),
+     * it is copied from the cloud stream to local disk on first access.
+     *
+     * Hooked to `style_loader_src` and `script_loader_src`.
+     *
+     * @param  string  $src  Asset URL as registered with wp_enqueue_style/script.
+     * @return string
+     */
+    public function filter_excluded_asset_src( $src ) {
+        if ( ! InfiniteUploadsHelper::is_file_exclusion_enabled() ) {
+            return $src;
+        }
+
+        // Strip query string (?ver=...) before path/file comparisons; restore later.
+        $query     = '';
+        $clean_src = $src;
+        if ( false !== strpos( $src, '?' ) ) {
+            [ $clean_src, $query ] = explode( '?', $src, 2 );
+            $query = '?' . $query;
+        }
+
+        // Normalize to https before comparison — the cloud URL is always https
+        // but WordPress may enqueue assets with http:// (non-SSL or mixed-content).
+        $normalized = set_url_scheme( $clean_src, 'https' );
+        $local_url  = InfiniteUploadsHelper::get_valid_file_url( $normalized, true );
+
+        if ( $local_url === $normalized ) {
+            return $src;
+        }
+
+        // The URL was converted to local — ensure the file exists on disk.
+        $local_path = InfiniteUploadsHelper::get_local_path_from_url( $local_url );
+        if ( ! file_exists( $local_path ) ) {
+            $cloud_path = InfiniteUploadsHelper::get_cloud_file_path( $local_path );
+            if ( $cloud_path !== $local_path ) {
+                if ( ! is_dir( dirname( $local_path ) ) ) {
+                    wp_mkdir_p( dirname( $local_path ) );
+                }
+                @copy( $cloud_path, $local_path );
+            }
+        }
+
+        return file_exists( $local_path ) ? $local_url . $query : $src;
+    }
+
+    /**
      * Get the iu:// basedir (e.g. "iu://bucket-name/path/to/uploads").
      *
      * @return string|false
@@ -1336,6 +1383,10 @@ class InfiniteUploads {
         // EWWW Image Optimizer: provide local copies of iu:// files for optimization.
         add_filter( 'ewww_image_optimizer_remote_fetched', [ $this, 'ewww_remote_fetch' ], 10, 3 );
         add_action( 'ewww_image_optimizer_after_optimize_attachment', [ $this, 'ewww_remote_push' ], 10, 2 );
+
+        // Elementor and other plugins that write CSS/JS to iu:// basedir: serve from local URL.
+        add_filter( 'style_loader_src', [ $this, 'filter_excluded_asset_src' ] );
+        add_filter( 'script_loader_src', [ $this, 'filter_excluded_asset_src' ] );
 
         // Imagify: support offloaded media and next-gen picture-tag delivery on IU CDN.
         if ( interface_exists( '\Imagify\CDN\PushCDNInterface' ) ) {

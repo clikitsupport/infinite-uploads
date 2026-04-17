@@ -124,11 +124,11 @@ class InfiniteUploadsHelper {
 		return self::get_cloud_file_path( $file_path );
 	}
 
-	public static function get_valid_file_url( $url ) {
+	public static function get_valid_file_url( $url, $is_url = false ) {
 		$local_upload_url = self::get_local_upload_url();
 		$local_url        = str_replace( self::get_cloud_upload_url(), $local_upload_url, $url );
 
-		if ( self::is_path_excluded( $local_url ) ) {
+		if ( self::is_path_excluded( $local_url, $is_url ) ) {
 			return $local_url;
 		}
 
