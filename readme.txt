@@ -13,7 +13,7 @@ Move, encode, and serve all your video and other media files from the cloud to b
 
 == Description ==
 
-**Infinite Uploads is your all-in-one media solution with video hosting, encoding, and streaming, and a cloud storage and CDN delivery provider for your WordPress media library. It allows you to easily connect an unlimited number of sites to your Infinite Uploads cloud account for offloading your files, handling massive video uploads and encoding them, lowering hosting costs, improving site performance, and serving files faster to your visitors.**
+**Infinite Uploads is your all-in-one media solution: cloud storage, global CDN delivery, video hosting with encoding and streaming, and media library organization with folders and sorting, all fully managed for the WordPress media library. Connect an unlimited number of sites and offload every upload to the cloud automatically. Unlike plugins that require you to configure Amazon S3, Cloudflare R2, Google Cloud Storage, DigitalOcean Spaces, or Azure Blob yourself, Infinite Uploads handles the infrastructure. No API keys, no IAM policies, no CloudFront distribution setup. Handle massive.**
 
 [youtube https://youtu.be/wanINaK0u5M]
 
@@ -60,6 +60,7 @@ Upload directly to your Infinite Uploads cloud storage and manage your files rig
 - **Sort and enhanced search** – sort files by 8 fields (date added, date modified, title, filename, author, file type, extension, file size) and sort folders by name, date created, date modified, or folder size. Search by title, filename, alt text, description, caption, or folder name.
 - **Resizable folder sidebar** – multiple folder tree themes including a Dropbox-style icon view
 - **Page builder folder support** – folders appear in the media picker inside Elementor, Divi, Bricks, Gutenberg, Beaver Builder, Oxygen, Brizy, and WooCommerce
+- **One-click media migration** — migrate your existing WordPress media library to the cloud without touching S3 buckets or CDN configurations.
 
 ### Better Performance, Less Time, Lower-cost
 If you upload a lot of images, publish video content, share motion graphics, want to add big beautiful video backgrounds, have a podcast, or stream large audio files for sermons or lectures, you will save time, resources, and improve performance by moving your files to Infinite Uploads. Keep your site moving at top-speed with dedicated media delivery that seamlessly integrates with WordPress.
@@ -191,6 +192,10 @@ Infinite Uploads is a hybrid custom stack built and hosted with multiple enterpr
 There are plugins for that, but they all have expensive per-site or per-file annual license fees. And then you have to figure out how to signup for and configure complicated cloud providers and CDNs.
 Finally, while the per/GB prices of cloud storage may seem cheap, there are all the hidden costs you don't realize like class A/B/C/D API transaction costs, and bandwidth x3 (to cloud > to cdn > to user). Bandwidth costs alone can often total 8x more than your storage bill!
 Infinite Uploads makes the power of the cloud simple and affordable for non-cloud architects like you.
+
+= How does Infinite Uploads compare to other S3 offload plugins? =
+
+The main difference is that Infinite Uploads is an all-in-one solution: the plugin, cloud storage, video hosting and transcoding, media folders, media library sorting, and global CDN delivery are all included. Most other offload plugins are bring-your-own-bucket, meaning you configure an Amazon S3, Cloudflare R2, or similar account separately, pay that provider's storage, API request, and egress fees, then connect the plugin. That works if you're comfortable managing cloud infrastructure and multiple providers. Infinite Uploads is built for site owners who want to offload media to the cloud without becoming a cloud architect. No API keys, no bucket policies, no CloudFront distribution, no per-site license fees. One connection, flat predictable pricing, and zero infrastructure to manage.
 
 = How can I report security bugs? =
 
