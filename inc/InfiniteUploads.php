@@ -1318,6 +1318,17 @@ class InfiniteUploads {
             return $src;
         }
 
+        // Bail early if the URL is not under the uploads directory or the IU CDN.
+        // Without this, every enqueued theme/plugin/core asset on the page runs
+        // through the exclusion checks below.
+        $local_uploads_url = InfiniteUploadsHelper::get_local_upload_url();
+        $cloud_uploads_url = InfiniteUploadsHelper::get_cloud_upload_url();
+        if ( stripos( $src, $local_uploads_url ) === false
+             && stripos( $src, $cloud_uploads_url ) === false
+        ) {
+            return $src;
+        }
+
         // Strip query string (?ver=...) before path/file comparisons; restore later.
         $query     = '';
         $clean_src = $src;

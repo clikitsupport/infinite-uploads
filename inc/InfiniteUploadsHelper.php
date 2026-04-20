@@ -4,6 +4,12 @@ namespace ClikIT\InfiniteUploads;
 
 class InfiniteUploadsHelper {
 	/**
+	 * Request-scoped memoization for expensive lookups (upload dirs, API data, exclusions).
+	 * These values don't change within a single request.
+	 */
+	private static $request_cache = [];
+
+	/**
 	 * Check if a given path is in the list of excluded paths.
 	 *
 	 * @param  string  $path  The file path to check.
@@ -46,15 +52,31 @@ class InfiniteUploadsHelper {
 	 * @return array|false An array of excluded file paths.
 	 */
 	public static function get_excluded_paths() {
+		if ( isset( self::$request_cache['excluded_paths'] ) ) {
+			return self::$request_cache['excluded_paths'];
+		}
+
 		$excluded_files_array = get_site_option( 'iup_excluded_files', '' );
 		if ( ! is_array( $excluded_files_array ) ) {
 			$excluded_files_array = [];
 		}
 
-		return array_map( 'trim', $excluded_files_array );
+		// Drop empty/whitespace-only entries — otherwise stripos() on an empty string
+		// returns 0 (not false) and makes every path appear excluded.
+		$excluded_files_array = array_filter( array_map( 'trim', $excluded_files_array ), 'strlen' );
+
+		self::$request_cache['excluded_paths'] = $excluded_files_array;
+
+		return $excluded_files_array;
 	}
 
 	public static function get_original_upload_dir_root() {
+		// Key cache by blog_id so multisite switch_to_blog() invalidates correctly.
+		$cache_key = 'upload_dir_root_' . get_current_blog_id();
+		if ( isset( self::$request_cache[ $cache_key ] ) ) {
+			return self::$request_cache[ $cache_key ];
+		}
+
 		$siteurl     = get_option( 'siteurl' );
 		$upload_path = trim( get_option( 'upload_path' ) );
 
@@ -110,10 +132,14 @@ class InfiniteUploadsHelper {
 		$basedir = $dir;
 		$baseurl = $url;
 
-		return array(
+		$result = array(
 			'basedir' => $basedir,
 			'baseurl' => $baseurl,
 		);
+
+		self::$request_cache[ $cache_key ] = $result;
+
+		return $result;
 	}
 
 	public static function get_valid_file_path( $file_path ) {
@@ -210,16 +236,25 @@ class InfiniteUploadsHelper {
 	}
 
 	public static function get_iu_api_data() {
+		if ( array_key_exists( 'iu_api_data', self::$request_cache ) ) {
+			return self::$request_cache['iu_api_data'];
+		}
+
 		$api      = InfiniteUploadsApiHandler::get_instance();
 		$api_data = $api->get_site_data();
+
+		self::$request_cache['iu_api_data'] = $api_data;
 
 		return $api_data;
 	}
 
 	public static function get_cloud_upload_dir() {
-		$root_dirs = self::get_original_upload_dir_root();
+		$cache_key = 'cloud_upload_dir_' . get_current_blog_id();
+		if ( isset( self::$request_cache[ $cache_key ] ) ) {
+			return self::$request_cache[ $cache_key ];
+		}
 
-		// error_log( 'Root Dirs: ' . print_r( $root_dirs, true ) );
+		$root_dirs = self::get_original_upload_dir_root();
 
 		$api_data = self::get_iu_api_data();
 		$dirs     = $root_dirs;
@@ -236,6 +271,8 @@ class InfiniteUploadsHelper {
 				}
 			}
 		}
+
+		self::$request_cache[ $cache_key ] = $dirs;
 
 		return $dirs;
 	}
