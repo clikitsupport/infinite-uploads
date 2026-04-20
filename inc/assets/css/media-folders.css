@@ -118,10 +118,27 @@
 	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 	padding: 0;
 	box-sizing: border-box;
-	overflow-y: auto;
+	overflow: hidden; /* sidebar itself doesn't scroll; only the tree does */
 	display: flex;
 	flex-direction: column;
 	transition: width 0.2s ease, min-width 0.2s ease, opacity 0.2s ease;
+}
+
+/* Keep header rows (title, actions, virtual folders, search) anchored at the top;
+   only the folder tree below them scrolls. Without this, on short viewports
+   (iPad landscape modal, small laptops) the search textbox could scroll out of
+   view when the tree has many folders. */
+#iu-media-folders-sidebar > .iu-folders-header,
+#iu-media-folders-sidebar > .iu-folders-actions,
+#iu-media-folders-sidebar > .iu-virtual-folders,
+#iu-media-folders-sidebar > .iu-folders-search {
+	flex-shrink: 0;
+}
+
+#iu-media-folders-sidebar > #iu-folders-tree {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
 }
 
 /* Collapsed state */
@@ -1244,6 +1261,60 @@ body.iu-resizing .iu-sidebar-handle::before {
 	.iu-action-rename,
 	.iu-action-delete {
 		padding: 3px 6px;
+	}
+}
+
+/* iPad and similar narrow-tablet widths (portrait ~768-1024px).
+   At these widths WordPress core's mobile stacking rules don't fire (they stop at
+   782px), but the folder sidebar still takes ~280px. The secondary toolbar
+   (type/date filters + sort controls) and primary toolbar (search input) both
+   float inside the remaining frame width, which squeezes the search to zero or
+   overflows offscreen. Force the toolbar to stack and give search its own row. */
+@media screen and (min-width: 601px) and (max-width: 1024px) {
+	.media-frame.iu-has-folders .attachments-browser .media-toolbar {
+		height: auto;
+		min-height: 60px;
+		padding: 8px 0;
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 8px;
+	}
+
+	.media-frame.iu-has-folders .attachments-browser .media-toolbar-primary,
+	.media-frame.iu-has-folders .attachments-browser .media-toolbar-secondary {
+		float: none;
+		width: 100%;
+		max-width: 100%;
+		height: auto;
+	}
+
+	.media-frame.iu-has-folders .attachments-browser .media-toolbar-primary {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		margin: 0;
+	}
+
+	.media-frame.iu-has-folders .attachments-browser .media-toolbar-primary input[type="search"] {
+		flex: 1;
+		min-width: 0;
+		width: auto;
+	}
+
+	/* Let sort + filter controls wrap to a second line instead of squeezing search. */
+	.media-frame.iu-has-folders .media-toolbar-secondary.iu-has-sort {
+		right: auto;
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+
+	/* List-mode search box (upload.php): same stacking rationale. */
+	.iu-media-wrapper .tablenav.top .search-box {
+		float: none;
+		display: flex;
+		align-items: center;
+		margin-top: 6px;
 	}
 }
 
