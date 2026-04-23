@@ -35,15 +35,23 @@ class InfiniteUploadsImagifyCDN implements PushCDNInterface {
 	/**
 	 * {@inheritDoc}
 	 *
-	 * True when the attachment's authoritative copy lives on iu://. Based on
-	 * `get_attached_file()` (which IU filters to `iu://` for offloaded media),
-	 * not on `get_file_path()` — the latter intentionally returns a local path
-	 * so Imagify's optimization pipeline can work with real filesystem paths.
+	 * True when the attachment's authoritative copy lives on iu://. Excluded paths
+	 * (when file exclusion is enabled) are stored locally, not on the cloud, so
+	 * they return false and Imagify treats them as regular local media.
 	 */
 	public function media_is_on_cdn() {
 		$cloud_path = InfiniteUploadsImagify::get_attachment_cloud_path( $this->attachment_id );
+		if ( ! $cloud_path || 0 !== strpos( $cloud_path, 'iu://' ) ) {
+			return false;
+		}
 
-		return $cloud_path && 0 === strpos( $cloud_path, 'iu://' );
+		if ( InfiniteUploadsHelper::is_file_exclusion_enabled()
+		     && InfiniteUploadsHelper::is_path_excluded( $cloud_path )
+		) {
+			return false;
+		}
+
+		return true;
 	}
 
 	/**
