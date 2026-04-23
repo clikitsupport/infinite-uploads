@@ -1304,6 +1304,119 @@ class InfiniteUploads {
     }
 
     /**
+     * Add the IU CDN URL to EWWW's allowed-urls list. EWWW's Picture_Webp / JS_Webp
+     * rewriters only consider `<img>` elements whose URL matches one of these entries;
+     * without this, images served from the IU CDN are silently skipped.
+     *
+     * @param  array  $urls
+     *
+     * @return array
+     */
+    public function ewww_allowed_urls( $urls ) {
+        $cdn_url = $this->get_s3_url();
+        if ( $cdn_url ) {
+            $urls[] = trailingslashit( $cdn_url );
+        }
+
+        return $urls;
+    }
+
+    /**
+     * Add the IU CDN host to EWWW's allowed-domains list. Used in EWWW's cdn_to_local()
+     * translation, so URLs on our CDN resolve back to valid attachment paths.
+     *
+     * @param  array  $domains
+     *
+     * @return array
+     */
+    public function ewww_allowed_domains( $domains ) {
+        $cdn_url  = $this->get_s3_url();
+        $cdn_host = $cdn_url ? wp_parse_url( $cdn_url, PHP_URL_HOST ) : '';
+        if ( $cdn_host && ! in_array( $cdn_host, $domains, true ) ) {
+            $domains[] = $cdn_host;
+        }
+
+        return $domains;
+    }
+
+    /**
+     * Force EWWW's `webp_force` option on at runtime (DB value untouched) so its
+     * rewriter uses the allowed_urls match path for IU-hosted images. Required
+     * because EWWW's normal path calls is_file() on translated paths, which the
+     * IU stream wrapper's is_file() rejects for anything containing `://`.
+     *
+     * Hooked to `pre_option_ewww_image_optimizer_webp_force`.
+     *
+     * @return string
+     */
+    public function ewww_force_webp_at_runtime() {
+        return '1';
+    }
+
+    /**
+     * Opt out specific images from EWWW's WebP rewrite. With `webp_force` on (see
+     * ewww_force_webp_at_runtime) EWWW would wrap every IU-CDN image in a <picture>
+     * tag; for images EWWW never converted, the sibling `.webp` doesn't exist and
+     * the source would 404. Consult `wp_ewwwio_images` and skip anything not in it.
+     *
+     * Non-IU-CDN URLs defer to EWWW's default behavior (native AS3CF/S3 sites etc.).
+     *
+     * Hooked to `ewww_image_optimizer_skip_webp_rewrite`.
+     *
+     * @param  bool    $skip   Current skip decision from EWWW.
+     * @param  string  $image  The image URL being evaluated.
+     *
+     * @return bool
+     */
+    public function ewww_skip_webp_rewrite( $skip, $image ) {
+        // Respect an existing skip from another handler.
+        if ( $skip ) {
+            return $skip;
+        }
+
+        $cdn_url = $this->get_s3_url();
+        if ( ! $cdn_url || strpos( $image, $cdn_url ) === false ) {
+            // Not an IU CDN URL — let EWWW's normal logic decide.
+            return $skip;
+        }
+
+        // Strip query string and CDN prefix to get the upload-root-relative path.
+        $path = strtok( $image, '?' );
+        $path = str_replace( trailingslashit( $cdn_url ), '', $path );
+        if ( $path === '' ) {
+            return true;
+        }
+
+        return $this->ewww_has_converted_webp( wp_basename( $path ) ) ? false : true;
+    }
+
+    /**
+     * Check if EWWW has a successful WebP conversion on record for a given filename.
+     * Results are memoized for the request to avoid a query per `<img>` on the page.
+     *
+     * @param  string  $basename  File basename, e.g. "sitting-6@2x-285x300.png".
+     *
+     * @return bool
+     */
+    private function ewww_has_converted_webp( $basename ) {
+        global $wpdb;
+        static $converted = null;
+
+        if ( $converted === null ) {
+            $converted = [];
+            $table     = $wpdb->prefix . 'ewwwio_images';
+            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) === $table ) {
+                $rows = $wpdb->get_col( "SELECT path FROM {$table} WHERE webp_size > 0 AND webp_error = 0" );
+                foreach ( (array) $rows as $row ) {
+                    $converted[ wp_basename( $row ) ] = true;
+                }
+            }
+        }
+
+        return isset( $converted[ $basename ] );
+    }
+
+    /**
      * When file exclusion is enabled, convert CDN URLs for excluded paths to local server URLs.
      * If the local file doesn't yet exist (was written to cloud before exclusion was configured),
      * it is copied from the cloud stream to local disk on first access.
@@ -1394,6 +1507,22 @@ class InfiniteUploads {
         // EWWW Image Optimizer: provide local copies of iu:// files for optimization.
         add_filter( 'ewww_image_optimizer_remote_fetched', [ $this, 'ewww_remote_fetch' ], 10, 3 );
         add_action( 'ewww_image_optimizer_after_optimize_attachment', [ $this, 'ewww_remote_push' ], 10, 2 );
+
+        // EWWW Image Optimizer: tell EWWW that the IU CDN hosts images so its
+        // Picture_Webp / JS_Webp rewriters actually consider our URLs.
+        add_filter( 'webp_allowed_urls', [ $this, 'ewww_allowed_urls' ] );
+        add_filter( 'webp_allowed_domains', [ $this, 'ewww_allowed_domains' ] );
+
+        // EWWW's non-forced rewrite path calls url_to_path_exists() → is_file() on the
+        // local disk, which fails for iu:// (the stream wrapper is rejected by is_file).
+        // Turn `webp_force` on at runtime so EWWW uses the allowed_urls match path
+        // instead of the local-disk check. Non-persistent: doesn't touch the DB option.
+        add_filter( 'pre_option_ewww_image_optimizer_webp_force', [ $this, 'ewww_force_webp_at_runtime' ] );
+
+        // With webp_force on, EWWW would blindly wrap every CDN image in a <picture>
+        // tag — including ones EWWW never converted, which would 404 on fetch. Opt out
+        // per-image by consulting wp_ewwwio_images.
+        add_filter( 'ewww_image_optimizer_skip_webp_rewrite', [ $this, 'ewww_skip_webp_rewrite' ], 10, 2 );
 
         // Elementor and other plugins that write CSS/JS to iu:// basedir: serve from local URL.
         add_filter( 'style_loader_src', [ $this, 'filter_excluded_asset_src' ] );
