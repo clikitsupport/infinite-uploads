@@ -2508,7 +2508,11 @@ class InfiniteUploadsAdmin {
             $child_path = $dir . DIRECTORY_SEPARATOR . $child_name;
             $has_deeper = count( $segments ) > 1;
 
-            $is_path_dir = is_dir( $child_path );
+            // A virtual node is definitively a folder when the relative virtual path has
+            // deeper segments below it. is_dir() alone isn't safe — after "Free Up Local
+            // Storage" wipes local copies, the intermediate directory may no longer exist
+            // on disk even though it's logically a folder in the cloud filelist.
+            $is_path_dir = $has_deeper || is_dir( $child_path );
             $new_node = [
                     "text"     => $child_name,
                     "icon"     => $is_path_dir ? "jstree-folder" : "jstree-file",
@@ -2574,21 +2578,30 @@ class InfiniteUploadsAdmin {
                 wp_send_json_error( 'Invalid directory path.' );
             }
 
-            // Normalize and verify the path is within the upload basedir.
-            // realpath() resolves symlinks and eliminates traversal sequences; if it
-            // returns false the path does not exist on disk and cannot be trusted.
-            $requested_dir = realpath( $requested_dir );
-            if ( $requested_dir === false ) {
-                wp_send_json_error( 'Invalid directory path.' );
-            }
-
-            // Use realpath on the upload_dir too so both sides are canonical.
+            $requested_dir   = rtrim( $requested_dir, DIRECTORY_SEPARATOR . '/' );
             $real_upload_dir = realpath( $upload_dir );
-            if ( $real_upload_dir === false || strpos( $requested_dir, $real_upload_dir ) !== 0 ) {
-                wp_send_json_error( 'Directory is outside the uploads folder.' );
+            if ( $real_upload_dir === false ) {
+                wp_send_json_error( 'Uploads directory is invalid.' );
             }
 
-            $scan_dir = $requested_dir;
+            // If the requested path exists on disk, resolve via realpath (canonical, handles
+            // symlinks). If it doesn't exist — e.g. a virtual folder whose local copy was
+            // wiped by "Free Up Local Storage" — validate lexically against the uploads
+            // basedir so the user can still expand it and see its cloud-only children.
+            $real_requested = realpath( $requested_dir );
+            if ( $real_requested !== false ) {
+                if ( strpos( $real_requested, $real_upload_dir ) !== 0 ) {
+                    wp_send_json_error( 'Directory is outside the uploads folder.' );
+                }
+                $scan_dir = $real_requested;
+            } else {
+                if ( strpos( $requested_dir, $real_upload_dir ) !== 0 ) {
+                    wp_send_json_error( 'Directory is outside the uploads folder.' );
+                }
+                // prepare_directory_tree() already handles missing dirs and falls through
+                // to virtual-path injection.
+                $scan_dir = $requested_dir;
+            }
         }
 
         $sub_dir       = $dir['subdir'];
