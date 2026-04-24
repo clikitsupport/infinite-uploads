@@ -60,16 +60,24 @@ jobs:
       # ----------------------------------------
       # 5. Prepare Clean Plugin Directory
       # ----------------------------------------
+      # Do NOT create our own zip here. GitHub's upload-artifact action always
+      # wraps the artifact contents in a zip when users download from the UI;
+      # if we upload a zip file as the artifact, downloaders get a zip-inside-a-zip
+      # (which WP's "Upload Plugin" rejects with "No valid plugins were found").
+      # Instead we prepare a staging directory whose contents GitHub will zip —
+      # that artifact zip becomes the WP-installable plugin package directly.
       - name: Prepare plugin package
         run: |
-          WORKDIR="$RUNNER_TEMP/${{ env.PLUGIN_SLUG }}"
-          rm -rf "$WORKDIR"
+          STAGE="${{ github.workspace }}/_iu_artifact"
+          WORKDIR="$STAGE/${{ env.PLUGIN_SLUG }}"
+          rm -rf "$STAGE"
           mkdir -p "$WORKDIR"
 
-          cp -a . "$WORKDIR/"
+          # Copy source into the slug directory (exclude the staging dir itself).
+          find . -mindepth 1 -maxdepth 1 ! -name "_iu_artifact" -exec cp -a {} "$WORKDIR/" \;
           cd "$WORKDIR"
 
-          # Remove development-only files
+          # Remove development-only files.
           find . -type d -name "node_modules" -exec rm -rf {} +
           find . -type d -name ".claude" -exec rm -rf {} +
           find . -type d -name ".github" -exec rm -rf {} +
@@ -90,22 +98,17 @@ jobs:
           find . -type d \( -name "tests" -o -name "bin" \) -exec rm -rf {} +
           find . -mindepth 1 -name ".*" -exec rm -rf {} +
 
-          # Create versioned zip. WordPress's "Upload Plugin" installer requires the
-          # plugin to live inside a single top-level directory in the archive; zipping
-          # the workdir's contents flat produces "No valid plugins were found". Change
-          # to the parent and zip the slug-named directory itself so the archive layout
-          # is: <zip>/<slug>/<plugin files>.
-          cd "$RUNNER_TEMP"
-          zip -r "$RUNNER_TEMP/${{ steps.vars.outputs.zip_name }}.zip" "${{ env.PLUGIN_SLUG }}"
-
       # ----------------------------------------
       # 6. Upload Artifact
       # ----------------------------------------
+      # Upload the STAGING DIRECTORY so GitHub's artifact packaging produces a zip
+      # whose top-level entry is the slug-named plugin folder. Downloaded zip is
+      # WP-installable as-is — no double wrapping.
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.vars.outputs.zip_name }}
-          path: ${{ runner.temp }}/${{ steps.vars.outputs.zip_name }}.zip
+          path: ${{ github.workspace }}/_iu_artifact/
           retention-days: 3
 
       # ----------------------------------------
