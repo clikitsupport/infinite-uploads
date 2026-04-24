@@ -65,7 +65,7 @@ jobs:
           WORKDIR="$RUNNER_TEMP/${{ env.PLUGIN_SLUG }}"
           rm -rf "$WORKDIR"
           mkdir -p "$WORKDIR"
-          
+
           cp -a . "$WORKDIR/"
           cd "$WORKDIR"
 
@@ -90,8 +90,13 @@ jobs:
           find . -type d \( -name "tests" -o -name "bin" \) -exec rm -rf {} +
           find . -mindepth 1 -name ".*" -exec rm -rf {} +
 
-          # Create versioned zip file
-          zip -r "$RUNNER_TEMP/${{ steps.vars.outputs.zip_name }}.zip" .
+          # Create versioned zip. WordPress's "Upload Plugin" installer requires the
+          # plugin to live inside a single top-level directory in the archive; zipping
+          # the workdir's contents flat produces "No valid plugins were found". Change
+          # to the parent and zip the slug-named directory itself so the archive layout
+          # is: <zip>/<slug>/<plugin files>.
+          cd "$RUNNER_TEMP"
+          zip -r "$RUNNER_TEMP/${{ steps.vars.outputs.zip_name }}.zip" "${{ env.PLUGIN_SLUG }}"
 
       # ----------------------------------------
       # 6. Upload Artifact
