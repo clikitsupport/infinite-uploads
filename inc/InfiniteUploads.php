@@ -194,7 +194,7 @@ class InfiniteUploads {
 
         $this->plugin_compatibility();
 
-        if ( ( ! defined( 'INFINITE_UPLOADS_DISABLE_REPLACE_UPLOAD_URL' ) || ! INFINITE_UPLOADS_DISABLE_REPLACE_UPLOAD_URL ) && $api_data->site->cdn_enabled ) {
+        if ( ! defined( 'INFINITE_UPLOADS_DISABLE_REPLACE_UPLOAD_URL' ) || ! INFINITE_UPLOADS_DISABLE_REPLACE_UPLOAD_URL ) {
             //makes this work with pre 3.5 MU ms_files rewriting (ie domain.com/files/filename.jpg)
             $original_root_dirs = $this->get_original_upload_dir_root();
             $replacements       = [ $original_root_dirs['baseurl'] ];
@@ -210,6 +210,13 @@ class InfiniteUploads {
             } else {
                 $cdn_url = $this->get_s3_url();
             }
+            // Instantiate the rewriter regardless of $cdn_enabled. Reason: filter_upload_dir()
+            // unconditionally replaces wp_upload_dir()['baseurl'] with the CDN URL, which
+            // causes Smush to emit malformed next-gen URLs (https:/smush-webp/…) via its
+            // dirname(baseurl) derivation when the CDN URL is a host-only vanity domain.
+            // The rewriter's str_replace pass repairs those URLs — and it must run even
+            // when cdn_enabled is false, because Smush's output depends on the modified
+            // baseurl, not on whether the CDN is active.
             new InfiniteUploadsRewriter( $original_root_dirs['baseurl'], $replacements, $cdn_url );
         }
 

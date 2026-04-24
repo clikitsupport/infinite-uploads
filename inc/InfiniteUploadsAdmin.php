@@ -118,68 +118,102 @@ class InfiniteUploadsAdmin {
     /**
      * Serve media URL based on file existence and sync status.
      *
-     * @param $url
+     * Resolution order:
+     *   1. If path is in the exclusion list, prefer the local URL (the user's intent).
+     *   2. For whichever URL-form we end up with, verify the file actually exists at
+     *      that location; if it doesn't, fall back to the other side (cloud ↔ local).
+     *   3. If neither side has the file, return the URL we started with so the
+     *      browser gets the natural 404 at the expected location.
      *
-     * @return array|mixed|string|string[]
+     * Cloud existence is verified via the stream wrapper's `file_exists('iu://...')`
+     * which reuses a HeadObject result cache within a request. That's authoritative —
+     * the old code relied on `wp_infinite_uploads_files.synced = 1`, but that table
+     * can be out-of-sync (missing rows for files written directly via the stream
+     * wrapper, rows marked `deleted = 1`, etc.), causing false 404s for files that
+     * are actually sitting on the CDN.
+     *
+     * @param string $url Attachment URL (local or cloud).
+     *
+     * @return string
      */
     public function serve_media_url( $url ) {
-        /**
-         * TODO: Implement a code to check following conditions.
-         *
-         * 1. Check if $url is a local server url or a cloud url.
-         * 2. If it is a local server url, check if the file exists on the local server.
-         * 3. If the file exists on the local server, return the local server url.
-         * 4. If the file does not exist on the local server, check if it exists on the cloud.
-         * 5. If it exists on the cloud, return the cloud url.
-         * 6. If it does not exist on the cloud, return the local server url (which will result in a 404).
-         * 7. If it is a cloud url, check whether this is synced to cloud or not.
-         * 8. If it is synced to cloud, return the cloud url.
-         * 9. If it is not synced to cloud, check if the file exists on the local server.
-         * 10. If the file exists on the local server, return the local server url.
-         * 11. If the file does not exist on the local server, return the cloud url (which will result in a 404).
-         */
+        if ( empty( $url ) || ! is_string( $url ) ) {
+            return $url;
+        }
 
-        // If the file is excluded, always return local URL.
+        // Exclusion: user wants this path served locally, so rewrite CDN → local first.
         if ( InfiniteUploadsHelper::is_path_excluded( $url, true ) ) {
             $url = InfiniteUploadsHelper::get_local_file_url( $url );
         }
 
-        // Get root directories for comparison
-        $root_dirs = $this->iup_instance->get_original_upload_dir_root();
-        $base_url  = $root_dirs['baseurl'];
-        $base_dir  = $root_dirs['basedir'];
-        $cloud_url = untrailingslashit( $this->iup_instance->get_s3_url() );
-
+        $root_dirs    = $this->iup_instance->get_original_upload_dir_root();
+        $base_url     = $root_dirs['baseurl'];
+        $base_dir     = $root_dirs['basedir'];
+        $cloud_url    = untrailingslashit( $this->iup_instance->get_s3_url() );
         $is_local_url = ( strpos( $url, $base_url ) !== false );
 
         if ( $is_local_url ) {
-            $file_path = str_replace( $base_url, $base_dir, $url );
-
-            if ( file_exists( $file_path ) ) {
-                return $url;
-            }
             $relative_path = str_replace( $base_url, '', $url );
-        } else {
-            $relative_path = str_replace( $cloud_url, '', $url );
-        }
+            $local_path    = $base_dir . $relative_path;
 
-        global $wpdb;
-        $is_synced = $wpdb->get_var( $wpdb->prepare(
-                "SELECT synced FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s AND synced = 1",
-                $relative_path
-        ) );
-
-        if ( $is_local_url ) {
-            return $is_synced ? ( $cloud_url . $relative_path ) : $url;
-        } else {
-            if ( $is_synced ) {
+            if ( file_exists( $local_path ) ) {
                 return $url;
             }
 
-            $local_path = $base_dir . $relative_path;
+            // Local missing — fall back to cloud if the file is actually there.
+            if ( self::cloud_file_exists( $relative_path ) ) {
+                return $cloud_url . $relative_path;
+            }
 
-            return file_exists( $local_path ) ? ( $base_url . $relative_path ) : $url;
+            return $url;
         }
+
+        // Cloud URL path
+        $relative_path = str_replace( $cloud_url, '', $url );
+
+        if ( self::cloud_file_exists( $relative_path ) ) {
+            return $url;
+        }
+
+        // Cloud missing — try local.
+        $local_path = $base_dir . $relative_path;
+        if ( file_exists( $local_path ) ) {
+            return $base_url . $relative_path;
+        }
+
+        return $url;
+    }
+
+    /**
+     * Check whether a given uploads-relative path exists on the IU cloud. Uses the
+     * stream wrapper's per-request stat cache and an additional static memo here so
+     * the same URL checked multiple times on one page costs at most one HeadObject.
+     *
+     * @param string $relative_path Uploads-relative path, leading slash required (e.g. "/2026/04/file.jpg").
+     *
+     * @return bool
+     */
+    private static function cloud_file_exists( $relative_path ) {
+        static $cache = [];
+
+        if ( $relative_path === '' ) {
+            return false;
+        }
+        if ( array_key_exists( $relative_path, $cache ) ) {
+            return $cache[ $relative_path ];
+        }
+
+        $cloud_path = InfiniteUploadsHelper::get_cloud_upload_path() . $relative_path;
+        $exists     = false;
+
+        // Guard: get_cloud_upload_path() may return local path when IU isn't connected.
+        if ( 0 === strpos( $cloud_path, 'iu://' ) ) {
+            $exists = @file_exists( $cloud_path );
+        }
+
+        $cache[ $relative_path ] = $exists;
+
+        return $exists;
     }
 
     public function set_the_new_file_path( $uploaded, $file, $new_file, $type ) {
