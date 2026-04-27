@@ -1591,6 +1591,73 @@ class InfiniteUploads {
     }
 
     /**
+     * ShortPixel compatibility: redirect the backup directory to local disk.
+     *
+     * ShortPixel computes its backup base from `wp_get_upload_dir()['basedir']`, which
+     * IU has filtered to `iu://bucket`. ShortPixel then tries to create the backup
+     * directory and copy the original file there before optimizing — but on stream
+     * wrappers, mkdir/chmod/is_writable behave differently than ShortPixel's
+     * DirectoryModel::check() expects, so the backup write fails with the user-facing
+     * "Could not create backup. Please check file permissions" message.
+     *
+     * Strategy: build the same `<base>/ShortpixelBackups/<relative_path>` structure
+     * but rooted at the *original local* uploads basedir, not the iu:// override.
+     * `/ShortpixelBackups/` is already added to `infinite_uploads_sync_exclusions`
+     * via `compatibility_exclusions()`, so these backups stay local and never get
+     * pushed to cloud.
+     *
+     * Hooked to `shortpixel/file/backup_folder`.
+     *
+     * @param  mixed  $directory  ShortPixel DirectoryModel for the computed backup folder.
+     * @param  mixed  $file       ShortPixel FileModel for the source image.
+     *
+     * @return mixed  Replacement DirectoryModel pointing at a local-disk backup folder,
+     *                or the original $directory if we can't safely override.
+     */
+    public function shortpixel_backup_folder( $directory, $file ) {
+        if ( ! function_exists( 'wpSPIO' ) || ! is_object( $directory ) || ! method_exists( $directory, 'getPath' ) ) {
+            return $directory;
+        }
+
+        $current_path = (string) $directory->getPath();
+        $marker       = 'ShortpixelBackups';
+
+        $idx = strrpos( $current_path, $marker );
+        if ( $idx === false ) {
+            return $directory;
+        }
+
+        // Everything after `ShortpixelBackups/` — preserves ShortPixel's own subdir layout.
+        $relative_subdir = ltrim( substr( $current_path, $idx + strlen( $marker ) ), '/' . DIRECTORY_SEPARATOR );
+
+        $local_uploads_root = $this->get_original_upload_dir_root();
+        if ( empty( $local_uploads_root['basedir'] ) ) {
+            return $directory;
+        }
+
+        $local_backup_path = trailingslashit( $local_uploads_root['basedir'] )
+                             . $marker
+                             . ( $relative_subdir !== '' ? '/' . $relative_subdir : '/' );
+
+        // Already pointing at the same local target — nothing to do (don't recurse).
+        if ( $current_path === $local_backup_path ) {
+            return $directory;
+        }
+
+        try {
+            $fs        = wpSPIO()->filesystem();
+            $local_dir = $fs->getDirectory( $local_backup_path );
+            if ( method_exists( $local_dir, 'check' ) && $local_dir->check( true ) ) {
+                return $local_dir;
+            }
+        } catch ( \Throwable $e ) {
+            // Fall through to original directory on any unexpected ShortPixel error.
+        }
+
+        return $directory;
+    }
+
+    /**
      * When file exclusion is enabled, convert CDN URLs for excluded paths to local server URLs.
      * If the local file doesn't yet exist (was written to cloud before exclusion was configured),
      * it is copied from the cloud stream to local disk on first access.
@@ -1706,6 +1773,15 @@ class InfiniteUploads {
         // error into a useful IU-aware status read from wp_ewwwio_images.
         add_action( 'manage_media_custom_column', [ $this, 'ewww_column_buffer_start' ], 9, 2 );
         add_action( 'manage_media_custom_column', [ $this, 'ewww_column_buffer_end' ], 11, 2 );
+
+        // ShortPixel: redirect backup folder to local disk. ShortPixel computes its backup
+        // base as wp_get_upload_dir()['basedir'] . '/ShortpixelBackups', which IU has
+        // filtered to iu://bucket — directory creation and copy fail under stream wrappers
+        // (the mkdir/chmod/is_writable semantics on iu:// paths don't satisfy ShortPixel's
+        // pre-flight check). Override the backup directory to the original local uploads
+        // path; /ShortpixelBackups/ is already in IU's sync exclusions, so backups stay
+        // local and never get pushed to cloud.
+        add_filter( 'shortpixel/file/backup_folder', [ $this, 'shortpixel_backup_folder' ], 10, 2 );
 
         // Elementor and other plugins that write CSS/JS to iu:// basedir: serve from local URL.
         add_filter( 'style_loader_src', [ $this, 'filter_excluded_asset_src' ] );
