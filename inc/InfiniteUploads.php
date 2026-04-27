@@ -1449,6 +1449,148 @@ class InfiniteUploads {
     }
 
     /**
+     * Tracks whether we opened an output buffer for the current Media Library column
+     * render. Keyed by attachment ID so concurrent column callbacks don't interfere.
+     *
+     * @var array<int, true>
+     */
+    private $ewww_column_buffered = [];
+
+    /**
+     * Start an output buffer around EWWW's column callback for iu://-hosted attachments,
+     * so we can rewrite EWWW's "Could not retrieve file path" failure into a useful
+     * IU-aware status. Hooked to `manage_media_custom_column` at priority 9.
+     *
+     * @param  string  $column_name
+     * @param  int     $id
+     */
+    public function ewww_column_buffer_start( $column_name, $id ) {
+        if ( 'ewww-image-optimizer' !== $column_name ) {
+            return;
+        }
+        $file = get_attached_file( (int) $id );
+        if ( ! $file || strpos( $file, 'iu://' ) !== 0 ) {
+            return;
+        }
+        ob_start();
+        $this->ewww_column_buffered[ (int) $id ] = true;
+    }
+
+    /**
+     * Close the output buffer opened by ewww_column_buffer_start(). If EWWW emitted
+     * its "Could not retrieve file path" failure (because ewwwio_is_file() rejects
+     * iu:// paths), replace it with a status block that reports IU-cloud storage
+     * plus the EWWW optimization stats from `wp_ewwwio_images`. Otherwise pass
+     * EWWW's normal output through unchanged.
+     *
+     * Hooked to `manage_media_custom_column` at priority 11.
+     *
+     * @param  string  $column_name
+     * @param  int     $id
+     */
+    public function ewww_column_buffer_end( $column_name, $id ) {
+        if ( 'ewww-image-optimizer' !== $column_name ) {
+            return;
+        }
+        $id = (int) $id;
+        if ( empty( $this->ewww_column_buffered[ $id ] ) ) {
+            return;
+        }
+        unset( $this->ewww_column_buffered[ $id ] );
+
+        $output = ob_get_clean();
+
+        if ( strpos( $output, 'Could not retrieve file path' ) === false ) {
+            // EWWW rendered something useful — let it stand.
+            echo $output; // phpcs:ignore WordPress.Security.EscapeOutput
+            return;
+        }
+
+        // Replace the error with IU-aware status. Same wrapper EWWW uses so its
+        // CSS / JS hooks (the per-row spinner, debug button) keep working.
+        $stats = $this->ewww_attachment_stats( $id );
+
+        $html  = '<div id="ewww-media-status-' . $id . '" class="ewww-media-status" data-id="' . $id . '">';
+        $html .= '<div>' . esc_html__( 'Infinite Uploads (cloud-stored)', 'infinite-uploads' ) . '</div>';
+
+        if ( $stats['rows'] > 0 ) {
+            $saved = max( 0, (int) $stats['orig'] - (int) $stats['opt'] );
+            $pct   = $stats['orig'] > 0 ? round( ( $saved / $stats['orig'] ) * 100, 1 ) : 0;
+            $html .= '<div>' . sprintf(
+                /* translators: 1: number of image sizes, 2: humanized bytes, 3: percentage */
+                esc_html__( 'Optimized %1$d sizes — saved %2$s (%3$s%%)', 'infinite-uploads' ),
+                (int) $stats['rows'],
+                esc_html( size_format( $saved ) ),
+                esc_html( (string) $pct )
+            ) . '</div>';
+
+            if ( $stats['webp_rows'] > 0 ) {
+                $html .= '<div>' . sprintf(
+                    /* translators: %d: number of WebP sidecars */
+                    esc_html__( 'WebP: %d files', 'infinite-uploads' ),
+                    (int) $stats['webp_rows']
+                ) . '</div>';
+            }
+        } else {
+            $html .= '<div>' . esc_html__( 'Not yet optimized.', 'infinite-uploads' ) . '</div>';
+        }
+
+        $html .= '</div>';
+
+        echo $html; // phpcs:ignore WordPress.Security.EscapeOutput
+    }
+
+    /**
+     * Aggregate optimization stats for an attachment from `wp_ewwwio_images`.
+     *
+     * @param  int  $id
+     *
+     * @return array{rows:int, orig:int, opt:int, webp_rows:int}
+     */
+    private function ewww_attachment_stats( $id ) {
+        global $wpdb;
+        static $cache = [];
+
+        if ( isset( $cache[ $id ] ) ) {
+            return $cache[ $id ];
+        }
+
+        $defaults = [ 'rows' => 0, 'orig' => 0, 'opt' => 0, 'webp_rows' => 0 ];
+        $table    = $wpdb->prefix . 'ewwwio_images';
+
+        if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
+            $cache[ $id ] = $defaults;
+
+            return $defaults;
+        }
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT
+                    COUNT(*) AS rows_count,
+                    COALESCE(SUM(orig_size), 0) AS orig,
+                    COALESCE(SUM(image_size), 0) AS opt,
+                    SUM(CASE WHEN webp_size > 0 AND webp_error = 0 THEN 1 ELSE 0 END) AS webp_rows
+                FROM {$table}
+                WHERE attachment_id = %d",
+                $id
+            ),
+            ARRAY_A
+        );
+
+        $stats = $row ? [
+            'rows'      => (int) $row['rows_count'],
+            'orig'      => (int) $row['orig'],
+            'opt'       => (int) $row['opt'],
+            'webp_rows' => (int) $row['webp_rows'],
+        ] : $defaults;
+
+        $cache[ $id ] = $stats;
+
+        return $stats;
+    }
+
+    /**
      * When file exclusion is enabled, convert CDN URLs for excluded paths to local server URLs.
      * If the local file doesn't yet exist (was written to cloud before exclusion was configured),
      * it is copied from the cloud stream to local disk on first access.
@@ -1555,6 +1697,15 @@ class InfiniteUploads {
         // tag — including ones EWWW never converted, which would 404 on fetch. Opt out
         // per-image by consulting wp_ewwwio_images.
         add_filter( 'ewww_image_optimizer_skip_webp_rewrite', [ $this, 'ewww_skip_webp_rewrite' ], 10, 2 );
+
+        // EWWW's Media Library "Image Optimizer" column emits "Could not retrieve file
+        // path" for iu://-hosted attachments because its hard-coded CDN recognition
+        // (Amazon_S3_And_CloudFront / S3_Uploads / WP Stateless / Azure) doesn't include
+        // Infinite Uploads, and ewwwio_is_file() rejects any path containing '://'. We
+        // wrap EWWW's column callback in an output buffer and rewrite that specific
+        // error into a useful IU-aware status read from wp_ewwwio_images.
+        add_action( 'manage_media_custom_column', [ $this, 'ewww_column_buffer_start' ], 9, 2 );
+        add_action( 'manage_media_custom_column', [ $this, 'ewww_column_buffer_end' ], 11, 2 );
 
         // Elementor and other plugins that write CSS/JS to iu:// basedir: serve from local URL.
         add_filter( 'style_loader_src', [ $this, 'filter_excluded_asset_src' ] );
