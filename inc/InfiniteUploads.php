@@ -1266,6 +1266,12 @@ class InfiniteUploads {
      * EWWW Image Optimizer compatibility: push the locally-optimized files back to iu://
      * and remove the local copies. Hooked to `ewww_image_optimizer_after_optimize_attachment`.
      *
+     * Also pushes any WebP/AVIF sidecars EWWW generated next to each image
+     * (e.g. image.png.webp, image-150x150.png.webp). Without that, only the original
+     * .png/.jpg makes it back to cloud and the next-gen siblings stay on local disk —
+     * the CDN ends up serving the original format and EWWW's <picture>/JS rewrites
+     * 404 on the missing webp/avif URLs.
+     *
      * @param  int    $id    Attachment post ID.
      * @param  array  $meta  Attachment metadata.
      */
@@ -1286,13 +1292,10 @@ class InfiniteUploads {
             return;
         }
 
-        // Push full-size back to iu://.
-        if ( file_exists( $local_path ) ) {
-            copy( $local_path, $iu_path );
-            unlink( $local_path );
-        }
+        // Push full-size + its webp/avif sidecars back to iu://.
+        $this->ewww_push_file_with_sidecars( $local_path, $iu_path );
 
-        // Push resized versions back to iu://.
+        // Push resized versions + their webp/avif sidecars back to iu://.
         if ( isset( $meta['sizes'] ) && is_array( $meta['sizes'] ) ) {
             $base_iu    = trailingslashit( dirname( $iu_path ) );
             $base_local = trailingslashit( dirname( $local_path ) );
@@ -1302,9 +1305,31 @@ class InfiniteUploads {
                 }
                 $local_resize = $base_local . wp_basename( $data['file'] );
                 $iu_resize    = $base_iu . wp_basename( $data['file'] );
-                if ( file_exists( $local_resize ) ) {
-                    copy( $local_resize, $iu_resize );
-                    unlink( $local_resize );
+                $this->ewww_push_file_with_sidecars( $local_resize, $iu_resize );
+            }
+        }
+    }
+
+    /**
+     * Copy a single file from local → iu:// and unlink the local copy. Also handles
+     * the `.webp` and `.avif` sidecars EWWW writes next to each image.
+     *
+     * @param  string  $local_path  Local filesystem path of the source file.
+     * @param  string  $iu_path     Equivalent iu:// destination path.
+     */
+    private function ewww_push_file_with_sidecars( $local_path, $iu_path ) {
+        if ( file_exists( $local_path ) ) {
+            if ( @copy( $local_path, $iu_path ) ) {
+                @unlink( $local_path );
+            }
+        }
+
+        foreach ( [ '.webp', '.avif' ] as $ext ) {
+            $local_sidecar = $local_path . $ext;
+            $iu_sidecar    = $iu_path . $ext;
+            if ( file_exists( $local_sidecar ) ) {
+                if ( @copy( $local_sidecar, $iu_sidecar ) ) {
+                    @unlink( $local_sidecar );
                 }
             }
         }
