@@ -1591,6 +1591,81 @@ class InfiniteUploads {
     }
 
     /**
+     * ShortPixel compatibility: tell ShortPixel that iu:// paths are valid stateless
+     * remote files (via PHP stream wrapper). ShortPixel's `pathIsUrl()` flags every
+     * string containing `://` as a URL and routes the FileModel through `UrlToPath()`,
+     * which leaves `exists`/`is_readable`/`is_file` all false unless this filter claims
+     * the URL. Returning the integer VIRTUAL_STATELESS value (2) — same constant
+     * ShortPixel uses internally — sets exists=true, is_readable=true, is_file=true,
+     * is_writable=true, and lets ShortPixel proceed to the actual read/copy/optimize
+     * operations, all of which work transparently against iu:// via the stream wrapper.
+     *
+     * Hooked to `shortpixel/image/urltopath`.
+     *
+     * @param  mixed   $result   Current handler result. False if no handler claimed it.
+     * @param  string  $url      The URL/path being resolved.
+     * @param  string  $rawpath  The original raw path (pre-stripping).
+     *
+     * @return mixed
+     */
+    public function shortpixel_urltopath( $result, $url, $rawpath ) {
+        if ( $result !== false ) {
+            return $result; // another handler already claimed it
+        }
+        if ( strpos( (string) $url, 'iu://' ) === 0 || strpos( (string) $rawpath, 'iu://' ) === 0 ) {
+            // VIRTUAL_STATELESS = 2 (FileModel::$VIRTUAL_STATELESS).
+            return 2;
+        }
+
+        return $result;
+    }
+
+    /**
+     * ShortPixel compatibility: populate FileModel::$filesize for iu:// virtual files,
+     * so getFileSize() returns the real size instead of the -1 sentinel that virtual
+     * files normally yield. Without this, FileModel::copy() bails at the
+     * `getFileSize() <= 0` guard for any iu:// source — even though the file exists
+     * and PHP's copy() can read it via the stream wrapper.
+     *
+     * Hooked to `shortpixel/file/exists` (which is the only filter giving us the
+     * FileModel instance early enough). Uses reflection because $filesize is
+     * protected; populates once per FileModel and short-circuits on subsequent calls.
+     *
+     * @param  bool    $exists    Current exists value.
+     * @param  string  $fullpath  Full file path.
+     * @param  mixed   $file      ShortPixel FileModel.
+     *
+     * @return bool
+     */
+    public function shortpixel_prefill_filesize( $exists, $fullpath, $file ) {
+        if ( ! is_object( $file ) || strpos( (string) $fullpath, 'iu://' ) !== 0 ) {
+            return $exists;
+        }
+
+        try {
+            $reflection = new \ReflectionObject( $file );
+            if ( ! $reflection->hasProperty( 'filesize' ) ) {
+                return $exists;
+            }
+
+            $prop = $reflection->getProperty( 'filesize' );
+            $prop->setAccessible( true );
+            if ( $prop->getValue( $file ) !== null ) {
+                return $exists; // already populated this request
+            }
+
+            $size = @filesize( $fullpath ); // hits stream wrapper, cached per-request
+            if ( $size !== false && $size > 0 ) {
+                $prop->setValue( $file, (int) $size );
+            }
+        } catch ( \Throwable $e ) {
+            // Reflection or stat failure — leave the FileModel as-is.
+        }
+
+        return $exists;
+    }
+
+    /**
      * ShortPixel compatibility: redirect the backup directory to local disk.
      *
      * ShortPixel computes its backup base from `wp_get_upload_dir()['basedir']`, which
@@ -1773,6 +1848,27 @@ class InfiniteUploads {
         // error into a useful IU-aware status read from wp_ewwwio_images.
         add_action( 'manage_media_custom_column', [ $this, 'ewww_column_buffer_start' ], 9, 2 );
         add_action( 'manage_media_custom_column', [ $this, 'ewww_column_buffer_end' ], 11, 2 );
+
+        // ShortPixel: claim iu:// paths so ShortPixel's FileModel treats them as readable
+        // virtual files. ShortPixel's FileModel constructor calls pathIsUrl() — which
+        // returns true for ANY string containing "://" — and routes the file through
+        // UrlToPath(). Without an `shortpixel/image/urltopath` handler returning truthy,
+        // ShortPixel sets exists=false, is_readable=false, is_file=false, and every
+        // subsequent file op (copy(), getFileSize(), createBackup()) bails out early.
+        // Returning VIRTUAL_STATELESS marks the file as a stream-wrapper-backed remote
+        // that *is* writable — ShortPixel will then attempt the actual operations,
+        // which work because PHP's copy()/file_exists()/filesize() handle iu:// via
+        // the stream wrapper.
+        add_filter( 'shortpixel/image/urltopath', [ $this, 'shortpixel_urltopath' ], 10, 3 );
+
+        // ShortPixel: populate FileModel::$filesize from the iu:// stream so virtual files
+        // don't bail in copy() and other size-aware checks. ShortPixel's getFileSize()
+        // returns -1 for any virtual file; copy() then rejects the source ("Source file
+        // in copy has a filesize of zero"). There's no `getFileSize` filter, but the
+        // `shortpixel/file/exists` filter receives the FileModel instance — we use
+        // reflection to set `$filesize` once (cheap once-per-request HEAD via the stream
+        // wrapper's own stat cache), so getFileSize()'s first branch returns it directly.
+        add_filter( 'shortpixel/file/exists', [ $this, 'shortpixel_prefill_filesize' ], 10, 3 );
 
         // ShortPixel: redirect backup folder to local disk. ShortPixel computes its backup
         // base as wp_get_upload_dir()['basedir'] . '/ShortpixelBackups', which IU has
