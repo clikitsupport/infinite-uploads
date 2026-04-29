@@ -2,7 +2,7 @@
 
 Requires at least: 6.0
 Tested up to: 6.9
-Stable tag: 3.2.1
+Stable tag: 3.2.2
 Requires PHP: 8.0
 Contributors: bww
 Tags: cloud storage, offload media, offload, video streaming, cdn
@@ -216,13 +216,47 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Upgrade Notice ==
 
-3.2.1
+3.2.2
 -------------
 
-* Fixed an issue where the exclusion file tree was not showing.
-* Fixed a bug causing Infinite Uploads to corrupt plugin ZIP installations from the WordPress admin.
+* **Image Optimizer Compatibility**
+    * EWWW Image Optimizer now works with images stored in the cloud. Both regular and WebP versions are saved and delivered correctly.
+    * Imagify now works end-to-end with cloud-hosted media. Optimized images and their WebP / AVIF versions are kept in sync automatically.
+    * ShortPixel: fixed the "Could not create backup. Please check file permissions" error when optimizing cloud-hosted images.
+    * Smush Pro: fixed broken WebP / AVIF image links that appeared as `https:/smush-webp/...` and resulted in missing images.
+
+* **Page Builder Compatibility**
+    * Elementor, Beaver Builder, and Brizy now load their stylesheets from the correct location when the folder is excluded from cloud sync.
+    * Hardened how Infinite Uploads cooperates with other plugins so its URL fixes always reach the browser.
+
+* **Folder Exclusion Tree**
+    * Fixed an issue where folders appeared as files (and couldn't be expanded) after running "Free Up Local Storage".
+    * Folders that exist only in the cloud now expand correctly so you can browse their contents.
+
+* **Missing Image Fallback**
+    * If a local copy of an image is missing, the plugin now serves it from the cloud automatically instead of showing a broken image. Fixes random 404s after a sync or after freeing up local storage.
 
 == Changelog ==
+
+3.2.2
+----------------------------------------------------------------------
+
+* **Image Optimizer Compatibility**
+    * EWWW Image Optimizer now works with images stored in the cloud. Both regular and WebP versions are saved and delivered correctly.
+    * Imagify now works end-to-end with cloud-hosted media. Optimized images and their WebP / AVIF versions are kept in sync automatically.
+    * ShortPixel: fixed the "Could not create backup. Please check file permissions" error when optimizing cloud-hosted images.
+    * Smush Pro: fixed broken WebP / AVIF image links that appeared as `https:/smush-webp/...` and resulted in missing images.
+
+* **Page Builder Compatibility**
+    * Elementor, Beaver Builder, and Brizy now load their stylesheets from the correct location when the folder is excluded from cloud sync.
+    * Hardened how Infinite Uploads cooperates with other plugins so its URL fixes always reach the browser.
+
+* **Folder Exclusion Tree**
+    * Fixed an issue where folders appeared as files (and couldn't be expanded) after running "Free Up Local Storage".
+    * Folders that exist only in the cloud now expand correctly so you can browse their contents.
+
+* **Missing Image Fallback**
+    * If a local copy of an image is missing, the plugin now serves it from the cloud automatically instead of showing a broken image. Fixes random 404s after a sync or after freeing up local storage.
 
 3.2.1
 ----------------------------------------------------------------------
