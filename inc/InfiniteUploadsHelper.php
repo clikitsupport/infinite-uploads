@@ -178,7 +178,6 @@ class InfiniteUploadsHelper {
 			return '';
 		}
 
-		//error_log('[INFINITE_UPLOADS >> get_local_file_path] Getting local file path for: ' . $file_path);
 		$local_upload_path = self::get_local_upload_path();
 		$cloud_upload_path = self::get_cloud_upload_path();
 
