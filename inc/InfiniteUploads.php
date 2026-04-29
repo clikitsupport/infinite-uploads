@@ -194,7 +194,7 @@ class InfiniteUploads {
 
         $this->plugin_compatibility();
 
-        if ( ( ! defined( 'INFINITE_UPLOADS_DISABLE_REPLACE_UPLOAD_URL' ) || ! INFINITE_UPLOADS_DISABLE_REPLACE_UPLOAD_URL ) && $api_data->site->cdn_enabled ) {
+        if ( ! defined( 'INFINITE_UPLOADS_DISABLE_REPLACE_UPLOAD_URL' ) || ! INFINITE_UPLOADS_DISABLE_REPLACE_UPLOAD_URL ) {
             //makes this work with pre 3.5 MU ms_files rewriting (ie domain.com/files/filename.jpg)
             $original_root_dirs = $this->get_original_upload_dir_root();
             $replacements       = [ $original_root_dirs['baseurl'] ];
@@ -210,6 +210,13 @@ class InfiniteUploads {
             } else {
                 $cdn_url = $this->get_s3_url();
             }
+            // Instantiate the rewriter regardless of $cdn_enabled. Reason: filter_upload_dir()
+            // unconditionally replaces wp_upload_dir()['baseurl'] with the CDN URL, which
+            // causes Smush to emit malformed next-gen URLs (https:/smush-webp/…) via its
+            // dirname(baseurl) derivation when the CDN URL is a host-only vanity domain.
+            // The rewriter's str_replace pass repairs those URLs — and it must run even
+            // when cdn_enabled is false, because Smush's output depends on the modified
+            // baseurl, not on whether the CDN is active.
             new InfiniteUploadsRewriter( $original_root_dirs['baseurl'], $replacements, $cdn_url );
         }
 
@@ -593,6 +600,7 @@ class InfiniteUploads {
                         'svg',
                         'svgz',
                         'webp',
+                        'avif',
                 ],
                 'audio'    => [
                         'aac',
@@ -787,6 +795,12 @@ class InfiniteUploads {
         foreach ( $to_purge as $key => $file ) {
             $to_purge[ $key ] = str_replace( $dirs['basedir'], $dirs['baseurl'], $file );
         }
+
+        if ( interface_exists( '\Imagify\CDN\PushCDNInterface' ) ) {
+            $to_purge = array_merge( $to_purge, InfiniteUploadsImagify::get_attachment_nextgen_urls( $post_id ) );
+        }
+
+        $to_purge = array_values( array_unique( $to_purge ) );
 
         //purge these from CDN cache
         $this->api->purge( $to_purge );
@@ -1193,6 +1207,605 @@ class InfiniteUploads {
     }
 
     /**
+     * EWWW Image Optimizer compatibility: copy iu:// files to a local temp path so EWWW
+     * can optimize them. Hooked to `ewww_image_optimizer_remote_fetched`.
+     *
+     * @param  string|false  $filename  Local path resolved so far (false when not yet found).
+     * @param  int           $id        Attachment post ID.
+     * @param  array         $meta      Attachment metadata.
+     *
+     * @return string|false  Local path to the full-size image, or original $filename on failure.
+     */
+    public function ewww_remote_fetch( $filename, $id, $meta ) {
+        $iu_path = get_attached_file( $id );
+        if ( ! $iu_path || strpos( $iu_path, 'iu://' ) !== 0 ) {
+            return $filename;
+        }
+
+        $root_dirs  = $this->get_original_upload_dir_root();
+        $iu_basedir = $this->get_s3_basedir();
+        if ( ! $iu_basedir ) {
+            return $filename;
+        }
+
+        // Map iu:// path → local path.
+        $local_path = str_replace( $iu_basedir, $root_dirs['basedir'], $iu_path );
+        if ( $local_path === $iu_path ) {
+            return $filename;
+        }
+
+        if ( ! is_dir( dirname( $local_path ) ) ) {
+            wp_mkdir_p( dirname( $local_path ) );
+        }
+
+        // Copy full-size image to local.
+        if ( ! file_exists( $local_path ) ) {
+            copy( $iu_path, $local_path );
+        }
+
+        // Copy resized versions to local so EWWW can optimize them too.
+        if ( isset( $meta['sizes'] ) && is_array( $meta['sizes'] ) ) {
+            $base_iu    = trailingslashit( dirname( $iu_path ) );
+            $base_local = trailingslashit( dirname( $local_path ) );
+            foreach ( $meta['sizes'] as $size => $data ) {
+                if ( empty( $data['file'] ) ) {
+                    continue;
+                }
+                $iu_resize    = $base_iu . wp_basename( $data['file'] );
+                $local_resize = $base_local . wp_basename( $data['file'] );
+                if ( ! file_exists( $local_resize ) ) {
+                    copy( $iu_resize, $local_resize );
+                }
+            }
+        }
+
+        return file_exists( $local_path ) ? $local_path : $filename;
+    }
+
+    /**
+     * EWWW Image Optimizer compatibility: push the locally-optimized files back to iu://
+     * and remove the local copies. Hooked to `ewww_image_optimizer_after_optimize_attachment`.
+     *
+     * Also pushes any WebP/AVIF sidecars EWWW generated next to each image
+     * (e.g. image.png.webp, image-150x150.png.webp). Without that, only the original
+     * .png/.jpg makes it back to cloud and the next-gen siblings stay on local disk —
+     * the CDN ends up serving the original format and EWWW's <picture>/JS rewrites
+     * 404 on the missing webp/avif URLs.
+     *
+     * @param  int    $id    Attachment post ID.
+     * @param  array  $meta  Attachment metadata.
+     */
+    public function ewww_remote_push( $id, $meta ) {
+        $iu_path = get_attached_file( $id );
+        if ( ! $iu_path || strpos( $iu_path, 'iu://' ) !== 0 ) {
+            return;
+        }
+
+        $root_dirs  = $this->get_original_upload_dir_root();
+        $iu_basedir = $this->get_s3_basedir();
+        if ( ! $iu_basedir ) {
+            return;
+        }
+
+        $local_path = str_replace( $iu_basedir, $root_dirs['basedir'], $iu_path );
+        if ( $local_path === $iu_path ) {
+            return;
+        }
+
+        // Push full-size + its webp/avif sidecars back to iu://.
+        $this->ewww_push_file_with_sidecars( $local_path, $iu_path );
+
+        // Push resized versions + their webp/avif sidecars back to iu://.
+        if ( isset( $meta['sizes'] ) && is_array( $meta['sizes'] ) ) {
+            $base_iu    = trailingslashit( dirname( $iu_path ) );
+            $base_local = trailingslashit( dirname( $local_path ) );
+            foreach ( $meta['sizes'] as $size => $data ) {
+                if ( empty( $data['file'] ) ) {
+                    continue;
+                }
+                $local_resize = $base_local . wp_basename( $data['file'] );
+                $iu_resize    = $base_iu . wp_basename( $data['file'] );
+                $this->ewww_push_file_with_sidecars( $local_resize, $iu_resize );
+            }
+        }
+    }
+
+    /**
+     * Copy a single file from local → iu:// and unlink the local copy. Also handles
+     * the `.webp` and `.avif` sidecars EWWW writes next to each image.
+     *
+     * @param  string  $local_path  Local filesystem path of the source file.
+     * @param  string  $iu_path     Equivalent iu:// destination path.
+     */
+    private function ewww_push_file_with_sidecars( $local_path, $iu_path ) {
+        if ( file_exists( $local_path ) ) {
+            if ( @copy( $local_path, $iu_path ) ) {
+                @unlink( $local_path );
+            }
+        }
+
+        foreach ( [ '.webp', '.avif' ] as $ext ) {
+            $local_sidecar = $local_path . $ext;
+            $iu_sidecar    = $iu_path . $ext;
+            if ( file_exists( $local_sidecar ) ) {
+                if ( @copy( $local_sidecar, $iu_sidecar ) ) {
+                    @unlink( $local_sidecar );
+                }
+            }
+        }
+    }
+
+    /**
+     * Add the IU CDN URL to EWWW's allowed-urls list. EWWW's Picture_Webp / JS_Webp
+     * rewriters only consider `<img>` elements whose URL matches one of these entries;
+     * without this, images served from the IU CDN are silently skipped.
+     *
+     * @param  array  $urls
+     *
+     * @return array
+     */
+    public function ewww_allowed_urls( $urls ) {
+        $cdn_url = $this->get_s3_url();
+        if ( $cdn_url ) {
+            $urls[] = trailingslashit( $cdn_url );
+        }
+
+        return $urls;
+    }
+
+    /**
+     * Add the IU CDN host to EWWW's allowed-domains list. Used in EWWW's cdn_to_local()
+     * translation, so URLs on our CDN resolve back to valid attachment paths.
+     *
+     * @param  array  $domains
+     *
+     * @return array
+     */
+    public function ewww_allowed_domains( $domains ) {
+        $cdn_url  = $this->get_s3_url();
+        $cdn_host = $cdn_url ? wp_parse_url( $cdn_url, PHP_URL_HOST ) : '';
+        if ( $cdn_host && ! in_array( $cdn_host, $domains, true ) ) {
+            $domains[] = $cdn_host;
+        }
+
+        return $domains;
+    }
+
+    /**
+     * Force EWWW's `webp_force` option on at runtime (DB value untouched) so its
+     * rewriter uses the allowed_urls match path for IU-hosted images. Required
+     * because EWWW's normal path calls is_file() on translated paths, which the
+     * IU stream wrapper's is_file() rejects for anything containing `://`.
+     *
+     * Hooked to `pre_option_ewww_image_optimizer_webp_force`.
+     *
+     * @return string
+     */
+    public function ewww_force_webp_at_runtime() {
+        return '1';
+    }
+
+    /**
+     * Opt out specific images from EWWW's WebP rewrite. With `webp_force` on (see
+     * ewww_force_webp_at_runtime) EWWW would wrap every IU-CDN image in a <picture>
+     * tag; for images EWWW never converted, the sibling `.webp` doesn't exist and
+     * the source would 404. Consult `wp_ewwwio_images` and skip anything not in it.
+     *
+     * Non-IU-CDN URLs defer to EWWW's default behavior (native AS3CF/S3 sites etc.).
+     *
+     * Hooked to `ewww_image_optimizer_skip_webp_rewrite`.
+     *
+     * @param  bool    $skip   Current skip decision from EWWW.
+     * @param  string  $image  The image URL being evaluated.
+     *
+     * @return bool
+     */
+    public function ewww_skip_webp_rewrite( $skip, $image ) {
+        // Respect an existing skip from another handler.
+        if ( $skip ) {
+            return $skip;
+        }
+
+        $cdn_url = $this->get_s3_url();
+        if ( ! $cdn_url || strpos( $image, $cdn_url ) === false ) {
+            // Not an IU CDN URL — let EWWW's normal logic decide.
+            return $skip;
+        }
+
+        // Strip query string and CDN prefix to get the upload-root-relative path.
+        $path = strtok( $image, '?' );
+        $path = str_replace( trailingslashit( $cdn_url ), '', $path );
+        if ( $path === '' ) {
+            return true;
+        }
+
+        return $this->ewww_has_converted_webp( wp_basename( $path ) ) ? false : true;
+    }
+
+    /**
+     * Check if EWWW has a successful WebP conversion on record for a given filename.
+     * Results are memoized for the request to avoid a query per `<img>` on the page.
+     *
+     * @param  string  $basename  File basename, e.g. "sitting-6@2x-285x300.png".
+     *
+     * @return bool
+     */
+    private function ewww_has_converted_webp( $basename ) {
+        global $wpdb;
+        static $converted = null;
+
+        if ( $converted === null ) {
+            $converted = [];
+            $table     = $wpdb->prefix . 'ewwwio_images';
+            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) === $table ) {
+                $rows = $wpdb->get_col( "SELECT path FROM {$table} WHERE webp_size > 0 AND webp_error = 0" );
+                foreach ( (array) $rows as $row ) {
+                    $converted[ wp_basename( $row ) ] = true;
+                }
+            }
+        }
+
+        return isset( $converted[ $basename ] );
+    }
+
+    /**
+     * Tracks whether we opened an output buffer for the current Media Library column
+     * render. Keyed by attachment ID so concurrent column callbacks don't interfere.
+     *
+     * @var array<int, true>
+     */
+    private $ewww_column_buffered = [];
+
+    /**
+     * Start an output buffer around EWWW's column callback for iu://-hosted attachments,
+     * so we can rewrite EWWW's "Could not retrieve file path" failure into a useful
+     * IU-aware status. Hooked to `manage_media_custom_column` at priority 9.
+     *
+     * @param  string  $column_name
+     * @param  int     $id
+     */
+    public function ewww_column_buffer_start( $column_name, $id ) {
+        if ( 'ewww-image-optimizer' !== $column_name ) {
+            return;
+        }
+        $file = get_attached_file( (int) $id );
+        if ( ! $file || strpos( $file, 'iu://' ) !== 0 ) {
+            return;
+        }
+        ob_start();
+        $this->ewww_column_buffered[ (int) $id ] = true;
+    }
+
+    /**
+     * Close the output buffer opened by ewww_column_buffer_start(). If EWWW emitted
+     * its "Could not retrieve file path" failure (because ewwwio_is_file() rejects
+     * iu:// paths), replace it with a status block that reports IU-cloud storage
+     * plus the EWWW optimization stats from `wp_ewwwio_images`. Otherwise pass
+     * EWWW's normal output through unchanged.
+     *
+     * Hooked to `manage_media_custom_column` at priority 11.
+     *
+     * @param  string  $column_name
+     * @param  int     $id
+     */
+    public function ewww_column_buffer_end( $column_name, $id ) {
+        if ( 'ewww-image-optimizer' !== $column_name ) {
+            return;
+        }
+        $id = (int) $id;
+        if ( empty( $this->ewww_column_buffered[ $id ] ) ) {
+            return;
+        }
+        unset( $this->ewww_column_buffered[ $id ] );
+
+        $output = ob_get_clean();
+
+        if ( strpos( $output, 'Could not retrieve file path' ) === false ) {
+            // EWWW rendered something useful — let it stand.
+            echo $output; // phpcs:ignore WordPress.Security.EscapeOutput
+            return;
+        }
+
+        // Replace the error with IU-aware status. Same wrapper EWWW uses so its
+        // CSS / JS hooks (the per-row spinner, debug button) keep working.
+        $stats = $this->ewww_attachment_stats( $id );
+
+        $html  = '<div id="ewww-media-status-' . $id . '" class="ewww-media-status" data-id="' . $id . '">';
+        $html .= '<div>' . esc_html__( 'Infinite Uploads (cloud-stored)', 'infinite-uploads' ) . '</div>';
+
+        if ( $stats['rows'] > 0 ) {
+            $saved = max( 0, (int) $stats['orig'] - (int) $stats['opt'] );
+            $pct   = $stats['orig'] > 0 ? round( ( $saved / $stats['orig'] ) * 100, 1 ) : 0;
+            $html .= '<div>' . sprintf(
+                /* translators: 1: number of image sizes, 2: humanized bytes, 3: percentage */
+                esc_html__( 'Optimized %1$d sizes — saved %2$s (%3$s%%)', 'infinite-uploads' ),
+                (int) $stats['rows'],
+                esc_html( size_format( $saved ) ),
+                esc_html( (string) $pct )
+            ) . '</div>';
+
+            if ( $stats['webp_rows'] > 0 ) {
+                $html .= '<div>' . sprintf(
+                    /* translators: %d: number of WebP sidecars */
+                    esc_html__( 'WebP: %d files', 'infinite-uploads' ),
+                    (int) $stats['webp_rows']
+                ) . '</div>';
+            }
+        } else {
+            $html .= '<div>' . esc_html__( 'Not yet optimized.', 'infinite-uploads' ) . '</div>';
+        }
+
+        $html .= '</div>';
+
+        echo $html; // phpcs:ignore WordPress.Security.EscapeOutput
+    }
+
+    /**
+     * Aggregate optimization stats for an attachment from `wp_ewwwio_images`.
+     *
+     * @param  int  $id
+     *
+     * @return array{rows:int, orig:int, opt:int, webp_rows:int}
+     */
+    private function ewww_attachment_stats( $id ) {
+        global $wpdb;
+        static $cache = [];
+
+        if ( isset( $cache[ $id ] ) ) {
+            return $cache[ $id ];
+        }
+
+        $defaults = [ 'rows' => 0, 'orig' => 0, 'opt' => 0, 'webp_rows' => 0 ];
+        $table    = $wpdb->prefix . 'ewwwio_images';
+
+        if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
+            $cache[ $id ] = $defaults;
+
+            return $defaults;
+        }
+
+        $row = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT
+                    COUNT(*) AS rows_count,
+                    COALESCE(SUM(orig_size), 0) AS orig,
+                    COALESCE(SUM(image_size), 0) AS opt,
+                    SUM(CASE WHEN webp_size > 0 AND webp_error = 0 THEN 1 ELSE 0 END) AS webp_rows
+                FROM {$table}
+                WHERE attachment_id = %d",
+                $id
+            ),
+            ARRAY_A
+        );
+
+        $stats = $row ? [
+            'rows'      => (int) $row['rows_count'],
+            'orig'      => (int) $row['orig'],
+            'opt'       => (int) $row['opt'],
+            'webp_rows' => (int) $row['webp_rows'],
+        ] : $defaults;
+
+        $cache[ $id ] = $stats;
+
+        return $stats;
+    }
+
+    /**
+     * ShortPixel compatibility: tell ShortPixel that iu:// paths are valid stateless
+     * remote files (via PHP stream wrapper). ShortPixel's `pathIsUrl()` flags every
+     * string containing `://` as a URL and routes the FileModel through `UrlToPath()`,
+     * which leaves `exists`/`is_readable`/`is_file` all false unless this filter claims
+     * the URL. Returning the integer VIRTUAL_STATELESS value (2) — same constant
+     * ShortPixel uses internally — sets exists=true, is_readable=true, is_file=true,
+     * is_writable=true, and lets ShortPixel proceed to the actual read/copy/optimize
+     * operations, all of which work transparently against iu:// via the stream wrapper.
+     *
+     * Hooked to `shortpixel/image/urltopath`.
+     *
+     * @param  mixed   $result   Current handler result. False if no handler claimed it.
+     * @param  string  $url      The URL/path being resolved.
+     * @param  string  $rawpath  The original raw path (pre-stripping).
+     *
+     * @return mixed
+     */
+    public function shortpixel_urltopath( $result, $url, $rawpath ) {
+        if ( $result !== false ) {
+            return $result; // another handler already claimed it
+        }
+        if ( strpos( (string) $url, 'iu://' ) === 0 || strpos( (string) $rawpath, 'iu://' ) === 0 ) {
+            // VIRTUAL_STATELESS = 2 (FileModel::$VIRTUAL_STATELESS).
+            return 2;
+        }
+
+        return $result;
+    }
+
+    /**
+     * ShortPixel compatibility: populate FileModel::$filesize for iu:// virtual files,
+     * so getFileSize() returns the real size instead of the -1 sentinel that virtual
+     * files normally yield. Without this, FileModel::copy() bails at the
+     * `getFileSize() <= 0` guard for any iu:// source — even though the file exists
+     * and PHP's copy() can read it via the stream wrapper.
+     *
+     * Hooked to `shortpixel/file/exists` (which is the only filter giving us the
+     * FileModel instance early enough). Uses reflection because $filesize is
+     * protected; populates once per FileModel and short-circuits on subsequent calls.
+     *
+     * @param  bool    $exists    Current exists value.
+     * @param  string  $fullpath  Full file path.
+     * @param  mixed   $file      ShortPixel FileModel.
+     *
+     * @return bool
+     */
+    public function shortpixel_prefill_filesize( $exists, $fullpath, $file ) {
+        if ( ! is_object( $file ) || strpos( (string) $fullpath, 'iu://' ) !== 0 ) {
+            return $exists;
+        }
+
+        try {
+            $reflection = new \ReflectionObject( $file );
+            if ( ! $reflection->hasProperty( 'filesize' ) ) {
+                return $exists;
+            }
+
+            $prop = $reflection->getProperty( 'filesize' );
+            $prop->setAccessible( true );
+            if ( $prop->getValue( $file ) !== null ) {
+                return $exists; // already populated this request
+            }
+
+            $size = @filesize( $fullpath ); // hits stream wrapper, cached per-request
+            if ( $size !== false && $size > 0 ) {
+                $prop->setValue( $file, (int) $size );
+            }
+        } catch ( \Throwable $e ) {
+            // Reflection or stat failure — leave the FileModel as-is.
+        }
+
+        return $exists;
+    }
+
+    /**
+     * ShortPixel compatibility: redirect the backup directory to local disk.
+     *
+     * ShortPixel computes its backup base from `wp_get_upload_dir()['basedir']`, which
+     * IU has filtered to `iu://bucket`. ShortPixel then tries to create the backup
+     * directory and copy the original file there before optimizing — but on stream
+     * wrappers, mkdir/chmod/is_writable behave differently than ShortPixel's
+     * DirectoryModel::check() expects, so the backup write fails with the user-facing
+     * "Could not create backup. Please check file permissions" message.
+     *
+     * Strategy: build the same `<base>/ShortpixelBackups/<relative_path>` structure
+     * but rooted at the *original local* uploads basedir, not the iu:// override.
+     * `/ShortpixelBackups/` is already added to `infinite_uploads_sync_exclusions`
+     * via `compatibility_exclusions()`, so these backups stay local and never get
+     * pushed to cloud.
+     *
+     * Hooked to `shortpixel/file/backup_folder`.
+     *
+     * @param  mixed  $directory  ShortPixel DirectoryModel for the computed backup folder.
+     * @param  mixed  $file       ShortPixel FileModel for the source image.
+     *
+     * @return mixed  Replacement DirectoryModel pointing at a local-disk backup folder,
+     *                or the original $directory if we can't safely override.
+     */
+    public function shortpixel_backup_folder( $directory, $file ) {
+        if ( ! function_exists( 'wpSPIO' ) || ! is_object( $directory ) || ! method_exists( $directory, 'getPath' ) ) {
+            return $directory;
+        }
+
+        $current_path = (string) $directory->getPath();
+        $marker       = 'ShortpixelBackups';
+
+        $idx = strrpos( $current_path, $marker );
+        if ( $idx === false ) {
+            return $directory;
+        }
+
+        // Everything after `ShortpixelBackups/` — preserves ShortPixel's own subdir layout.
+        $relative_subdir = ltrim( substr( $current_path, $idx + strlen( $marker ) ), '/' . DIRECTORY_SEPARATOR );
+
+        $local_uploads_root = $this->get_original_upload_dir_root();
+        if ( empty( $local_uploads_root['basedir'] ) ) {
+            return $directory;
+        }
+
+        $local_backup_path = trailingslashit( $local_uploads_root['basedir'] )
+                             . $marker
+                             . ( $relative_subdir !== '' ? '/' . $relative_subdir : '/' );
+
+        // Already pointing at the same local target — nothing to do (don't recurse).
+        if ( $current_path === $local_backup_path ) {
+            return $directory;
+        }
+
+        try {
+            $fs        = wpSPIO()->filesystem();
+            $local_dir = $fs->getDirectory( $local_backup_path );
+            if ( method_exists( $local_dir, 'check' ) && $local_dir->check( true ) ) {
+                return $local_dir;
+            }
+        } catch ( \Throwable $e ) {
+            // Fall through to original directory on any unexpected ShortPixel error.
+        }
+
+        return $directory;
+    }
+
+    /**
+     * When file exclusion is enabled, convert CDN URLs for excluded paths to local server URLs.
+     * If the local file doesn't yet exist (was written to cloud before exclusion was configured),
+     * it is copied from the cloud stream to local disk on first access.
+     *
+     * Hooked to `style_loader_src` and `script_loader_src`.
+     *
+     * @param  string  $src  Asset URL as registered with wp_enqueue_style/script.
+     * @return string
+     */
+    public function filter_excluded_asset_src( $src ) {
+        if ( ! InfiniteUploadsHelper::is_file_exclusion_enabled() ) {
+            return $src;
+        }
+
+        // Bail early if the URL is not under the uploads directory or the IU CDN.
+        // Without this, every enqueued theme/plugin/core asset on the page runs
+        // through the exclusion checks below.
+        $local_uploads_url = InfiniteUploadsHelper::get_local_upload_url();
+        $cloud_uploads_url = InfiniteUploadsHelper::get_cloud_upload_url();
+        if ( stripos( $src, $local_uploads_url ) === false
+             && stripos( $src, $cloud_uploads_url ) === false
+        ) {
+            return $src;
+        }
+
+        // Strip query string (?ver=...) before path/file comparisons; restore later.
+        $query     = '';
+        $clean_src = $src;
+        if ( false !== strpos( $src, '?' ) ) {
+            [ $clean_src, $query ] = explode( '?', $src, 2 );
+            $query = '?' . $query;
+        }
+
+        // Normalize to https before comparison — the cloud URL is always https
+        // but WordPress may enqueue assets with http:// (non-SSL or mixed-content).
+        $normalized = set_url_scheme( $clean_src, 'https' );
+        $local_url  = InfiniteUploadsHelper::get_valid_file_url( $normalized, true );
+
+        if ( $local_url === $normalized ) {
+            return $src;
+        }
+
+        // The URL was converted to local — ensure the file exists on disk.
+        $local_path = InfiniteUploadsHelper::get_local_path_from_url( $local_url );
+        if ( ! file_exists( $local_path ) ) {
+            $cloud_path = InfiniteUploadsHelper::get_cloud_file_path( $local_path );
+            if ( $cloud_path !== $local_path ) {
+                if ( ! is_dir( dirname( $local_path ) ) ) {
+                    wp_mkdir_p( dirname( $local_path ) );
+                }
+                @copy( $cloud_path, $local_path );
+            }
+        }
+
+        return file_exists( $local_path ) ? $local_url . $query : $src;
+    }
+
+    /**
+     * Get the iu:// basedir (e.g. "iu://bucket-name/path/to/uploads").
+     *
+     * @return string|false
+     */
+    private function get_s3_basedir() {
+        $upload_dir = wp_upload_dir();
+        $basedir    = $upload_dir['basedir'];
+        if ( strpos( $basedir, 'iu://' ) !== 0 ) {
+            return false;
+        }
+
+        return untrailingslashit( $basedir );
+    }
+
+    /**
      * Handle compatibility for various third party plugins
      */
     function plugin_compatibility() {
@@ -1206,6 +1819,74 @@ class InfiniteUploads {
 
         // Smush Pro: redirect excluded file sizes to local paths.
         add_filter( 'wp_smush_media_item_size', [ $this, 'filter_smush_media_item_size' ], 10, 4 );
+
+        // EWWW Image Optimizer: provide local copies of iu:// files for optimization.
+        add_filter( 'ewww_image_optimizer_remote_fetched', [ $this, 'ewww_remote_fetch' ], 10, 3 );
+        add_action( 'ewww_image_optimizer_after_optimize_attachment', [ $this, 'ewww_remote_push' ], 10, 2 );
+
+        // EWWW Image Optimizer: tell EWWW that the IU CDN hosts images so its
+        // Picture_Webp / JS_Webp rewriters actually consider our URLs.
+        add_filter( 'webp_allowed_urls', [ $this, 'ewww_allowed_urls' ] );
+        add_filter( 'webp_allowed_domains', [ $this, 'ewww_allowed_domains' ] );
+
+        // EWWW's non-forced rewrite path calls url_to_path_exists() → is_file() on the
+        // local disk, which fails for iu:// (the stream wrapper is rejected by is_file).
+        // Turn `webp_force` on at runtime so EWWW uses the allowed_urls match path
+        // instead of the local-disk check. Non-persistent: doesn't touch the DB option.
+        add_filter( 'pre_option_ewww_image_optimizer_webp_force', [ $this, 'ewww_force_webp_at_runtime' ] );
+
+        // With webp_force on, EWWW would blindly wrap every CDN image in a <picture>
+        // tag — including ones EWWW never converted, which would 404 on fetch. Opt out
+        // per-image by consulting wp_ewwwio_images.
+        add_filter( 'ewww_image_optimizer_skip_webp_rewrite', [ $this, 'ewww_skip_webp_rewrite' ], 10, 2 );
+
+        // EWWW's Media Library "Image Optimizer" column emits "Could not retrieve file
+        // path" for iu://-hosted attachments because its hard-coded CDN recognition
+        // (Amazon_S3_And_CloudFront / S3_Uploads / WP Stateless / Azure) doesn't include
+        // Infinite Uploads, and ewwwio_is_file() rejects any path containing '://'. We
+        // wrap EWWW's column callback in an output buffer and rewrite that specific
+        // error into a useful IU-aware status read from wp_ewwwio_images.
+        add_action( 'manage_media_custom_column', [ $this, 'ewww_column_buffer_start' ], 9, 2 );
+        add_action( 'manage_media_custom_column', [ $this, 'ewww_column_buffer_end' ], 11, 2 );
+
+        // ShortPixel: claim iu:// paths so ShortPixel's FileModel treats them as readable
+        // virtual files. ShortPixel's FileModel constructor calls pathIsUrl() — which
+        // returns true for ANY string containing "://" — and routes the file through
+        // UrlToPath(). Without an `shortpixel/image/urltopath` handler returning truthy,
+        // ShortPixel sets exists=false, is_readable=false, is_file=false, and every
+        // subsequent file op (copy(), getFileSize(), createBackup()) bails out early.
+        // Returning VIRTUAL_STATELESS marks the file as a stream-wrapper-backed remote
+        // that *is* writable — ShortPixel will then attempt the actual operations,
+        // which work because PHP's copy()/file_exists()/filesize() handle iu:// via
+        // the stream wrapper.
+        add_filter( 'shortpixel/image/urltopath', [ $this, 'shortpixel_urltopath' ], 10, 3 );
+
+        // ShortPixel: populate FileModel::$filesize from the iu:// stream so virtual files
+        // don't bail in copy() and other size-aware checks. ShortPixel's getFileSize()
+        // returns -1 for any virtual file; copy() then rejects the source ("Source file
+        // in copy has a filesize of zero"). There's no `getFileSize` filter, but the
+        // `shortpixel/file/exists` filter receives the FileModel instance — we use
+        // reflection to set `$filesize` once (cheap once-per-request HEAD via the stream
+        // wrapper's own stat cache), so getFileSize()'s first branch returns it directly.
+        add_filter( 'shortpixel/file/exists', [ $this, 'shortpixel_prefill_filesize' ], 10, 3 );
+
+        // ShortPixel: redirect backup folder to local disk. ShortPixel computes its backup
+        // base as wp_get_upload_dir()['basedir'] . '/ShortpixelBackups', which IU has
+        // filtered to iu://bucket — directory creation and copy fail under stream wrappers
+        // (the mkdir/chmod/is_writable semantics on iu:// paths don't satisfy ShortPixel's
+        // pre-flight check). Override the backup directory to the original local uploads
+        // path; /ShortpixelBackups/ is already in IU's sync exclusions, so backups stay
+        // local and never get pushed to cloud.
+        add_filter( 'shortpixel/file/backup_folder', [ $this, 'shortpixel_backup_folder' ], 10, 2 );
+
+        // Elementor and other plugins that write CSS/JS to iu:// basedir: serve from local URL.
+        add_filter( 'style_loader_src', [ $this, 'filter_excluded_asset_src' ] );
+        add_filter( 'script_loader_src', [ $this, 'filter_excluded_asset_src' ] );
+
+        // Imagify: support offloaded media and next-gen picture-tag delivery on IU CDN.
+        if ( interface_exists( '\Imagify\CDN\PushCDNInterface' ) ) {
+            InfiniteUploadsImagify::get_instance()->init();
+        }
 
         //Handle WooCommerce CSV imports
         add_filter( 'woocommerce_product_csv_importer_check_import_file_path', '__return_false' );
@@ -1286,11 +1967,39 @@ class InfiniteUploads {
             $exclusions[] = '/blog-avatars/';
             $exclusions[] = '/buddypress/';
         }
+
         $exclusions[] = '/bb-plugin/';
+        $exclusions[] = '/ShortpixelBackups/';
 
         return $exclusions;
     }
 }
+
+/**
+ * Check if a file is already offloaded to S3.
+ *
+ * @param string $url The URL of the file to check.
+ *
+ * @return bool True if the file is offloaded, false otherwise.
+ */
+function infinite_uploads_check_offloaded( $url ) {
+    global $wpdb;
+    $parsed = wp_parse_url( $url );
+
+    if ( isset( $parsed['path'] ) ) {
+        // Check if the file is already offloaded to S3.
+        $total     = $wpdb->get_row( "SELECT * FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file LIKE '%{$parsed['path']}%'" );
+        if($total && isset( $total->synced ) && $total->synced == 1 ) {
+            return true;
+        } else {
+            return false;
+
+        }
+    } else {
+        return false;
+    }
+}
+
 
 /**
  * Fix to not sync the WooCommerce Error Log Directory.

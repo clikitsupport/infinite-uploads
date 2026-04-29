@@ -715,6 +715,17 @@ class InfiniteUploadsStreamWrapper {
 				] ) );
 				$this->debug_cache( 'SET', $cache_key );
 				$this->cacheObjectSet( $cache_key, $file );
+
+				// For file-excluded paths, mirror the write to local disk so the local URL works.
+				if ( InfiniteUploadsHelper::is_file_exclusion_enabled() ) {
+					$local_path = InfiniteUploadsHelper::get_local_file_path( $cache_key );
+					if ( $local_path !== $cache_key && InfiniteUploadsHelper::is_path_excluded( $local_path ) ) {
+						if ( ! is_dir( dirname( $local_path ) ) ) {
+							wp_mkdir_p( dirname( $local_path ) );
+						}
+						file_put_contents( $local_path, $file );
+					}
+				}
 			}
 			unset( $file );
 

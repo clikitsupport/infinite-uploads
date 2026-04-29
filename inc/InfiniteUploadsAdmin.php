@@ -118,68 +118,102 @@ class InfiniteUploadsAdmin {
     /**
      * Serve media URL based on file existence and sync status.
      *
-     * @param $url
+     * Resolution order:
+     *   1. If path is in the exclusion list, prefer the local URL (the user's intent).
+     *   2. For whichever URL-form we end up with, verify the file actually exists at
+     *      that location; if it doesn't, fall back to the other side (cloud ↔ local).
+     *   3. If neither side has the file, return the URL we started with so the
+     *      browser gets the natural 404 at the expected location.
      *
-     * @return array|mixed|string|string[]
+     * Cloud existence is verified via the stream wrapper's `file_exists('iu://...')`
+     * which reuses a HeadObject result cache within a request. That's authoritative —
+     * the old code relied on `wp_infinite_uploads_files.synced = 1`, but that table
+     * can be out-of-sync (missing rows for files written directly via the stream
+     * wrapper, rows marked `deleted = 1`, etc.), causing false 404s for files that
+     * are actually sitting on the CDN.
+     *
+     * @param string $url Attachment URL (local or cloud).
+     *
+     * @return string
      */
     public function serve_media_url( $url ) {
-        /**
-         * TODO: Implement a code to check following conditions.
-         *
-         * 1. Check if $url is a local server url or a cloud url.
-         * 2. If it is a local server url, check if the file exists on the local server.
-         * 3. If the file exists on the local server, return the local server url.
-         * 4. If the file does not exist on the local server, check if it exists on the cloud.
-         * 5. If it exists on the cloud, return the cloud url.
-         * 6. If it does not exist on the cloud, return the local server url (which will result in a 404).
-         * 7. If it is a cloud url, check whether this is synced to cloud or not.
-         * 8. If it is synced to cloud, return the cloud url.
-         * 9. If it is not synced to cloud, check if the file exists on the local server.
-         * 10. If the file exists on the local server, return the local server url.
-         * 11. If the file does not exist on the local server, return the cloud url (which will result in a 404).
-         */
+        if ( empty( $url ) || ! is_string( $url ) ) {
+            return $url;
+        }
 
-        // If the file is excluded, always return local URL.
+        // Exclusion: user wants this path served locally, so rewrite CDN → local first.
         if ( InfiniteUploadsHelper::is_path_excluded( $url, true ) ) {
             $url = InfiniteUploadsHelper::get_local_file_url( $url );
         }
 
-        // Get root directories for comparison
-        $root_dirs = $this->iup_instance->get_original_upload_dir_root();
-        $base_url  = $root_dirs['baseurl'];
-        $base_dir  = $root_dirs['basedir'];
-        $cloud_url = untrailingslashit( $this->iup_instance->get_s3_url() );
-
+        $root_dirs    = $this->iup_instance->get_original_upload_dir_root();
+        $base_url     = $root_dirs['baseurl'];
+        $base_dir     = $root_dirs['basedir'];
+        $cloud_url    = untrailingslashit( $this->iup_instance->get_s3_url() );
         $is_local_url = ( strpos( $url, $base_url ) !== false );
 
         if ( $is_local_url ) {
-            $file_path = str_replace( $base_url, $base_dir, $url );
-
-            if ( file_exists( $file_path ) ) {
-                return $url;
-            }
             $relative_path = str_replace( $base_url, '', $url );
-        } else {
-            $relative_path = str_replace( $cloud_url, '', $url );
-        }
+            $local_path    = $base_dir . $relative_path;
 
-        global $wpdb;
-        $is_synced = $wpdb->get_var( $wpdb->prepare(
-                "SELECT synced FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s AND synced = 1",
-                $relative_path
-        ) );
-
-        if ( $is_local_url ) {
-            return $is_synced ? ( $cloud_url . $relative_path ) : $url;
-        } else {
-            if ( $is_synced ) {
+            if ( file_exists( $local_path ) ) {
                 return $url;
             }
 
-            $local_path = $base_dir . $relative_path;
+            // Local missing — fall back to cloud if the file is actually there.
+            if ( self::cloud_file_exists( $relative_path ) ) {
+                return $cloud_url . $relative_path;
+            }
 
-            return file_exists( $local_path ) ? ( $base_url . $relative_path ) : $url;
+            return $url;
         }
+
+        // Cloud URL path
+        $relative_path = str_replace( $cloud_url, '', $url );
+
+        if ( self::cloud_file_exists( $relative_path ) ) {
+            return $url;
+        }
+
+        // Cloud missing — try local.
+        $local_path = $base_dir . $relative_path;
+        if ( file_exists( $local_path ) ) {
+            return $base_url . $relative_path;
+        }
+
+        return $url;
+    }
+
+    /**
+     * Check whether a given uploads-relative path exists on the IU cloud. Uses the
+     * stream wrapper's per-request stat cache and an additional static memo here so
+     * the same URL checked multiple times on one page costs at most one HeadObject.
+     *
+     * @param string $relative_path Uploads-relative path, leading slash required (e.g. "/2026/04/file.jpg").
+     *
+     * @return bool
+     */
+    private static function cloud_file_exists( $relative_path ) {
+        static $cache = [];
+
+        if ( $relative_path === '' ) {
+            return false;
+        }
+        if ( array_key_exists( $relative_path, $cache ) ) {
+            return $cache[ $relative_path ];
+        }
+
+        $cloud_path = InfiniteUploadsHelper::get_cloud_upload_path() . $relative_path;
+        $exists     = false;
+
+        // Guard: get_cloud_upload_path() may return local path when IU isn't connected.
+        if ( 0 === strpos( $cloud_path, 'iu://' ) ) {
+            $exists = @file_exists( $cloud_path );
+        }
+
+        $cache[ $relative_path ] = $exists;
+
+        return $exists;
     }
 
     public function set_the_new_file_path( $uploaded, $file, $new_file, $type ) {
@@ -279,6 +313,146 @@ class InfiniteUploadsAdmin {
 
         wp_send_json_success( $this->iup_instance->get_sync_stats() );
     }
+
+    public function download_image( $image_path ) {
+        global $wpdb;
+
+        if ( ! current_user_can( $this->iup_instance->capability )  ) {
+            wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
+        }
+
+        $upload_dir = wp_upload_dir();
+
+        $to_sync[] = (object) [
+                'file' => $image_path,
+                'size' => file_exists( $upload_dir['basedir'] . $image_path ) ? filesize( $upload_dir['basedir'] . $image_path ) : 0
+        ];
+
+        $downloaded = 0;
+        $errors     = [];
+        $break      = false;
+        $path       = $this->iup_instance->get_original_upload_dir_root();
+        $s3         = $this->iup_instance->s3();
+
+        //build full paths
+        $to_sync_full = [];
+        $to_sync_size = 0;
+        $to_sync_sql  = [];
+        foreach ( $to_sync as $file ) {
+            $to_sync_size += $file->size;
+            if ( count( $to_sync_full ) && $to_sync_size > INFINITE_UPLOADS_SYNC_MAX_BYTES ) { //upload at minimum one file even if it's huuuge
+                break;
+            }
+            $to_sync_full[] = 's3://' . untrailingslashit( $this->iup_instance->bucket ) . $file->file;
+            $to_sync_sql[]  = esc_sql( $file->file );
+        }
+
+        $obj  = new ArrayObject( $to_sync_full );
+        $from = $obj->getIterator();
+
+        $transfer_args = [
+                'concurrency' => INFINITE_UPLOADS_SYNC_CONCURRENCY,
+                'base_dir'    => 's3://' . $this->iup_instance->bucket,
+                'before'      => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$downloaded ) {//add middleware to intercept result of each file upload
+                    if ( in_array( $command->getName(), [ 'GetObject' ], true ) ) {
+                        $command->getHandlerList()->appendSign(
+                                Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, &$downloaded ) {
+                                    $downloaded ++;
+                                    $file = $this->iup_instance->get_file_from_result( $result );
+                                    return $result;
+                                } )
+                        );
+                    }
+                },
+        ];
+        try {
+            $manager = new Transfer( $s3, $from, $path['basedir'], $transfer_args );
+            $manager->transfer();
+        } catch ( Exception $e ) {
+            //echo $e->__toString();
+            if ( method_exists( $e, 'getRequest' ) ) {
+                $file        = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
+            } else {
+                $errors[] = esc_html__( 'Error downloading file. Queued for retry.', 'infinite-uploads' );
+            }
+        }
+    }
+
+    public function offload_image( $image_path ) {
+        global $wpdb;
+        $uploaded = 0;
+        $errors   = [];
+        $break    = false;
+        $is_done  = false;
+        $path     = $this->iup_instance->get_original_upload_dir_root();
+        $s3       = $this->iup_instance->s3();
+        if ( ! current_user_can( $this->iup_instance->capability ) ) {
+            wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
+        }
+        $orig_path = $this->iup_instance->get_original_upload_dir_root();
+        $to_sync[] = (object) [
+                'file' => $image_path,
+                'size' => file_exists( $orig_path['basedir'] . '/' . $image_path ) ? filesize( $orig_path['basedir'] . '/' . $image_path ) : 0
+        ];
+
+        if ( $to_sync ) {
+            //build full paths
+            $to_sync_full = [];
+            $to_sync_size = 0;
+            $to_sync_sql  = [];
+            foreach ( $to_sync as $file ) {
+                $to_sync_size += $file->size;
+                if ( count( $to_sync_full ) && $to_sync_size > INFINITE_UPLOADS_SYNC_MAX_BYTES ) { //upload at minimum one file even if it's huuuge
+                    break;
+                }
+                $to_sync_full[] = $path['basedir'] . $file->file;
+                $to_sync_sql[]  = esc_sql( $file->file );
+            }
+            $concurrency = count( $to_sync_full ) > 1 ? INFINITE_UPLOADS_SYNC_CONCURRENCY : INFINITE_UPLOADS_SYNC_MULTIPART_CONCURRENCY;
+            $obj         = new ArrayObject( $to_sync_full );
+            $from        = $obj->getIterator();
+
+            $transfer_args = [
+                    'concurrency' => $concurrency,
+                    'base_dir'    => $path['basedir'],
+                    'before'      => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
+                        //add middleware to modify object headers
+                        if ( in_array( $command->getName(), [ 'PutObject', 'CreateMultipartUpload' ], true ) ) {
+                            /// Expires:
+                            if ( defined( 'INFINITE_UPLOADS_HTTP_EXPIRES' ) ) {
+                                $command['Expires'] = INFINITE_UPLOADS_HTTP_EXPIRES;
+                            }
+                            // Cache-Control:
+                            if ( defined( 'INFINITE_UPLOADS_HTTP_CACHE_CONTROL' ) ) {
+                                if ( is_numeric( INFINITE_UPLOADS_HTTP_CACHE_CONTROL ) ) {
+                                    $command['CacheControl'] = 'max-age=' . INFINITE_UPLOADS_HTTP_CACHE_CONTROL;
+                                } else {
+                                    $command['CacheControl'] = INFINITE_UPLOADS_HTTP_CACHE_CONTROL;
+                                }
+                            }
+                        }
+
+                        if ( in_array( $command->getName(), [ 'PutObject' ], true ) ) {
+                            $this->sync_debug_log( "Uploading key {$command['Key']}" );
+                        }
+
+                    },
+            ];
+            try {
+                $manager = new Transfer( $s3, $from, 's3://' . $this->iup_instance->bucket . '/', $transfer_args );
+                $manager->transfer();
+            } catch ( Exception $e ) {
+                $this->sync_debug_log( "Transfer sync exception: " . $e->__toString() );
+                //echo $e->__toString();
+                if ( method_exists( $e, 'getRequest' ) ) {
+                    $file        = str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() );
+                } else { //I don't know which error case trigger this but it's common
+                    $errors[] = esc_html__( 'Error uploading file. Queued for retry.', 'infinite-uploads' );
+                }
+            }
+        }
+    }
+
 
     public function ajax_sync_errors() {
         global $wpdb;
@@ -2334,7 +2508,11 @@ class InfiniteUploadsAdmin {
             $child_path = $dir . DIRECTORY_SEPARATOR . $child_name;
             $has_deeper = count( $segments ) > 1;
 
-            $is_path_dir = is_dir( $child_path );
+            // A virtual node is definitively a folder when the relative virtual path has
+            // deeper segments below it. is_dir() alone isn't safe — after "Free Up Local
+            // Storage" wipes local copies, the intermediate directory may no longer exist
+            // on disk even though it's logically a folder in the cloud filelist.
+            $is_path_dir = $has_deeper || is_dir( $child_path );
             $new_node = [
                     "text"     => $child_name,
                     "icon"     => $is_path_dir ? "jstree-folder" : "jstree-file",
@@ -2400,21 +2578,30 @@ class InfiniteUploadsAdmin {
                 wp_send_json_error( 'Invalid directory path.' );
             }
 
-            // Normalize and verify the path is within the upload basedir.
-            // realpath() resolves symlinks and eliminates traversal sequences; if it
-            // returns false the path does not exist on disk and cannot be trusted.
-            $requested_dir = realpath( $requested_dir );
-            if ( $requested_dir === false ) {
-                wp_send_json_error( 'Invalid directory path.' );
-            }
-
-            // Use realpath on the upload_dir too so both sides are canonical.
+            $requested_dir   = rtrim( $requested_dir, DIRECTORY_SEPARATOR . '/' );
             $real_upload_dir = realpath( $upload_dir );
-            if ( $real_upload_dir === false || strpos( $requested_dir, $real_upload_dir ) !== 0 ) {
-                wp_send_json_error( 'Directory is outside the uploads folder.' );
+            if ( $real_upload_dir === false ) {
+                wp_send_json_error( 'Uploads directory is invalid.' );
             }
 
-            $scan_dir = $requested_dir;
+            // If the requested path exists on disk, resolve via realpath (canonical, handles
+            // symlinks). If it doesn't exist — e.g. a virtual folder whose local copy was
+            // wiped by "Free Up Local Storage" — validate lexically against the uploads
+            // basedir so the user can still expand it and see its cloud-only children.
+            $real_requested = realpath( $requested_dir );
+            if ( $real_requested !== false ) {
+                if ( strpos( $real_requested, $real_upload_dir ) !== 0 ) {
+                    wp_send_json_error( 'Directory is outside the uploads folder.' );
+                }
+                $scan_dir = $real_requested;
+            } else {
+                if ( strpos( $requested_dir, $real_upload_dir ) !== 0 ) {
+                    wp_send_json_error( 'Directory is outside the uploads folder.' );
+                }
+                // prepare_directory_tree() already handles missing dirs and falls through
+                // to virtual-path injection.
+                $scan_dir = $requested_dir;
+            }
         }
 
         $sub_dir       = $dir['subdir'];
@@ -2559,7 +2746,6 @@ class InfiniteUploadsAdmin {
         global $wpdb;
 
         if ( ! empty( $files_to_resync ) ) {
-            error_log( 'There are files to resync' );
             update_site_option( 'iup_do_sync_complete', 'no' );
             $path = $this->iup_instance->get_original_upload_dir_root();
             $path = $path['basedir'];
@@ -2572,18 +2758,13 @@ class InfiniteUploadsAdmin {
 
         if ( ! empty( $files_to_download_from_infinite_upload_server ) ) {
             $files_to_download = get_site_option( 'iup_files_to_downloads', '' );
-            error_log( 'There are files to download from server' );
             update_site_option( 'iup_do_download_complete', 'no' );
 
-            // error_log( 'Files TO Download Before Merge: ' . print_r( $files_to_download, true ) );
             if ( ! is_array( $files_to_download ) ) {
                 $files_to_download = [];
             }
 
             $files_to_download = array_merge( $files_to_download, $files_to_download_from_infinite_upload_server );
-
-            // error_log( 'Files TO Download After Merge: ' . print_r( $files_to_download, true ) );
-
             $files_to_download = array_unique( $files_to_download );
 
             update_site_option( 'iup_files_to_downloads', $files_to_download );
@@ -2621,30 +2802,18 @@ class InfiniteUploadsAdmin {
     public function add_files_to_download() {
         global $wpdb;
 
-        error_log( 'Add Files To Download' );
-        // error_log( '[INFINITE_UPLOADS] Add files to download' );
-        // error_log( '[INFINITE_UPLOADS] Add files to download >> Step 1' );
-
         $path          = $this->iup_instance->get_original_upload_dir_root();
         $base_dir_path = $path['basedir'];
 
         $files = get_site_option( 'iup_files_to_downloads', '' );
 
-        error_log('Files To Download >>>> ' . print_r( $files, true ) );
-
-        /// error_log( "Files to Download: " . print_r( $files, true ) );
         if ( empty( $files ) || ! is_array( $files ) ) {
-            error_log( "No Files To Download >>>>> " );
-
             return false;
         }
         $dirs_to_download = [];
 
-        // error_log( "Setup File Downloads >>>>> " );
         foreach ( $files as $key => $file ) {
-            error_log("Processing File To Download >>>> " . $file );
             if ( $this->is_dir( $file ) ) {
-                error_log("Directory To Download >>>> " . $file );
                 $file                      = '/' . ltrim( trim( $file, $base_dir_path ), '/' );
                 $dirs_to_download[ $file ] = 1;
                 unset( $files[ $key ] );
@@ -2661,12 +2830,7 @@ class InfiniteUploadsAdmin {
             $wpdb->query( $wpdb->prepare( "INSERT INTO `{$wpdb->base_prefix}infinite_uploads_files` (file, size, synced, deleted, errors) VALUES (%s, 0, 1, 1, 1) ON DUPLICATE KEY UPDATE deleted = 1, errors = 1", $file ) );
         }
 
-        error_log('Dirs TO Download >>>> ' . print_r( $dirs_to_download, true ) );
-
-        // error_log( "Dirs to download >>>>> " . print_r( $dirs_to_download, true ) );
-        // Now process directories
         if ( ! empty( $dirs_to_download ) ) {
-            error_log( 'Dirs To Download' );
             update_site_option( 'iup_dirs_to_downloads', $dirs_to_download );
             as_schedule_single_action( time(), 'infinite-uploads-fetch-s3-files-from-directory-to-download' );
         }
@@ -2680,7 +2844,6 @@ class InfiniteUploadsAdmin {
     public function fetch_s3_files_from_directory_to_download() {
         global $wpdb;
 
-        error_log( 'Fetch S3 Files To Download' );
         $dirs = get_site_option( 'iup_dirs_to_downloads', '' );
 
         $this->sync_debug_log( '[INFINITE_UPLOADS] Fetch S3 files from directory to download' );
@@ -2688,8 +2851,6 @@ class InfiniteUploadsAdmin {
         $this->sync_debug_log( "Dirs to download >>>>> " . print_r( $dirs, true ) );
 
         if ( empty( $dirs ) ) {
-            // error_log( "No Dirs To Download >>>>> " );
-
             return;
         }
 
@@ -2709,7 +2870,6 @@ class InfiniteUploadsAdmin {
 
         $timelimit = max( 20, floor( ini_get( 'max_execution_time' ) * .6666 ) );
         try {
-            // error_log( 'Start fetching S3 files from directory to download' );
             $results    = $s3->getPaginator( 'ListObjectsV2', $args );
             $req_count  = $file_count = 0;
             $is_done    = false;
@@ -2763,7 +2923,6 @@ class InfiniteUploadsAdmin {
 
                 //flush new files to db
                 if ( count( $cloud_only_files ) ) {
-                    // error_log( 'Cloud Only Files >>>> ' . print_r( $cloud_only_files, true ) );
                     $values = [];
                     foreach ( $cloud_only_files as $file ) {
                         $values[] = $wpdb->prepare( "(%s,%d,%d,%s,%d,1,1)", $file['name'], $file['size'], $file['mtime'], $file['type'], $file['size'] );
@@ -2774,8 +2933,6 @@ class InfiniteUploadsAdmin {
                     $query .= " ON DUPLICATE KEY UPDATE size = VALUES(size), modified = VALUES(modified), type = VALUES(type), transferred = VALUES(transferred), synced = 1, deleted = 1, errors = 0";
                     $wpdb->query( $query );
                 }
-
-                // error_log( 'File Count Processed in this request: ' );
 
                 if ( ( $timer = timer_stop() ) >= $timelimit ) {
                     as_schedule_single_action( time(), 'infinite-uploads-fetch-s3-files-from-directory-to-download' );
@@ -2796,7 +2953,6 @@ class InfiniteUploadsAdmin {
     public function do_download() {
         global $wpdb;
 
-        error_log( '[Download] Do Download Started.' );
         $downloaded = 0;
         $errors     = [];
         $break      = false;
@@ -2825,7 +2981,6 @@ class InfiniteUploadsAdmin {
             //preset the error count in case request times out. Successful sync will clear error count.
             $wpdb->query( "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` SET errors = ( errors + 1 ) WHERE file IN ('" . implode( "','", $to_sync_sql ) . "')" );
 
-            // error_log( 'Step 2 - Files to be downloaded in this batch>>>>' . print_r( $to_sync_full, true ) );
             $obj  = new \ArrayObject( $to_sync_full );
             $from = $obj->getIterator();
 
@@ -2855,7 +3010,6 @@ class InfiniteUploadsAdmin {
                 $manager->transfer();
             } catch ( Exception $e ) {
                 if ( method_exists( $e, 'getRequest' ) ) {
-                    // error_log( 'Step 3 - Error while downloading files>>>>' . $e->getMessage() );
                     $file = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
                     // TODO: Remove file from the download list if 404.
                     $error_count = $wpdb->get_var( $wpdb->prepare( "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s", $file ) );
@@ -2882,17 +3036,13 @@ class InfiniteUploadsAdmin {
         }
 
         if ( $is_done ) {
-            error_log( '[Download] Do Download Completed.' );
             update_site_option( 'iup_do_download_complete', 'yes', true );
-        } else {
-            error_log( '[Download] Do Download Paused. Will resume shortly.' );
         }
     }
 
     public function do_sync() {
         global $wpdb;
 
-        error_log( '[Sync] Do Sync Started.' );
         //this loop has a parallel status check, so we make the timeout 2/3 of max execution time.
         $timelimit = max( 20, floor( ini_get( 'max_execution_time' ) * .6666 ) );
         $this->sync_debug_log( "Ajax time limit: " . $timelimit );
@@ -3132,7 +3282,6 @@ class InfiniteUploadsAdmin {
         }
 
         if ( $is_done ) {
-            error_log( '[Sync] All files synced.' );
             update_site_option( 'iup_do_sync_complete', 'yes', true );
         }
     }

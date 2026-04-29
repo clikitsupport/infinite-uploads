@@ -55,7 +55,6 @@ class InfiniteUploadsImageEditorImagick extends \WP_Image_Editor_Imagick {
 	 * then copy it to the iu:// path as a workaround.
 	 */
 	protected function _save( $image, $filename = null, $mime_type = null ) {
-		error_log( '[INFINITE_UPLOADS >> saving file: ' . $filename );
 		list( $filename, $extension, $mime_type ) = $this->get_output_format( $filename, $mime_type );
 		if ( ! $filename ) {
 			$filename = $this->generate_filename( null, null, $extension );

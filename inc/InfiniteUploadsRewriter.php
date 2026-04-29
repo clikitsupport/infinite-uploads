@@ -43,31 +43,107 @@ class InfiniteUploadsRewriter {
 			}
 		}
 
-		add_action( 'template_redirect', [ &$this, 'handle_rewrite_hook' ] );
+		// Use priority PHP_INT_MIN so our ob_start() fires FIRST on template_redirect,
+		// making our output buffer the OUTERMOST. Other plugins (notably Smush Pro) register
+		// their own ob_start at lower priorities and their callbacks (which inject malformed
+		// https:/smush-webp/… URLs) would otherwise run AFTER ours on buffer close. With
+		// ours outermost, our rewrite() runs LAST and can repair Smush's output.
+		add_action( 'template_redirect', [ &$this, 'handle_rewrite_hook' ], PHP_INT_MIN );
 
 		// Make sure we replace urls in REST API responses
 		add_filter( 'the_content', [ &$this, 'rewrite_the_content' ], 100 );
 
 		// Build Smush Pro next-gen URL correction pairs.
-		// Smush derives its WebP/AVIF base URL via dirname(wp_upload_dir()['baseurl']), which
-		// strips the last path segment (site_id) from the CDN URL. We fix the resulting bad
-		// CDN URLs in HTML output.
-		// e.g. https://cdn.example.com/user_id/smush-webp/ → https://cdn.example.com/user_id/site_id/smush-webp/
+		// Smush derives its WebP/AVIF base URL via dirname(wp_upload_dir()['baseurl']) . '/smush-webp/'.
+		// Two failure modes to fix:
+		//   1. CDN URL has a path (e.g. https://cdn/user_id/site_id) — dirname() strips site_id.
+		//      Fix pair: https://cdn/user_id/smush-webp/ → https://cdn/user_id/site_id/smush-webp/
+		//   2. CDN URL is a vanity host with no path (e.g. https://tenant.infiniteuploads.cloud) —
+		//      dirname() returns just "https:" (scheme + colon), concatenation yields a junk URL
+		//      like https:/smush-webp/... which browsers resolve as a relative path against the
+		//      origin and 404. Fix pair: https:/smush-webp/ → https://cdn/smush-webp/.
 		$cdn_no_slash = rtrim( $this->cdn_url, '/' );
+		$scheme       = wp_parse_url( $cdn_no_slash, PHP_URL_SCHEME );
+		$host         = wp_parse_url( $cdn_no_slash, PHP_URL_HOST );
 		$last_slash   = strrpos( $cdn_no_slash, '/' );
+
 		if ( $last_slash !== false ) {
 			$parent_base = substr( $cdn_no_slash, 0, $last_slash );
-			// Guard: parent must still be a full URL (not just "https:").
-			if ( strpos( $parent_base, '://' ) !== false ) {
-				foreach ( [ 'smush-webp', 'smush-avif' ] as $next_gen_dir ) {
-					$bad  = $parent_base . '/' . $next_gen_dir . '/';
-					$good = $this->cdn_url . $next_gen_dir . '/'; // cdn_url already has trailing slash
+
+			foreach ( [ 'smush-webp', 'smush-avif' ] as $next_gen_dir ) {
+				$good = $this->cdn_url . $next_gen_dir . '/'; // cdn_url already has trailing slash
+
+				// Case 1: dirname gave a valid URL (CDN URL had a path component).
+				if ( strpos( $parent_base, '://' ) !== false ) {
+					$bad = $parent_base . '/' . $next_gen_dir . '/';
 					if ( $bad !== $good ) {
 						$this->smush_url_fix_pairs[ $bad ] = $good;
 					}
 				}
+
+				// Case 2: dirname degenerated to "scheme:" for a host-only CDN URL.
+				// The emitted URL looks like "https:/smush-webp/..." — single slash, no host.
+				if ( $scheme && $host ) {
+					$degenerate = $scheme . ':/' . $next_gen_dir . '/';
+					if ( $degenerate !== $good ) {
+						$this->smush_url_fix_pairs[ $degenerate ] = $good;
+					}
+					// Some PHP builds strip the colon too, producing "/smush-webp/..." — that
+					// also 404s against the origin. Only fix when smush-webp path has no
+					// immediate preceding host segment (distinct from a legitimate local URL).
+				}
 			}
 		}
+
+		// Fix Smush next-gen URLs in REST API responses.
+		// WordPress REST API requests bypass template_redirect, so the ob_start approach
+		// does not capture them. Page builders (Elementor, Gutenberg, etc.) fetch attachment
+		// data via /wp-json/wp/v2/media/{id} and use the returned URLs directly; without
+		// this filter those URLs contain the wrong smush-webp CDN path.
+		if ( ! empty( $this->smush_url_fix_pairs ) ) {
+			add_filter( 'rest_prepare_attachment', [ &$this, 'rewrite_rest_attachment' ], 100, 3 );
+		}
+	}
+
+	/**
+	 * Fix Smush next-gen (WebP/AVIF) URLs in WordPress REST API attachment responses.
+	 *
+	 * The ob_start hook on template_redirect does not capture REST API responses.
+	 * This filter serialises the response data to JSON, applies the same
+	 * smush_url_fix_pairs substitutions used by the HTML rewriter, and restores
+	 * the corrected data so consumers receive valid CDN URLs.
+	 *
+	 * @param  \WP_REST_Response  $response  The REST API response object.
+	 * @param  \WP_Post           $post      The attachment post.
+	 * @param  \WP_REST_Request   $request   The REST request.
+	 *
+	 * @return \WP_REST_Response
+	 */
+	public function rewrite_rest_attachment( $response, $post, $request ) {
+		if ( empty( $this->smush_url_fix_pairs ) || ! ( $response instanceof \WP_REST_Response ) ) {
+			return $response;
+		}
+
+		$data = $response->get_data();
+		$json = wp_json_encode( $data );
+
+		if ( $json === false ) {
+			return $response;
+		}
+
+		$changed = false;
+		foreach ( $this->smush_url_fix_pairs as $bad => $good ) {
+			if ( strpos( $json, $bad ) !== false ) {
+				$json    = str_replace( $bad, $good, $json );
+				$changed = true;
+			}
+		}
+
+		if ( $changed ) {
+			$response->set_data( json_decode( $json, true ) );
+		}
+
+		return $response;
 	}
 
 	/**

@@ -2,7 +2,7 @@
 
 Requires at least: 6.0
 Tested up to: 6.9
-Stable tag: 3.2.1
+Stable tag: 3.2.2
 Requires PHP: 8.0
 Contributors: bww
 Tags: cloud storage, offload media, offload, video streaming, cdn
@@ -13,7 +13,7 @@ Move, encode, and serve all your video and other media files from the cloud to b
 
 == Description ==
 
-**Infinite Uploads is your all-in-one media solution with video hosting, encoding, and streaming, and a cloud storage and CDN delivery provider for your WordPress media library. It allows you to easily connect an unlimited number of sites to your Infinite Uploads cloud account for offloading your files, handling massive video uploads and encoding them, lowering hosting costs, improving site performance, and serving files faster to your visitors.**
+**Infinite Uploads is your all-in-one media solution: cloud storage, global CDN delivery, video hosting with encoding and streaming, and media library organization with folders and sorting, all fully managed for the WordPress media library. Connect an unlimited number of sites and offload every upload to the cloud automatically. Unlike plugins that require you to configure Amazon S3, Cloudflare R2, Google Cloud Storage, DigitalOcean Spaces, or Azure Blob yourself, Infinite Uploads handles the infrastructure. No API keys, no IAM policies, no CloudFront distribution setup. Handle massive.**
 
 [youtube https://youtu.be/wanINaK0u5M]
 
@@ -21,7 +21,7 @@ Move, encode, and serve all your video and other media files from the cloud to b
 
 Organize your WordPress Media Library with unlimited nested folders, drag-and-drop file management, sorting, search, and color-coded folders. Included with all paid Infinite Uploads plans. No extra plugin. No extra cost.
 
-Create folders, nest them as deep as you need, and move files individually or in bulk. Upload directly into specific folders from your computer, including full folder structures. Sort files by name, title, author, date, size, or file type. Search files and folders by name in the grid and modal views.
+Create folders, nest them as deep as you need, and move files individually or in bulk. Upload directly into specific folders from your computer, including full folder structures. Sort files by date added, date modified, title, filename, author, file type, extension, or file size. Search across title, filename, alt text, description, caption, and folder name in the grid and modal views.
 
 Folders appear in the media picker across all major page builders: Elementor, Divi, Bricks, Gutenberg/FSE, Beaver Builder, Oxygen, Brizy, and WooCommerce product galleries.
 
@@ -57,9 +57,10 @@ Upload directly to your Infinite Uploads cloud storage and manage your files rig
 - **Universal compatibility** - Works with most well-coded plugins and themes including eCommerce and performance optimization
 - **Media Library folders** – unlimited nested folders with drag-and-drop, color coding, and bulk actions
 - **Folder upload** – upload files directly into a specific folder, including full folder structures from your computer
-- **Sort and enhanced search** – sort files by name, title, author, date added, date modified, size, or file type. Search files and folders by name.
+- **Sort and enhanced search** – sort files by 8 fields (date added, date modified, title, filename, author, file type, extension, file size) and sort folders by name, date created, date modified, or folder size. Search by title, filename, alt text, description, caption, or folder name.
 - **Resizable folder sidebar** – multiple folder tree themes including a Dropbox-style icon view
 - **Page builder folder support** – folders appear in the media picker inside Elementor, Divi, Bricks, Gutenberg, Beaver Builder, Oxygen, Brizy, and WooCommerce
+- **One-click media migration** — migrate your existing WordPress media library to the cloud without touching S3 buckets or CDN configurations.
 
 ### Better Performance, Less Time, Lower-cost
 If you upload a lot of images, publish video content, share motion graphics, want to add big beautiful video backgrounds, have a podcast, or stream large audio files for sermons or lectures, you will save time, resources, and improve performance by moving your files to Infinite Uploads. Keep your site moving at top-speed with dedicated media delivery that seamlessly integrates with WordPress.
@@ -192,6 +193,10 @@ There are plugins for that, but they all have expensive per-site or per-file ann
 Finally, while the per/GB prices of cloud storage may seem cheap, there are all the hidden costs you don't realize like class A/B/C/D API transaction costs, and bandwidth x3 (to cloud > to cdn > to user). Bandwidth costs alone can often total 8x more than your storage bill!
 Infinite Uploads makes the power of the cloud simple and affordable for non-cloud architects like you.
 
+= How does Infinite Uploads compare to other S3 offload plugins? =
+
+The main difference is that Infinite Uploads is an all-in-one solution: the plugin, cloud storage, video hosting and transcoding, media folders, media library sorting, and global CDN delivery are all included. Most other offload plugins are bring-your-own-bucket, meaning you configure an Amazon S3, Cloudflare R2, or similar account separately, pay that provider's storage, API request, and egress fees, then connect the plugin. That works if you're comfortable managing cloud infrastructure and multiple providers. Infinite Uploads is built for site owners who want to offload media to the cloud without becoming a cloud architect. No API keys, no bucket policies, no CloudFront distribution, no per-site license fees. One connection, flat predictable pricing, and zero infrastructure to manage.
+
 = How can I report security bugs? =
 
 You can report security bugs through the Patchstack Vulnerability Disclosure Program. The Patchstack team help validate, triage and handle any security vulnerabilities. [Report a security vulnerability.](https://patchstack.com/database/wordpress/plugin/infinite-uploads/vdp)
@@ -211,13 +216,47 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Upgrade Notice ==
 
-3.2.1
+3.2.2
 -------------
 
-* Fixed an issue where the exclusion file tree was not showing.
-* Fixed a bug causing Infinite Uploads to corrupt plugin ZIP installations from the WordPress admin.
+* **Image Optimizer Compatibility**
+    * EWWW Image Optimizer now works with images stored in the cloud. Both regular and WebP versions are saved and delivered correctly.
+    * Imagify now works end-to-end with cloud-hosted media. Optimized images and their WebP / AVIF versions are kept in sync automatically.
+    * ShortPixel: fixed the "Could not create backup. Please check file permissions" error when optimizing cloud-hosted images.
+    * Smush Pro: fixed broken WebP / AVIF image links that appeared as `https:/smush-webp/...` and resulted in missing images.
+
+* **Page Builder Compatibility**
+    * Elementor, Beaver Builder, and Brizy now load their stylesheets from the correct location when the folder is excluded from cloud sync.
+    * Hardened how Infinite Uploads cooperates with other plugins so its URL fixes always reach the browser.
+
+* **Folder Exclusion Tree**
+    * Fixed an issue where folders appeared as files (and couldn't be expanded) after running "Free Up Local Storage".
+    * Folders that exist only in the cloud now expand correctly so you can browse their contents.
+
+* **Missing Image Fallback**
+    * If a local copy of an image is missing, the plugin now serves it from the cloud automatically instead of showing a broken image. Fixes random 404s after a sync or after freeing up local storage.
 
 == Changelog ==
+
+3.2.2
+----------------------------------------------------------------------
+
+* **Image Optimizer Compatibility**
+    * EWWW Image Optimizer now works with images stored in the cloud. Both regular and WebP versions are saved and delivered correctly.
+    * Imagify now works end-to-end with cloud-hosted media. Optimized images and their WebP / AVIF versions are kept in sync automatically.
+    * ShortPixel: fixed the "Could not create backup. Please check file permissions" error when optimizing cloud-hosted images.
+    * Smush Pro: fixed broken WebP / AVIF image links that appeared as `https:/smush-webp/...` and resulted in missing images.
+
+* **Page Builder Compatibility**
+    * Elementor, Beaver Builder, and Brizy now load their stylesheets from the correct location when the folder is excluded from cloud sync.
+    * Hardened how Infinite Uploads cooperates with other plugins so its URL fixes always reach the browser.
+
+* **Folder Exclusion Tree**
+    * Fixed an issue where folders appeared as files (and couldn't be expanded) after running "Free Up Local Storage".
+    * Folders that exist only in the cloud now expand correctly so you can browse their contents.
+
+* **Missing Image Fallback**
+    * If a local copy of an image is missing, the plugin now serves it from the cloud automatically instead of showing a broken image. Fixes random 404s after a sync or after freeing up local storage.
 
 3.2.1
 ----------------------------------------------------------------------
@@ -244,9 +283,9 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
     * Resizable folder sidebar
 
 * **Sorting and Enhanced Search**
-    * Sort files by name, title, author, date added, date modified, size, and file type
+    * Sort files by date added, date modified, title, filename, author, file type, extension, and file size
     * Sort folders by name, date created, date modified, and folder size
-    * Search files and folders by name in the Media Library grid and modal
+    * Search files and folders across title, filename, alt text, description, caption, and folder name in the Media Library grid and modal
 
 * **Page Builder Compatibility**
     * Folders appear in the media picker across all major page builders and plugins:
