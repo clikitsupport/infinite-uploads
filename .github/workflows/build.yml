@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 env:
-  PLUGIN_SLUG: infnite-uploads
+  PLUGIN_SLUG: infinite-uploads
 
 jobs:
   build:
