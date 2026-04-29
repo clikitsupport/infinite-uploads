@@ -110,20 +110,26 @@ jobs:
         id: changelog
         run: |
           VERSION=${{ steps.vars.outputs.version }}
-          CHANGELOG=$(awk -v ver="$VERSION" '
-            BEGIN { found=0 }
-            /^[0-9]+\.[0-9]+(\.[0-9]+){0,2}/ {
-              if ($1 == ver) { found=1; next }
-              if (found) exit
-            }
-            found { print }
-          ' readme.txt)
-
-          {
-            echo 'changelog<<EOF'
-            echo "$CHANGELOG"
-            echo 'EOF'
-          } >> $GITHUB_OUTPUT
+            CHANGELOG=$(awk -v ver="$VERSION" '
+              BEGIN { in_changelog=0; found=0 }
+              /^== Changelog ==$/ { in_changelog=1; next }
+              in_changelog && /^== / { in_changelog=0 }
+              in_changelog && /^= [0-9]+\.[0-9]+/ {
+                split($0, parts, " ")
+                v=parts[2]
+                sub(/\].*$/, "", v)
+                sub(/\).*$/, "", v)
+                if (v == ver) { found=1; next }
+                if (found) exit
+              }
+              found { print }
+            ' readme.txt)
+          
+            {
+              echo 'changelog<<EOF'
+              echo "$CHANGELOG"
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release (with asset)
         uses: softprops/action-gh-release@v2
