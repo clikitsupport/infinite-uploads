@@ -351,6 +351,34 @@ class InfiniteUploadsHelper {
 	}
 
 	/**
+	 * Identify Beaver Builder cropped IMAGE files inside wp-content/uploads/bb-plugin/cache/.
+	 *
+	 * The folder is otherwise excluded from sync and rewrite via two flat strpos rules
+	 * ('/cache/' default + '/bb-plugin/' compat). Both rules need to stay in place because
+	 * BB also writes its per-layout *.css / *.js files in there, and those have to be served
+	 * from origin (no rewriting, no offload). This predicate is the extension-aware carve-out:
+	 * scanner and rewriter call it BEFORE the exclusion loop so cropped images are offloaded
+	 * and served via the CDN, while layout assets stay excluded.
+	 *
+	 * @param  string  $path  Filesystem path or URL.
+	 *
+	 * @return bool  True if the path is a BB cache image that should be offloaded/rewritten.
+	 */
+	public static function is_offloadable_bb_cache_image( $path ) {
+		if ( ! is_string( $path ) || $path === '' ) {
+			return false;
+		}
+		if ( false === strpos( $path, '/bb-plugin/cache/' ) ) {
+			return false;
+		}
+
+		$clean = wp_parse_url( $path, PHP_URL_PATH );
+		$ext   = strtolower( pathinfo( $clean ?: $path, PATHINFO_EXTENSION ) );
+
+		return in_array( $ext, [ 'jpg', 'jpeg', 'jpe', 'png', 'gif', 'webp', 'avif', 'bmp', 'tif', 'tiff', 'ico' ], true );
+	}
+
+	/**
 	 * Log a backtrace to the error log.
 	 *
 	 * @param $limit

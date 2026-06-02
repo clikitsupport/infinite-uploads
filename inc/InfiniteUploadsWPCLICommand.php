@@ -439,8 +439,12 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 		}
 
 		//begin deleting
+		// Carve-out: BB cache images are offloaded but must stay local (BB regenerates
+		// missing files → sync churn). Filter at SELECT level so the count and progress
+		// bar reflect actual delete targets. Matches the scan-time carve-out in
+		// InfiniteUploadsHelper::is_offloadable_bb_cache_image().
 		$deleted      = 0;
-		$to_delete    = $wpdb->get_col( "SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 0" );
+		$to_delete    = $wpdb->get_col( "SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 0 AND file NOT LIKE '%/bb-plugin/cache/%'" );
 		$progress_bar = null;
 		if ( ! $args_assoc['verbose'] ) {
 			$progress_bar = \WP_CLI\Utils\make_progress_bar( esc_html__( 'Deleting local copies of synced files...', 'infinite-uploads' ), count( $to_delete ) );

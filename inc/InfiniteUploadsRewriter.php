@@ -238,10 +238,17 @@ class InfiniteUploadsRewriter {
 	 *
 	 */
 	protected function rewrite_url( $matches ) {
-		//don't filter excluded dirs
-		foreach ( $this->exclusions as $exclusion ) {
-			if ( 0 === strpos( $matches[0], $exclusion ) ) {
-				return $matches[0];
+		//don't filter excluded dirs — EXCEPT for Beaver Builder cropped images,
+		// which live under /bb-plugin/cache/ alongside the layout .css/.js. The
+		// folder is excluded so the layout assets stay local; the image carve-out
+		// lets the actual rendered crops fall through to CDN replacement below.
+		// The user-controlled file exclusion check that follows is still respected
+		// (those are explicit per-site opt-outs, not default chrome exclusions).
+		if ( ! InfiniteUploadsHelper::is_offloadable_bb_cache_image( $matches[0] ) ) {
+			foreach ( $this->exclusions as $exclusion ) {
+				if ( 0 === strpos( $matches[0], $exclusion ) ) {
+					return $matches[0];
+				}
 			}
 		}
 

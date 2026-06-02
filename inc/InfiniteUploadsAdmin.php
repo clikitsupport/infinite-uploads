@@ -1318,15 +1318,22 @@ class InfiniteUploadsAdmin {
         $errors  = [];
         $path    = $this->iup_instance->get_original_upload_dir_root();
         $break   = false;
+        // SQL-side carve-out: BB cache images are offloaded for CDN delivery but must
+        // STAY on local disk too — if we delete them, Beaver Builder will regenerate
+        // them on the next request, creating a churn cycle (new file → sync → delete →
+        // regen). Skipping at the SELECT level keeps the loop progressing (no infinite
+        // re-fetch of unprocessed rows) and matches the carve-out applied at scan time
+        // in InfiniteUploadsHelper::is_offloadable_bb_cache_image().
+        $carve_out_sql = " AND file NOT LIKE '%/bb-plugin/cache/%'";
         while ( ! $break ) {
-            $to_delete = $wpdb->get_col( "SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 0 LIMIT 500" );
+            $to_delete = $wpdb->get_col( "SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 0{$carve_out_sql} LIMIT 500" );
             foreach ( $to_delete as $file ) {
                 @unlink( $path['basedir'] . $file );
                 $wpdb->update( "{$wpdb->base_prefix}infinite_uploads_files", [ 'deleted' => 1 ], [ 'file' => $file ] );
                 $deleted ++;
             }
 
-            $is_done = ! (bool) $wpdb->get_var( "SELECT count(*) FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 0" );
+            $is_done = ! (bool) $wpdb->get_var( "SELECT count(*) FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 0{$carve_out_sql}" );
             if ( $is_done || timer_stop() >= $this->ajax_timelimit ) {
                 $break = true;
                 wp_send_json_success( array_merge( compact( 'deleted', 'is_done', 'errors' ), $this->iup_instance->get_sync_stats() ) );
