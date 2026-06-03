@@ -13,6 +13,7 @@ class InfiniteUploadsRewriter {
 	protected $cdn_url = null;    // CDN URL
 	protected $exclusions = [];
 	protected $smush_url_fix_pairs = [];    // bad smush next-gen URL => correct URL
+	protected $bb_cache_synced = null; // null = not yet loaded; array = hashset of relative paths with synced=1
 
 	/**
 	 * constructor
@@ -229,6 +230,56 @@ class InfiniteUploadsRewriter {
 	}
 
 	/**
+	 * Check whether a BB-cache-image regex match is already synced to the cloud.
+	 *
+	 * Loads the set of synced BB cache file paths from `infinite_uploads_files`
+	 * lazily on first call, caches it on the instance for the rest of the
+	 * request, and looks the regex match up by the relative path stored in the
+	 * `file` column (leading slash, no query string).
+	 *
+	 * @param  array  $matches  Regex match array — $matches[2] holds the path-relative-to-uploads.
+	 *
+	 * @return bool
+	 */
+	protected function is_bb_cache_synced( $matches ) {
+		global $wpdb;
+
+		if ( $this->bb_cache_synced === null ) {
+			$cache_key   = 'iu_bb_cache_synced_paths';
+			$cache_group = 'infinite_uploads';
+			$cached      = wp_cache_get( $cache_key, $cache_group );
+
+			if ( is_array( $cached ) ) {
+				$this->bb_cache_synced = $cached;
+			} else {
+				$rows = $wpdb->get_col(
+					"SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND file LIKE '%/bb-plugin/cache/%'"
+				);
+				$this->bb_cache_synced = $rows ? array_flip( $rows ) : [];
+				wp_cache_set( $cache_key, $this->bb_cache_synced, $cache_group, 60 );
+			}
+		}
+
+		// $matches[2] is the path-after-uploads-root captured by the regex (no leading slash).
+		// `file` column stores the same path with a leading slash (see InfiniteUploadsFilelist::relative_path).
+		$rel = isset( $matches[2] ) ? $matches[2] : '';
+		if ( $rel === '' ) {
+			return false;
+		}
+		// Strip query string / fragment if any leaked in.
+		$q = strpos( $rel, '?' );
+		if ( $q !== false ) {
+			$rel = substr( $rel, 0, $q );
+		}
+		$h = strpos( $rel, '#' );
+		if ( $h !== false ) {
+			$rel = substr( $rel, 0, $h );
+		}
+
+		return isset( $this->bb_cache_synced[ '/' . $rel ] );
+	}
+
+	/**
 	 * rewrite url
 	 *
 	 * @param  string  $matches  the matches from regex
@@ -244,7 +295,16 @@ class InfiniteUploadsRewriter {
 		// lets the actual rendered crops fall through to CDN replacement below.
 		// The user-controlled file exclusion check that follows is still respected
 		// (those are explicit per-site opt-outs, not default chrome exclusions).
-		if ( ! InfiniteUploadsHelper::is_offloadable_bb_cache_image( $matches[0] ) ) {
+		if ( InfiniteUploadsHelper::is_offloadable_bb_cache_image( $matches[0] ) ) {
+			// Sync gate: BB writes cropped images directly to disk and bypasses
+			// the stream wrapper, so the file may exist locally but not yet on the
+			// CDN (initial backfill window, or the ~minute lag between BB's write
+			// and our scheduled async push). Returning the local URL until the
+			// row is marked synced=1 avoids visitor-facing 404s.
+			if ( ! $this->is_bb_cache_synced( $matches ) ) {
+				return $matches[0];
+			}
+		} else {
 			foreach ( $this->exclusions as $exclusion ) {
 				if ( 0 === strpos( $matches[0], $exclusion ) ) {
 					return $matches[0];

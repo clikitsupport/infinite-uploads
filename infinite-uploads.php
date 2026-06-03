@@ -89,6 +89,14 @@ function infinite_uploads_upgrade() {
 	if ( INFINITE_UPLOADS_VERSION != $folders_installed ) {
 		infinite_uploads_install_folders();
 	}
+
+	// One-time backfill: prior versions excluded /bb-plugin/cache/ entirely, so any
+	// images BB had already cropped before this release were never added to
+	// infinite_uploads_files. Schedule an async walk + queue so the existing
+	// iu_bb_cache_push handler can offload them. Idempotent — flag is set when done.
+	if ( ! get_site_option( 'iup_bb_carveout_backfilled' ) && ! wp_next_scheduled( 'iu_bb_carveout_backfill' ) ) {
+		wp_schedule_single_event( time() + 60, 'iu_bb_carveout_backfill' );
+	}
 }
 
 function infinite_uploads_install() {
