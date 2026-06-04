@@ -623,6 +623,11 @@ class MediaFolders {
 
 		$folder_id = (int) $wpdb->insert_id;
 
+		// Folder set changed → invalidate cached dropdown options used by
+		// integrations (Beaver Builder module, etc.). Match the key/group used
+		// by _iu_bb_get_folder_options() in inc/gallery/integrations/BeaverModule.php.
+		wp_cache_delete( 'iu_bb_folder_options', 'infinite_uploads' );
+
 		wp_send_json_success( [
 			'id'        => 'folder_' . $folder_id,
 			'text'      => $name,
@@ -671,6 +676,9 @@ class MediaFolders {
 		if ( false === $updated ) {
 			wp_send_json_error( __( 'Failed to rename folder.', 'infinite-uploads' ) );
 		}
+
+		// Folder name changed → invalidate cached dropdown options (see ajax_create_folder).
+		wp_cache_delete( 'iu_bb_folder_options', 'infinite_uploads' );
 
 		wp_send_json_success( [ 'term_id' => $folder_id, 'name' => $name ] );
 	}
@@ -730,6 +738,9 @@ class MediaFolders {
 			[ 'id' => $folder_id ],
 			[ '%d' ]
 		);
+
+		// Folder removed → invalidate cached dropdown options (see ajax_create_folder).
+		wp_cache_delete( 'iu_bb_folder_options', 'infinite_uploads' );
 
 		wp_send_json_success( [ 'deleted' => $folder_id ] );
 	}
@@ -832,6 +843,11 @@ class MediaFolders {
 				"UPDATE {$this->folders_table()} SET parent_id = 0 WHERE parent_id IN ($placeholders)",
 				...$deleted
 			) );
+		}
+
+		// Folder set changed → invalidate cached dropdown options (see ajax_create_folder).
+		if ( ! empty( $deleted ) ) {
+			wp_cache_delete( 'iu_bb_folder_options', 'infinite_uploads' );
 		}
 
 		wp_send_json_success( [ 'deleted' => $deleted ] );

@@ -213,6 +213,15 @@ class InfiniteUploadsFilelist {
 	 *
 	 */
 	protected function is_excluded( $path ) {
+		// Carve-out: Beaver Builder writes cropped image files into bb-plugin/cache/
+		// next to its per-layout .css/.js. The folder is excluded by '/cache/' and
+		// '/bb-plugin/' rules below, but the cropped images are what BB actually
+		// serves to visitors — we want them offloaded + CDN-delivered. Layout
+		// .css/.js still match the path-based rules below and stay local.
+		if ( InfiniteUploadsHelper::is_offloadable_bb_cache_image( $path ) ) {
+			return false;
+		}
+
 		/**
 		 * Filters the built in list of file/directory exclusions that should not be synced to the Infinite Uploads cloud. Be specific it's a simple strpos() search for the strings.
 		 *

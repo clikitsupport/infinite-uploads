@@ -2,7 +2,7 @@
 
 Requires at least: 6.0
 Tested up to: 7.0
-Stable tag: 3.2.3
+Stable tag: 3.2.4
 Requires PHP: 8.0
 Contributors: bww
 Tags: cloud storage, offload media, offload, video streaming, cdn
@@ -216,12 +216,23 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Upgrade Notice ==
 
-3.2.3
+3.2.4
 -------------
 
-* Update: WordPress 7.0 compatibility
+* Fixed: Cropped images created by Beaver Builder in `bb-plugin/cache/` are now offloaded to the cloud and served via CDN.
+* Fixed: A blank front-end page that could occur when the IU Media Folder Gallery module was active in Beaver Builder.
+* Update: Query performance improvements for the Beaver Builder gallery module dropdown and BB cache sync state lookups.
+* Update: Code refactoring and stability improvements for sites using Beaver Builder with the Media Folders feature.
 
 == Changelog ==
+
+3.2.4
+----------------------------------------------------------------------
+
+* Fixed: Cropped images created by Beaver Builder in `bb-plugin/cache/` are now offloaded to the cloud and served via CDN.
+* Fixed: A blank front-end page that could occur when the IU Media Folder Gallery module was active in Beaver Builder.
+* Update: Query performance improvements for the Beaver Builder gallery module dropdown and BB cache sync state lookups.
+* Update: Code refactoring and stability improvements for sites using Beaver Builder with the Media Folders feature.
 
 3.2.3
 ----------------------------------------------------------------------

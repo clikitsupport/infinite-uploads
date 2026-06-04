@@ -30,97 +30,146 @@ class IU_Gallery_BB_Module extends \FLBuilderModule {
 	}
 }
 
-// Build folder options for the form.
+/**
+ * Build folder options for the module's settings form.
+ *
+ * Called from inside the `init`-hooked register_module() below, which fires on
+ * every request (front-end, admin, AJAX). Without caching the underlying
+ * `SELECT id, name FROM wp_infinite_uploads_media_folders` would run on every
+ * page load on every site that has Beaver Builder active — wasted load,
+ * especially on front-end requests that never touch the editor. The 5-min
+ * object cache collapses that to one query per server per 5 minutes
+ * (instantaneous when a persistent cache like Redis/Memcached is in front of
+ * wp_cache), and the cache is invalidated explicitly by MediaFolders.php on
+ * create / rename / delete so the dropdown never goes stale.
+ *
+ * Folder names are escaped before storing in the option array. They're user-
+ * supplied (anyone with `upload_files` can create one), and BB does sanitise
+ * its rendered <option> labels — but escaping here is defence in depth in
+ * case the value flows somewhere unsanitised in BB's UI later.
+ *
+ * @return array
+ */
 function _iu_bb_get_folder_options() {
+	$cache_key   = 'iu_bb_folder_options';
+	$cache_group = 'infinite_uploads';
+	$cached      = wp_cache_get( $cache_key, $cache_group );
+	if ( is_array( $cached ) ) {
+		return $cached;
+	}
+
 	global $wpdb;
 	$table = $wpdb->prefix . 'infinite_uploads_media_folders';
 	$rows  = $wpdb->get_results( "SELECT id, name FROM {$table} ORDER BY name ASC", ARRAY_A );
 	$opts  = [ '0' => esc_html__( '— Select a folder —', 'infinite-uploads' ) ];
 	foreach ( (array) $rows as $row ) {
-		$opts[ (string) $row['id'] ] = $row['name'];
+		$opts[ (string) $row['id'] ] = esc_html( $row['name'] );
 	}
+
+	wp_cache_set( $cache_key, $opts, $cache_group, 5 * MINUTE_IN_SECONDS );
 	return $opts;
 }
 
-\FLBuilder::register_module( 'ClikIT\InfiniteUploads\IU_Gallery_BB_Module', [
-	'general' => [
-		'title'    => esc_html__( 'General', 'infinite-uploads' ),
-		'sections' => [
-			'main' => [
-				'title'  => esc_html__( 'Gallery Settings', 'infinite-uploads' ),
-				'fields' => [
-					'folder_id'  => [
-						'type'    => 'select',
-						'label'   => esc_html__( 'Folder', 'infinite-uploads' ),
-						'default' => '0',
-						'options' => _iu_bb_get_folder_options(),
-					],
-					'columns'    => [
-						'type'    => 'unit',
-						'label'   => esc_html__( 'Columns', 'infinite-uploads' ),
-						'default' => '3',
-					],
-					'image_size' => [
-						'type'    => 'select',
-						'label'   => esc_html__( 'Image Size', 'infinite-uploads' ),
-						'default' => 'medium',
-						'options' => [
-							'thumbnail' => esc_html__( 'Thumbnail', 'infinite-uploads' ),
-							'medium'    => esc_html__( 'Medium', 'infinite-uploads' ),
-							'large'     => esc_html__( 'Large', 'infinite-uploads' ),
-							'full'      => esc_html__( 'Full Size', 'infinite-uploads' ),
+/**
+ * Register the module via the `init` action so Beaver Builder is fully
+ * initialised before we touch its module registry.
+ *
+ * Calling FLBuilder::register_module() at file-load time (i.e. during
+ * plugins_loaded, which is when MediaFoldersGallery::init_integrations()
+ * pulls this file in) is too early: BB hasn't yet built its internal module
+ * list. Our registration then either disappears when BB resets the list, or
+ * partially populates state that breaks BB's later initialisation — the
+ * observable symptoms are "other modules disappear from the BB list" and a
+ * fatal that blanks the front page during render.
+ *
+ * Priority 11 runs after BB's own init handlers (which register at priority
+ * 10) and matches the pattern used by BB's own example modules.
+ */
+add_action( 'init', function () {
+	if ( ! class_exists( '\FLBuilder' ) || ! method_exists( '\FLBuilder', 'register_module' ) ) {
+		return;
+	}
+
+	\FLBuilder::register_module( 'ClikIT\InfiniteUploads\IU_Gallery_BB_Module', [
+		'general' => [
+			'title'    => esc_html__( 'General', 'infinite-uploads' ),
+			'sections' => [
+				'main' => [
+					'title'  => esc_html__( 'Gallery Settings', 'infinite-uploads' ),
+					'fields' => [
+						'folder_id'  => [
+							'type'    => 'select',
+							'label'   => esc_html__( 'Folder', 'infinite-uploads' ),
+							'default' => '0',
+							'options' => _iu_bb_get_folder_options(),
 						],
-					],
-					'link_to'    => [
-						'type'    => 'select',
-						'label'   => esc_html__( 'Link To', 'infinite-uploads' ),
-						'default' => 'none',
-						'options' => [
-							'none'       => esc_html__( 'None', 'infinite-uploads' ),
-							'file'       => esc_html__( 'Media File', 'infinite-uploads' ),
-							'attachment' => esc_html__( 'Attachment Page', 'infinite-uploads' ),
+						'columns'    => [
+							'type'    => 'unit',
+							'label'   => esc_html__( 'Columns', 'infinite-uploads' ),
+							'default' => '3',
 						],
-					],
-					'orderby'    => [
-						'type'    => 'select',
-						'label'   => esc_html__( 'Order By', 'infinite-uploads' ),
-						'default' => 'date',
-						'options' => [
-							'date'  => esc_html__( 'Date', 'infinite-uploads' ),
-							'title' => esc_html__( 'Title', 'infinite-uploads' ),
-							'rand'  => esc_html__( 'Random', 'infinite-uploads' ),
+						'image_size' => [
+							'type'    => 'select',
+							'label'   => esc_html__( 'Image Size', 'infinite-uploads' ),
+							'default' => 'medium',
+							'options' => [
+								'thumbnail' => esc_html__( 'Thumbnail', 'infinite-uploads' ),
+								'medium'    => esc_html__( 'Medium', 'infinite-uploads' ),
+								'large'     => esc_html__( 'Large', 'infinite-uploads' ),
+								'full'      => esc_html__( 'Full Size', 'infinite-uploads' ),
+							],
 						],
-					],
-					'order'      => [
-						'type'    => 'select',
-						'label'   => esc_html__( 'Order', 'infinite-uploads' ),
-						'default' => 'DESC',
-						'options' => [
-							'DESC' => esc_html__( 'Descending', 'infinite-uploads' ),
-							'ASC'  => esc_html__( 'Ascending', 'infinite-uploads' ),
+						'link_to'    => [
+							'type'    => 'select',
+							'label'   => esc_html__( 'Link To', 'infinite-uploads' ),
+							'default' => 'none',
+							'options' => [
+								'none'       => esc_html__( 'None', 'infinite-uploads' ),
+								'file'       => esc_html__( 'Media File', 'infinite-uploads' ),
+								'attachment' => esc_html__( 'Attachment Page', 'infinite-uploads' ),
+							],
 						],
-					],
-					'lightbox'   => [
-						'type'    => 'select',
-						'label'   => esc_html__( 'Enable Lightbox', 'infinite-uploads' ),
-						'default' => '0',
-						'options' => [
-							'0' => esc_html__( 'No', 'infinite-uploads' ),
-							'1' => esc_html__( 'Yes', 'infinite-uploads' ),
+						'orderby'    => [
+							'type'    => 'select',
+							'label'   => esc_html__( 'Order By', 'infinite-uploads' ),
+							'default' => 'date',
+							'options' => [
+								'date'  => esc_html__( 'Date', 'infinite-uploads' ),
+								'title' => esc_html__( 'Title', 'infinite-uploads' ),
+								'rand'  => esc_html__( 'Random', 'infinite-uploads' ),
+							],
 						],
-					],
-					'caption'    => [
-						'type'    => 'select',
-						'label'   => esc_html__( 'Show Captions', 'infinite-uploads' ),
-						'default' => '0',
-						'options' => [
-							'0' => esc_html__( 'No', 'infinite-uploads' ),
-							'1' => esc_html__( 'Yes', 'infinite-uploads' ),
+						'order'      => [
+							'type'    => 'select',
+							'label'   => esc_html__( 'Order', 'infinite-uploads' ),
+							'default' => 'DESC',
+							'options' => [
+								'DESC' => esc_html__( 'Descending', 'infinite-uploads' ),
+								'ASC'  => esc_html__( 'Ascending', 'infinite-uploads' ),
+							],
+						],
+						'lightbox'   => [
+							'type'    => 'select',
+							'label'   => esc_html__( 'Enable Lightbox', 'infinite-uploads' ),
+							'default' => '0',
+							'options' => [
+								'0' => esc_html__( 'No', 'infinite-uploads' ),
+								'1' => esc_html__( 'Yes', 'infinite-uploads' ),
+							],
+						],
+						'caption'    => [
+							'type'    => 'select',
+							'label'   => esc_html__( 'Show Captions', 'infinite-uploads' ),
+							'default' => '0',
+							'options' => [
+								'0' => esc_html__( 'No', 'infinite-uploads' ),
+								'1' => esc_html__( 'Yes', 'infinite-uploads' ),
+							],
 						],
 					],
 				],
 			],
 		],
-	],
-] );
+	] );
+}, 11 );
 

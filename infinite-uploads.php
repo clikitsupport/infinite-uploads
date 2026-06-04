@@ -2,7 +2,7 @@
 /*
  * Plugin Name: Infinite Uploads
  * Description: Infinitely scalable cloud storage and delivery for your videos and uploads made easy! Upload directly to cloud storage and manage your files right from the WordPress Media Library.
- * Version: 3.2.3
+ * Version: 3.2.4
  * Author: Infinite Uploads
  * Author URI: https://infiniteuploads.com/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin&utm_content=meta
  * Text Domain: infinite-uploads
@@ -18,7 +18,7 @@
  * Copyright 2021-2025 ClikIT, LLC
 */
 
-define( 'INFINITE_UPLOADS_VERSION', '3.2.3' );
+define( 'INFINITE_UPLOADS_VERSION', '3.2.4' );
 
 if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
     require_once __DIR__ . '/vendor/autoload.php';
@@ -88,6 +88,21 @@ function infinite_uploads_upgrade() {
 	$folders_installed = get_option( 'iup_folders_installed' );
 	if ( INFINITE_UPLOADS_VERSION != $folders_installed ) {
 		infinite_uploads_install_folders();
+	}
+
+	// One-time backfill: prior versions excluded /bb-plugin/cache/ entirely, so any
+	// images BB had already cropped before this release were never added to
+	// infinite_uploads_files. Schedule an async walk + queue so the existing
+	// iu_bb_cache_push handler can offload them. Idempotent — flag is set when done.
+	//
+	// is_main_site() guard: the flag is network-wide (get_site_option), but
+	// `infinite_uploads_upgrade()` runs on every plugins_loaded across every
+	// subsite. Without this guard, multiple subsite requests can each pass the
+	// `wp_next_scheduled` check before any of them actually schedule, racing to
+	// queue duplicate iu_bb_carveout_backfill events. Restricting to the main
+	// site collapses the race to a single scheduler.
+	if ( is_main_site() && ! get_site_option( 'iup_bb_carveout_backfilled' ) && ! wp_next_scheduled( 'iu_bb_carveout_backfill' ) ) {
+		wp_schedule_single_event( time() + 60, 'iu_bb_carveout_backfill' );
 	}
 }
 
