@@ -2192,10 +2192,13 @@ function infinite_uploads_bb_cache_push() {
         return;
     }
 
+    // Anchored LIKE (no leading %) so MySQL can use the PRIMARY KEY range scan on
+    // the `file` column. Paths in this table always start with the relative-to-uploads
+    // leading slash, so '/bb-plugin/cache/...' is a literal prefix match.
     $rows = $wpdb->get_results(
         "SELECT file, size FROM `{$wpdb->base_prefix}infinite_uploads_files`
          WHERE synced = 0 AND errors < 3 AND deleted = 0
-         AND file LIKE '%/bb-plugin/cache/%'
+         AND file LIKE '/bb-plugin/cache/%'
          LIMIT 100"
     );
     if ( ! $rows ) {
@@ -2273,10 +2276,11 @@ function infinite_uploads_bb_cache_push() {
         // crops, or multiple new crops queued at once). The query mirrors the SELECT above
         // so we only re-run when there's actual work; errors >= 3 are skipped, breaking
         // any runaway loop on persistent failures.
+        // Anchored LIKE — same indexing reasoning as the SELECT above.
         $pending = (int) $wpdb->get_var(
             "SELECT COUNT(*) FROM `{$wpdb->base_prefix}infinite_uploads_files`
              WHERE synced = 0 AND errors < 3 AND deleted = 0
-             AND file LIKE '%/bb-plugin/cache/%'"
+             AND file LIKE '/bb-plugin/cache/%'"
         );
         if ( $pending > 0 && ! wp_next_scheduled( 'iu_bb_cache_push' ) ) {
             wp_schedule_single_event( time() + 30, 'iu_bb_cache_push' );
@@ -2300,8 +2304,15 @@ add_action( 'iu_bb_cache_push', '\ClikIT\InfiniteUploads\infinite_uploads_bb_cac
 /**
  * One-time backfill: walk /wp-content/uploads/bb-plugin/cache/, insert any
  * existing cropped images into infinite_uploads_files with synced=0, then
- * trigger the existing push handler. Sets a flag when complete so it never
- * re-runs unless the flag is cleared.
+ * trigger the existing push handler.
+ *
+ * Bounded per run by both a file count and an elapsed-time budget so the cron
+ * tick can't exhaust PHP's max_execution_time or memory_limit on large sites.
+ * If iteration doesn't reach the end of the directory in one run, the handler
+ * re-schedules itself; the completion flag is only set once iteration walks
+ * past the last entry. Memory stays flat regardless of directory size — we use
+ * DirectoryIterator (lazy) and the DB itself as the cursor (load the set of
+ * already-known BB cache rows once at the start, skip them during iteration).
  */
 function infinite_uploads_bb_carveout_backfill() {
     global $wpdb;
@@ -2312,44 +2323,76 @@ function infinite_uploads_bb_carveout_backfill() {
         return;
     }
 
-    // We always do the queue step (even if sync isn't yet enabled) so that when
-    // the user activates sync later, their backlog is already known to the system.
+    // Per-run budget. Tuned so a single tick completes comfortably under
+    // WP-cron's effective timeout (which is gated by PHP max_execution_time
+    // when WP isn't running on real cron). 500 prepared rows ≈ 100KB of memory.
+    $max_files       = 500;
+    $max_seconds     = 20;
+    $start_microtime = microtime( true );
+
+    // Cursor: use the DB as the source of truth for "already processed."
+    // Anchored LIKE so the PRIMARY KEY index handles this even on huge tables.
+    $existing = $wpdb->get_col(
+        "SELECT file FROM {$wpdb->base_prefix}infinite_uploads_files
+         WHERE file LIKE '/bb-plugin/cache/%'"
+    );
+    $seen = $existing ? array_flip( $existing ) : [];
+
     $root_dirs = InfiniteUploadsHelper::get_original_upload_dir_root();
     $base_dir  = untrailingslashit( $root_dirs['basedir'] );
 
-    $items     = glob( $cache_dir . '*' );
+    try {
+        $iterator = new \DirectoryIterator( $cache_dir );
+    } catch ( \Exception $e ) {
+        error_log( '[INFINITE_UPLOADS BB Backfill] Failed to open ' . $cache_dir . ': ' . $e->getMessage() );
+        update_site_option( 'iup_bb_carveout_backfilled', INFINITE_UPLOADS_VERSION );
+        return;
+    }
+
     $values    = [];
-    $row_count = 0;
-    foreach ( (array) $items as $item ) {
-        if ( ! is_file( $item ) || is_link( $item ) ) {
+    $processed = 0;
+    $more_work = false;
+
+    foreach ( $iterator as $entry ) {
+        if ( $entry->isDot() || ! $entry->isFile() || $entry->isLink() ) {
             continue;
         }
-        if ( ! InfiniteUploadsHelper::is_offloadable_bb_cache_image( $item ) ) {
+        $abs = $entry->getPathname();
+        if ( ! InfiniteUploadsHelper::is_offloadable_bb_cache_image( $abs ) ) {
             continue;
         }
-        if ( strpos( $item, $base_dir ) !== 0 ) {
+        if ( strpos( $abs, $base_dir ) !== 0 ) {
             continue;
         }
-        $rel      = substr( $item, strlen( $base_dir ) );
-        $size     = (int) filesize( $item );
-        $modified = (int) filemtime( $item );
-        $type     = wp_check_filetype( $item );
+        $rel = substr( $abs, strlen( $base_dir ) );
+        if ( isset( $seen[ $rel ] ) ) {
+            continue; // already queued by an earlier run or by a live fl_builder_photo_cropped event
+        }
+
+        $size     = (int) $entry->getSize();
+        $modified = (int) $entry->getMTime();
+        $type     = wp_check_filetype( $abs );
         $mime     = ! empty( $type['type'] ) ? $type['type'] : 'application/octet-stream';
         $values[] = $wpdb->prepare( "(%s, %d, %d, %s, 0, 0, 0, 0)", $rel, $size, $modified, $mime );
-        $row_count++;
+        $processed++;
+
+        // Stop after the budget is exhausted. Mark "more_work" so we re-schedule below.
+        if ( $processed >= $max_files || ( microtime( true ) - $start_microtime ) > $max_seconds ) {
+            $more_work = true;
+            break;
+        }
     }
 
     if ( $values ) {
-        // Bulk insert in chunks of 500 — same chunk size used by InfiniteUploadsFilelist::flush_to_db.
-        // ON DUPLICATE KEY UPDATE handles the case where a row already exists (e.g. from a manual rescan).
-        $chunks = array_chunk( $values, 500 );
-        foreach ( $chunks as $chunk ) {
-            $sql = "INSERT INTO {$wpdb->base_prefix}infinite_uploads_files
-                    (file, size, modified, type, errors, synced, deleted, transferred)
-                    VALUES " . implode( ',', $chunk ) . "
-                    ON DUPLICATE KEY UPDATE size = VALUES(size), modified = VALUES(modified), deleted = 0";
-            $wpdb->query( $sql );
-        }
+        // Bulk insert. Up to $max_files rows at a time → single INSERT in normal case.
+        // ON DUPLICATE KEY UPDATE makes the operation idempotent if a row was just
+        // added by a concurrent fl_builder_photo_cropped event between our SELECT
+        // and this INSERT.
+        $sql = "INSERT INTO {$wpdb->base_prefix}infinite_uploads_files
+                (file, size, modified, type, errors, synced, deleted, transferred)
+                VALUES " . implode( ',', $values ) . "
+                ON DUPLICATE KEY UPDATE size = VALUES(size), modified = VALUES(modified), deleted = 0";
+        $wpdb->query( $sql );
 
         // Kick the push handler if we have cloud sync enabled. Otherwise rows just sit at
         // synced=0 until the user enables; either way they're tracked.
@@ -2358,6 +2401,18 @@ function infinite_uploads_bb_carveout_backfill() {
         }
     }
 
+    if ( $more_work ) {
+        // Iteration was cut off by the per-run budget. Re-schedule ourselves and
+        // do NOT set the completion flag — the next tick picks up where we
+        // logically left off (the DB cursor will now include the rows we just
+        // inserted, so they'll be skipped automatically).
+        if ( ! wp_next_scheduled( 'iu_bb_carveout_backfill' ) ) {
+            wp_schedule_single_event( time() + 60, 'iu_bb_carveout_backfill' );
+        }
+        return;
+    }
+
+    // Iteration walked past the last entry within budget → backfill complete.
     update_site_option( 'iup_bb_carveout_backfilled', INFINITE_UPLOADS_VERSION );
 }
 

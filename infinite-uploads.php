@@ -94,7 +94,14 @@ function infinite_uploads_upgrade() {
 	// images BB had already cropped before this release were never added to
 	// infinite_uploads_files. Schedule an async walk + queue so the existing
 	// iu_bb_cache_push handler can offload them. Idempotent — flag is set when done.
-	if ( ! get_site_option( 'iup_bb_carveout_backfilled' ) && ! wp_next_scheduled( 'iu_bb_carveout_backfill' ) ) {
+	//
+	// is_main_site() guard: the flag is network-wide (get_site_option), but
+	// `infinite_uploads_upgrade()` runs on every plugins_loaded across every
+	// subsite. Without this guard, multiple subsite requests can each pass the
+	// `wp_next_scheduled` check before any of them actually schedule, racing to
+	// queue duplicate iu_bb_carveout_backfill events. Restricting to the main
+	// site collapses the race to a single scheduler.
+	if ( is_main_site() && ! get_site_option( 'iup_bb_carveout_backfilled' ) && ! wp_next_scheduled( 'iu_bb_carveout_backfill' ) ) {
 		wp_schedule_single_event( time() + 60, 'iu_bb_carveout_backfill' );
 	}
 }

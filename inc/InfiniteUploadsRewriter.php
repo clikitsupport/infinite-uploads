@@ -252,8 +252,13 @@ class InfiniteUploadsRewriter {
 			if ( is_array( $cached ) ) {
 				$this->bb_cache_synced = $cached;
 			} else {
+				// Anchored LIKE (no leading %): `file` values in this table are
+				// path-relative-to-uploads-root with a leading slash, so
+				// '/bb-plugin/cache/...' is a literal prefix of every BB cache
+				// row. This lets MySQL use the PRIMARY KEY range scan on the
+				// `file` column instead of doing a full table scan.
 				$rows = $wpdb->get_col(
-					"SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND file LIKE '%/bb-plugin/cache/%'"
+					"SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND file LIKE '/bb-plugin/cache/%'"
 				);
 				$this->bb_cache_synced = $rows ? array_flip( $rows ) : [];
 				wp_cache_set( $cache_key, $this->bb_cache_synced, $cache_group, 60 );

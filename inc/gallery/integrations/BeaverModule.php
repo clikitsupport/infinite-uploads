@@ -33,20 +33,40 @@ class IU_Gallery_BB_Module extends \FLBuilderModule {
 /**
  * Build folder options for the module's settings form.
  *
- * Runs only when the Beaver Builder admin UI renders our module's fields, NOT
- * on every front-end page load — that's enforced by the init-hook wrapper
- * around register_module() below.
+ * Called from inside the `init`-hooked register_module() below, which fires on
+ * every request (front-end, admin, AJAX). Without caching the underlying
+ * `SELECT id, name FROM wp_infinite_uploads_media_folders` would run on every
+ * page load on every site that has Beaver Builder active — wasted load,
+ * especially on front-end requests that never touch the editor. The 5-min
+ * object cache collapses that to one query per server per 5 minutes
+ * (instantaneous when a persistent cache like Redis/Memcached is in front of
+ * wp_cache), and the cache is invalidated explicitly by MediaFolders.php on
+ * create / rename / delete so the dropdown never goes stale.
+ *
+ * Folder names are escaped before storing in the option array. They're user-
+ * supplied (anyone with `upload_files` can create one), and BB does sanitise
+ * its rendered <option> labels — but escaping here is defence in depth in
+ * case the value flows somewhere unsanitised in BB's UI later.
  *
  * @return array
  */
 function _iu_bb_get_folder_options() {
+	$cache_key   = 'iu_bb_folder_options';
+	$cache_group = 'infinite_uploads';
+	$cached      = wp_cache_get( $cache_key, $cache_group );
+	if ( is_array( $cached ) ) {
+		return $cached;
+	}
+
 	global $wpdb;
 	$table = $wpdb->prefix . 'infinite_uploads_media_folders';
 	$rows  = $wpdb->get_results( "SELECT id, name FROM {$table} ORDER BY name ASC", ARRAY_A );
 	$opts  = [ '0' => esc_html__( '— Select a folder —', 'infinite-uploads' ) ];
 	foreach ( (array) $rows as $row ) {
-		$opts[ (string) $row['id'] ] = $row['name'];
+		$opts[ (string) $row['id'] ] = esc_html( $row['name'] );
 	}
+
+	wp_cache_set( $cache_key, $opts, $cache_group, 5 * MINUTE_IN_SECONDS );
 	return $opts;
 }
 
