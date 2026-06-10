@@ -2459,3 +2459,59 @@ function disable_smush_on_media_library() {
         }
     }
 }
+
+/**
+ * Declare Infinite Uploads as an active S3-style offloader for EWWW Image Optimizer.
+ *
+ * EWWW already auto-detects WP Offload Media, S3 Uploads, and WP Stateless. The
+ * `eio_s3_active` / `eio_s3_object_prefix` filters (introduced in EWWW commit
+ * cb5c737) are the opt-in path for every other offloader. Declaring ourselves
+ * via these filters means EWWW's JS WebP and Picture WebP rewriting modes can
+ * rewrite to our CDN automatically — without it, users have to manually toggle
+ * "Force WebP" and paste the CDN domain into EWWW's settings.
+ *
+ * IU's CDN URL has two shapes depending on the account:
+ *   1. Vanity host  → https://tenant.infiniteuploads.cloud/         (no path)
+ *   2. Generic path → https://<cdn-host>/<user_id>/<site_id>/...    (path prefix)
+ * `get_s3_url()` already resolves to whichever applies; we just split it into
+ * host (for eio_s3_active) and path-prefix (for eio_s3_object_prefix).
+ *
+ * `eio_s3_object_versioning_enabled` stays at its default of false — IU does
+ * not embed numeric versioning segments in its CDN URLs.
+ */
+function infinite_uploads_get_cdn_url_for_ewww() {
+    static $cached = null;
+    if ( $cached !== null ) {
+        return $cached;
+    }
+    if ( ! infinite_uploads_enabled() ) {
+        return $cached = '';
+    }
+    $instance = InfiniteUploads::get_instance();
+    if ( empty( $instance->bucket ) ) {
+        return $cached = '';
+    }
+    $url = $instance->get_s3_url();
+    return $cached = is_string( $url ) ? $url : '';
+}
+
+add_filter( 'eio_s3_active', function ( $s3_active ) {
+    $cdn_url = infinite_uploads_get_cdn_url_for_ewww();
+    if ( $cdn_url === '' ) {
+        return $s3_active;
+    }
+    $host = wp_parse_url( $cdn_url, PHP_URL_HOST );
+    return $host ? $host : $s3_active;
+} );
+
+add_filter( 'eio_s3_object_prefix', function ( $prefix ) {
+    $cdn_url = infinite_uploads_get_cdn_url_for_ewww();
+    if ( $cdn_url === '' ) {
+        return $prefix;
+    }
+    $path = wp_parse_url( $cdn_url, PHP_URL_PATH );
+    if ( ! is_string( $path ) || $path === '' || $path === '/' ) {
+        return $prefix;
+    }
+    return trim( $path, '/' );
+} );
