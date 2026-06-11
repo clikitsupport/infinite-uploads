@@ -2,7 +2,7 @@
 
 Requires at least: 6.0
 Tested up to: 7.0
-Stable tag: 3.2.4
+Stable tag: 3.2.5
 Requires PHP: 8.0
 Contributors: bww
 Tags: cloud storage, offload media, offload, video streaming, cdn
@@ -216,15 +216,17 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Upgrade Notice ==
 
-3.2.4
+3.2.5
 -------------
 
-* Fixed: Cropped images created by Beaver Builder in `bb-plugin/cache/` are now offloaded to the cloud and served via CDN.
-* Fixed: A blank front-end page that could occur when the IU Media Folder Gallery module was active in Beaver Builder.
-* Update: Query performance improvements for the Beaver Builder gallery module dropdown and BB cache sync state lookups.
-* Update: Code refactoring and stability improvements for sites using Beaver Builder with the Media Folders feature.
+* Update: Added support to get the IU CDN url and prefix for the EWWW Image Optimizer so JS WebP and Picture WebP rewriting work automatically.
 
 == Changelog ==
+
+3.2.5
+----------------------------------------------------------------------
+
+* Update: Added support to get the IU CDN url and prefix for the EWWW Image Optimizer so its JS WebP and Picture WebP rewriting modes pick up the Infinite Uploads CDN automatically — no more manually enabling "Force WebP" or pasting the CDN domain into EWWW's settings.
 
 3.2.4
 ----------------------------------------------------------------------
