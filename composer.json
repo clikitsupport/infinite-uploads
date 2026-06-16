@@ -26,15 +26,26 @@
   "require": {
     "composer/installers": "^1.0"
   },
+  "require-dev": {
+    "phpunit/phpunit": "^9.6",
+    "brain/monkey": "^2.6",
+    "mockery/mockery": "^1.6"
+  },
   "autoload": {
     "psr-4": {
       "ClikIT\\InfiniteUploads\\": "inc/"
     }
   },
+  "autoload-dev": {
+    "psr-4": {
+      "ClikIT\\InfiniteUploads\\Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "test": "phpunit",
+    "test:coverage": "phpunit --coverage-text"
+  },
   "config": {
-    "platform": {
-      "php": "5.6"
-    },
     "allow-plugins": {
       "composer/installers": true
     }

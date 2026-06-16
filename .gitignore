@@ -7,3 +7,16 @@
 .DS_Store
 AGENTS.md
 CLAUDE.md
+
+# Composer-managed deps are installed per-environment via `composer install`.
+# CI (.github/workflows/build.yml) runs `composer install --no-dev` before
+# zipping a release, so vendor/ is rebuilt fresh for the artifact users see.
+#
+# Exception: vendor/Aws3/ is the php-scoper output for our vendor-prefixed
+# AWS SDK. Regenerating it requires a php-scoper build step that isn't in
+# CI today, so we keep it committed.
+/vendor/*
+!/vendor/Aws3/
+
+# PHPUnit cache (generated per local run).
+/.phpunit.cache/
