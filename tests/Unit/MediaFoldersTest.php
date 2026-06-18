@@ -74,6 +74,9 @@ class MediaFoldersTest extends TestCase {
 		Functions\when( '__' )->returnArg( 1 );
 		Functions\when( '_e' )->returnArg( 1 );
 		Functions\when( 'esc_html__' )->returnArg( 1 );
+		Functions\when( 'wp_cache_delete' )->justReturn( true );
+		Functions\when( 'wp_cache_get' )->justReturn( false );
+		Functions\when( 'wp_cache_set' )->justReturn( true );
 		Functions\when( 'absint' )->alias(
 			static function ( $n ) {
 				return \abs( (int) $n );
@@ -321,5 +324,227 @@ class MediaFoldersTest extends TestCase {
 		$this->expectException( _MediaFoldersTestErrorException::class );
 
 		$this->folders->ajax_bulk_delete_folders();
+	}
+
+	// -------------------------------------------------------------------------
+	// ajax_move_folder — reparenting
+	// -------------------------------------------------------------------------
+
+	public function test_move_folder_updates_parent_id(): void {
+		$_POST = [ 'term_id' => 5, 'parent' => 10 ];
+
+		$wpdb = $this->mock_wpdb();
+		// is_descendant_of inside ajax_move_folder issues a SELECT we don't care about here.
+		$wpdb->shouldReceive( 'get_var' )->andReturn( null );
+		$wpdb->shouldReceive( 'get_row' )->andReturn( null );
+		$wpdb->shouldReceive( 'update' )->once()->andReturn( 1 );
+
+		try {
+			$this->folders->ajax_move_folder();
+			$this->fail( 'Expected success exception' );
+		} catch ( _MediaFoldersTestSuccessException $e ) {
+			$this->assertSame( 5, $e->data['term_id'] );
+			$this->assertSame( 10, $e->data['parent'] );
+		}
+	}
+
+	public function test_move_folder_rejects_invalid_folder_id(): void {
+		$_POST = [ 'term_id' => 0, 'parent' => 0 ];
+
+		$wpdb = $this->mock_wpdb();
+		$wpdb->shouldNotReceive( 'update' );
+
+		$this->expectException( _MediaFoldersTestErrorException::class );
+
+		$this->folders->ajax_move_folder();
+	}
+
+	// -------------------------------------------------------------------------
+	// ajax_bulk_move_folders
+	// -------------------------------------------------------------------------
+
+	public function test_bulk_move_folders_updates_multiple(): void {
+		$_POST = [ 'term_ids' => [ 1, 2, 3 ], 'parent' => 7 ];
+
+		$wpdb = $this->mock_wpdb();
+		$wpdb->shouldReceive( 'get_var' )->andReturn( null );
+		$wpdb->shouldReceive( 'get_row' )->andReturn( null );
+
+		$update_count = 0;
+		$wpdb->shouldReceive( 'update' )->andReturnUsing(
+			static function () use ( &$update_count ) {
+				$update_count++;
+				return 1;
+			}
+		);
+
+		try {
+			$this->folders->ajax_bulk_move_folders();
+			$this->fail( 'Expected success exception' );
+		} catch ( _MediaFoldersTestSuccessException $e ) {
+			$this->assertSame( [ 1, 2, 3 ], $e->data['moved'] );
+		}
+		$this->assertSame( 3, $update_count, 'one UPDATE per folder moved' );
+	}
+
+	public function test_bulk_move_folders_skips_self_into_self(): void {
+		// Trying to move folder 5 to parent 5.
+		$_POST = [ 'term_ids' => [ 5 ], 'parent' => 5 ];
+
+		$wpdb = $this->mock_wpdb();
+		$wpdb->shouldReceive( 'get_var' )->andReturn( null );
+		$wpdb->shouldReceive( 'get_row' )->andReturn( null );
+		$wpdb->shouldNotReceive( 'update' );
+
+		try {
+			$this->folders->ajax_bulk_move_folders();
+			$this->fail( 'Expected success exception' );
+		} catch ( _MediaFoldersTestSuccessException $e ) {
+			$this->assertSame( [], $e->data['moved'] );
+			$this->assertSame( [ 5 ], $e->data['skipped'] );
+		}
+	}
+
+	// -------------------------------------------------------------------------
+	// ajax_set_folder_color
+	// -------------------------------------------------------------------------
+
+	public function test_set_folder_color_updates_row(): void {
+		$_POST = [ 'folder_id' => 4, 'color' => '#aabbcc' ];
+
+		Functions\when( 'sanitize_hex_color' )->returnArg( 1 );
+
+		$wpdb = $this->mock_wpdb();
+		$wpdb->shouldReceive( 'update' )->once()->andReturn( 1 );
+
+		try {
+			$this->folders->ajax_set_folder_color();
+			$this->fail( 'Expected success exception' );
+		} catch ( _MediaFoldersTestSuccessException $e ) {
+			$this->assertSame( 4, $e->data['folder_id'] );
+			$this->assertSame( '#aabbcc', $e->data['color'] );
+		}
+	}
+
+	public function test_set_folder_color_rejects_invalid_id(): void {
+		$_POST = [ 'folder_id' => 0, 'color' => '#fff' ];
+
+		Functions\when( 'sanitize_hex_color' )->returnArg( 1 );
+		$wpdb = $this->mock_wpdb();
+		$wpdb->shouldNotReceive( 'update' );
+
+		$this->expectException( _MediaFoldersTestErrorException::class );
+
+		$this->folders->ajax_set_folder_color();
+	}
+
+	// -------------------------------------------------------------------------
+	// ajax_set_upload_folder — persists target to user meta
+	// -------------------------------------------------------------------------
+
+	public function test_set_upload_folder_stores_in_user_meta(): void {
+		$_POST = [ 'folder_id' => 12 ];
+
+		$saved_meta = null;
+		Functions\when( 'update_user_meta' )->alias(
+			static function ( $user_id, $key, $value ) use ( &$saved_meta ) {
+				$saved_meta = [ 'user' => $user_id, 'key' => $key, 'value' => $value ];
+				return 1;
+			}
+		);
+		Functions\when( 'delete_user_meta' )->justReturn( true );
+
+		$this->expectException( _MediaFoldersTestSuccessException::class );
+		try {
+			$this->folders->ajax_set_upload_folder();
+		} finally {
+			$this->assertSame( 1, $saved_meta['user'] );
+			$this->assertSame( 'iu_upload_folder', $saved_meta['key'] );
+			$this->assertSame( 12, $saved_meta['value'] );
+		}
+	}
+
+	public function test_set_upload_folder_deletes_meta_when_zero(): void {
+		$_POST = [ 'folder_id' => 0 ];
+
+		$deleted = false;
+		Functions\when( 'update_user_meta' )->justReturn( 1 );
+		Functions\when( 'delete_user_meta' )->alias(
+			static function ( $user_id, $key ) use ( &$deleted ) {
+				if ( $key === 'iu_upload_folder' ) {
+					$deleted = true;
+				}
+				return true;
+			}
+		);
+
+		$this->expectException( _MediaFoldersTestSuccessException::class );
+		try {
+			$this->folders->ajax_set_upload_folder();
+		} finally {
+			$this->assertTrue( $deleted, 'Selecting folder 0 must clear the user meta' );
+		}
+	}
+
+	// -------------------------------------------------------------------------
+	// ajax_sort_folders — updates sort_order on a list of ids
+	// -------------------------------------------------------------------------
+
+	public function test_sort_folders_updates_sort_order_for_each_id(): void {
+		// ajax_sort_folders absint()s each id, so pass numeric values
+		// (real frontend strips the 'folder_' prefix before posting).
+		$_POST = [ 'order' => [ 3, 1, 2 ] ];
+
+		$wpdb = $this->mock_wpdb();
+		$update_count = 0;
+		$wpdb->shouldReceive( 'update' )->andReturnUsing(
+			static function () use ( &$update_count ) {
+				$update_count++;
+				return 1;
+			}
+		);
+
+		try {
+			$this->folders->ajax_sort_folders();
+			$this->fail( 'Expected success exception' );
+		} catch ( _MediaFoldersTestSuccessException $e ) {
+			// Doesn't matter what data the success contains; we just want the
+			// UPDATEs to fire.
+		}
+
+		$this->assertSame( 3, $update_count, 'One UPDATE per folder id in the order array' );
+	}
+
+	// -------------------------------------------------------------------------
+	// ajax_move_media — assigns attachments to a folder
+	// -------------------------------------------------------------------------
+
+	public function test_move_media_writes_relationships(): void {
+		$_POST = [
+			'attachment_ids' => [ 100, 101, 102 ],
+			'folder_id'      => 5,
+		];
+
+		$wpdb = $this->mock_wpdb();
+		$wpdb->shouldReceive( 'get_var' )->andReturn( 1 );
+		$wpdb->shouldReceive( 'get_row' )->andReturn( null );
+		$wpdb->shouldReceive( 'get_col' )->andReturn( [] );
+		$wpdb->shouldReceive( 'get_results' )->andReturn( [] );
+		$wpdb->shouldReceive( 'delete' )->andReturn( 1 );
+		$wpdb->shouldReceive( 'query' )->andReturn( 1 );
+		$wpdb->shouldReceive( 'insert' )->andReturn( 1 );
+		$wpdb->shouldReceive( 'replace' )->andReturn( 1 );
+		$wpdb->shouldReceive( 'update' )->andReturn( 1 );
+
+		$success_thrown = false;
+		try {
+			$this->folders->ajax_move_media();
+		} catch ( _MediaFoldersTestSuccessException $e ) {
+			$success_thrown = true;
+		} catch ( _MediaFoldersTestErrorException $e ) {
+			$this->fail( 'Expected success, got error: ' . print_r( $e->data, true ) );
+		}
+
+		$this->assertTrue( $success_thrown, 'ajax_move_media must signal success when given valid input' );
 	}
 }

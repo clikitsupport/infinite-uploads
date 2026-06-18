@@ -48,4 +48,33 @@ namespace ClikIT\InfiniteUploads {
 			}
 		}
 	}
+
+	if ( ! class_exists( __NAMESPACE__ . '\\InfiniteUploadsApiHandler', false ) ) {
+		class InfiniteUploadsApiHandler {
+			/** @var object|null  $site_data — set by tests via reset_for_tests() */
+			public $site_data;
+
+			private static $instance;
+
+			public static function get_instance(): self {
+				if ( self::$instance === null ) {
+					self::$instance = new self();
+				}
+				return self::$instance;
+			}
+
+			public static function reset_for_tests( ?object $site_data = null ): void {
+				self::$instance            = new self();
+				self::$instance->site_data = $site_data;
+			}
+
+			public function get_site_data() {
+				return $this->site_data ? (object) [ 'site' => $this->site_data ] : false;
+			}
+
+			public function has_token(): bool {
+				return true;
+			}
+		}
+	}
 }

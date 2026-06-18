@@ -34,21 +34,30 @@ tests/
 │                                   # so source files can be require'd
 │                                   # without bringing in the AWS SDK
 └── Unit/
-    ├── HelperTest.php              # InfiniteUploadsHelper — pure helpers
+    ├── HelperTest.php              # InfiniteUploadsHelper — BB carve-out
+    │                               # predicate + setting toggles
+    ├── HelperPathsTest.php         # InfiniteUploadsHelper — path/URL
+    │                               # resolution (local↔cloud, exclusions,
+    │                               # filename extraction, memoization)
     ├── EwwwFiltersTest.php         # EWWW integration (eio_s3_* filters)
     ├── RewriterSyncGateTest.php    # BB cache sync gate in the rewriter
     ├── FilelistTest.php            # scanner exclusion logic + BB carve-out
     ├── BackfillTest.php            # one-time backfill cron handler
+    ├── BbCachePhotoCroppedTest.php # fl_builder_photo_cropped action handler
     ├── RewriterTest.php            # URL rewriting core (regex pipeline,
     │                               # Smush fix pairs, REST attachment filter)
+    ├── RewriterConstructorTest.php # Rewriter constructor — Smush URL
+    │                               # fix-pair construction (vanity + path-style)
     ├── BeaverModuleTest.php        # BB folder dropdown helper (cache + escape)
-    ├── MediaFoldersTest.php        # AJAX folder CRUD + dropdown cache
-    │                               # invalidation on every mutation
+    ├── MediaFoldersTest.php        # MediaFolders AJAX handlers — CRUD,
+    │                               # move, bulk-move, sort, color,
+    │                               # upload-folder, move-media + cache
+    │                               # invalidation on mutation
     └── StreamWrapperTest.php       # stream-wrapper helpers (path parsing,
                                     # chunk-size, smush-path early returns)
 ```
 
-Coverage today: **133 tests across 9 test classes, all green. ~170 ms wall time.**
+Coverage today: **186 tests across 12 test classes, all green. ~200 ms wall time.**
 
 ## Approach
 
@@ -130,22 +139,28 @@ the variable with `$this->assert…()`. Examples throughout `BackfillTest.php`.
 
 | Area | Test class | Notes |
 |---|---|---|
-| BB carve-out predicate, exclusion settings, media-folders setting | `HelperTest` | 26 tests including a full truth-table for `is_offloadable_bb_cache_image` |
+| BB carve-out predicate, exclusion/media-folder settings | `HelperTest` | 26 tests including full truth-table for `is_offloadable_bb_cache_image` |
+| Helper path/URL resolution (local↔cloud, exclusions, filename, memoization) | `HelperPathsTest` | 29 tests; covers nearly every static method touching paths |
 | EWWW `eio_s3_*` filters + Easy IO guard | `EwwwFiltersTest` | 16 tests; vanity/path CDN URLs, Easy IO bypass |
 | BB cache sync gate in the rewriter | `RewriterSyncGateTest` | 9 tests; DB cursor, query-string handling, anchored LIKE |
-| Filelist exclusion logic | `FilelistTest` | 28 tests; default + compat + filter exclusions, BB carve-out short-circuit |
+| Filelist exclusion logic | `FilelistTest` | 28 tests; default + compat + filter exclusions, BB carve-out |
 | Chunked backfill cron handler | `BackfillTest` | 8 tests; real temp dirs, DB cursor, scheduling |
-| Rewriter URL replacement core | `RewriterTest` | 18 tests; protocolize/relative_url helpers, full HTML rewrite pipeline, Smush fix pairs, REST attachment filter |
+| BB photo-cropped hook | `BbCachePhotoCroppedTest` | 8 tests; happy path + 6 defensive guards |
+| Rewriter URL replacement core | `RewriterTest` | 18 tests; protocolize/relative_url, full HTML rewrite, Smush fix pairs, REST filter |
+| Rewriter constructor — Smush fix-pair construction | `RewriterConstructorTest` | 6 tests; vanity-host + path-style CDN URL handling |
 | BB folder dropdown cache + escape | `BeaverModuleTest` | 5 tests; cache hit/miss, escaping, query shape |
-| MediaFolders AJAX CRUD + cache invalidation | `MediaFoldersTest` | 9 tests; create/rename/delete/bulk-delete all invalidate `iu_bb_folder_options` |
+| MediaFolders AJAX (full coverage of mutation handlers) | `MediaFoldersTest` | 19 tests; create/rename/delete/bulk-delete + move/bulk-move/color/sort/upload-folder/move-media |
 | Stream wrapper path helpers + chunk size | `StreamWrapperTest` | 14 tests; getBucketKey, initProtocol, normalizeSmushPath, calculate_chunk_size |
 
 ## What's not yet covered
 
-- **`infinite_uploads_bb_cache_push()`** — covered indirectly via the
-  backfill kicking it; a direct test would mock the AWS Transfer/S3 client.
+- **`infinite_uploads_bb_cache_push()`** — the cron handler that actually
+  pushes BB cache files to S3. Covered indirectly via the backfill kicking
+  it; a direct test would need to mock the AWS `Transfer` / S3 client.
 - **`InfiniteUploadsStreamWrapper` full flow** (stream_open / stream_read /
-  stream_write / dir_opendir etc.) — needs heavy AWS SDK mocking.
+  stream_write / dir_opendir etc.) — needs heavy AWS SDK mocking. Better
+  approached with integration tests against LocalStack or MinIO.
+- **`InfiniteUploadsLocalStreamWrapper`** — similar story.
 - **`InfiniteUploadsApiHandler`** — HTTP responses from the IU API.
   Needs `wp_remote_get` / `wp_remote_post` mocks.
 - **`InfiniteUploadsVideo`** — video upload + encoding flow.
@@ -153,6 +168,10 @@ the variable with `$this->assert…()`. Examples throughout `BackfillTest.php`.
   handler is large; favour testing the small private helpers first.
 - **`InfiniteUploadsWPCLICommand`** — WP-CLI subcommands. Same story as
   admin AJAX.
+- **`MediaFolders::ajax_get_folders` + `ajax_get_folder_counts`** — both
+  fan out to multiple internal helpers (`get_folder_counts`,
+  `get_folder_sizes`, `get_total_count`, `get_uncategorized_count`). Worth
+  covering, but each needs careful mock setup.
 - **`MediaFoldersGallery` + the per-builder integration files** (Elementor,
   Divi, Bricks, Oxygen, Brizy) — mostly thin adapters; integration tests
   would catch the real bugs.

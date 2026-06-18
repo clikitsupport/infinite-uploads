@@ -36,6 +36,10 @@ abstract class TestCase extends BaseTestCase {
 		$wpdb              = Mockery::mock();
 		$wpdb->base_prefix = $base_prefix;
 		$wpdb->prefix      = $base_prefix;
+		$wpdb->posts       = $base_prefix . 'posts';
+		$wpdb->postmeta    = $base_prefix . 'postmeta';
+		$wpdb->users       = $base_prefix . 'users';
+		$wpdb->usermeta    = $base_prefix . 'usermeta';
 		$wpdb->shouldReceive( 'prepare' )->andReturnUsing(
 			function ( $query, ...$args ) {
 				// Crude but sufficient for assertion-level prepare: substitute
