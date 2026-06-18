@@ -53,11 +53,14 @@ tests/
     │                               # move, bulk-move, sort, color,
     │                               # upload-folder, move-media + cache
     │                               # invalidation on mutation
-    └── StreamWrapperTest.php       # stream-wrapper helpers (path parsing,
-                                    # chunk-size, smush-path early returns)
+    ├── StreamWrapperTest.php       # stream-wrapper helpers (path parsing,
+    │                               # chunk-size, smush-path early returns)
+    └── ApiHandlerTest.php          # InfiniteUploadsApiHandler — token/site_id
+                                    # storage, URL construction, get_site_data
+                                    # caching behaviour
 ```
 
-Coverage today: **186 tests across 12 test classes, all green. ~200 ms wall time.**
+Coverage today: **216 tests across 13 test classes, all green. ~220 ms wall time.**
 
 ## Approach
 
@@ -149,32 +152,36 @@ the variable with `$this->assert…()`. Examples throughout `BackfillTest.php`.
 | Rewriter URL replacement core | `RewriterTest` | 18 tests; protocolize/relative_url, full HTML rewrite, Smush fix pairs, REST filter |
 | Rewriter constructor — Smush fix-pair construction | `RewriterConstructorTest` | 6 tests; vanity-host + path-style CDN URL handling |
 | BB folder dropdown cache + escape | `BeaverModuleTest` | 5 tests; cache hit/miss, escaping, query shape |
-| MediaFolders AJAX (full coverage of mutation handlers) | `MediaFoldersTest` | 19 tests; create/rename/delete/bulk-delete + move/bulk-move/color/sort/upload-folder/move-media |
+| MediaFolders AJAX (full coverage of mutation + read handlers) | `MediaFoldersTest` | 26 tests; create/rename/delete/bulk-delete + move/bulk-move/color/sort/upload-folder/move-media + on_add_attachment + ajax_get_folders sort modes |
 | Stream wrapper path helpers + chunk size | `StreamWrapperTest` | 14 tests; getBucketKey, initProtocol, normalizeSmushPath, calculate_chunk_size |
+| ApiHandler — token + site_id + URL construction + get_site_data caching | `ApiHandlerTest` | 14 tests; has_token/get_token/set_token, set_site_id, rest_url, network_*_url, get_site_data (fresh / stale / locked / no-token) |
 
 ## What's not yet covered
+
+Everything below is either high-effort with low ROI or better suited to
+integration tests against a real S3 / IU API endpoint.
 
 - **`infinite_uploads_bb_cache_push()`** — the cron handler that actually
   pushes BB cache files to S3. Covered indirectly via the backfill kicking
   it; a direct test would need to mock the AWS `Transfer` / S3 client.
+- **`InfiniteUploadsApiHandler::call`** — the HTTP layer (`wp_remote_*`).
+  Token/URL/caching are covered; the actual remote call path is not.
 - **`InfiniteUploadsStreamWrapper` full flow** (stream_open / stream_read /
   stream_write / dir_opendir etc.) — needs heavy AWS SDK mocking. Better
   approached with integration tests against LocalStack or MinIO.
 - **`InfiniteUploadsLocalStreamWrapper`** — similar story.
-- **`InfiniteUploadsApiHandler`** — HTTP responses from the IU API.
-  Needs `wp_remote_get` / `wp_remote_post` mocks.
 - **`InfiniteUploadsVideo`** — video upload + encoding flow.
 - **`InfiniteUploadsAdmin::ajax_*` handlers** — the sync engine. Each AJAX
-  handler is large; favour testing the small private helpers first.
+  handler is large and mostly hits AWS Transfer / S3 client; favour
+  testing the small private helpers first.
 - **`InfiniteUploadsWPCLICommand`** — WP-CLI subcommands. Same story as
   admin AJAX.
-- **`MediaFolders::ajax_get_folders` + `ajax_get_folder_counts`** — both
-  fan out to multiple internal helpers (`get_folder_counts`,
-  `get_folder_sizes`, `get_total_count`, `get_uncategorized_count`). Worth
-  covering, but each needs careful mock setup.
 - **`MediaFoldersGallery` + the per-builder integration files** (Elementor,
   Divi, Bricks, Oxygen, Brizy) — mostly thin adapters; integration tests
   would catch the real bugs.
+- **`InfiniteUploads.php` main class hooks** (`setup`, `register_stream_wrapper`,
+  `filter_upload_dir`, `tear_down`) — almost entirely WordPress hook
+  plumbing; testing it tests WordPress more than testing IU's logic.
 
 ## Coverage report
 

@@ -21,7 +21,6 @@ declare( strict_types=1 );
 namespace ClikIT\InfiniteUploads\Tests\Unit;
 
 use Brain\Monkey\Functions;
-use ClikIT\InfiniteUploads\InfiniteUploadsApiHandler;
 use ClikIT\InfiniteUploads\InfiniteUploadsHelper;
 use ClikIT\InfiniteUploads\Tests\TestCase;
 use ReflectionClass;
@@ -83,27 +82,35 @@ class HelperPathsTest extends TestCase {
 			}
 		);
 
-		// Seed the InfiniteUploadsApiHandler stub with a CDN-enabled site.
-		InfiniteUploadsApiHandler::reset_for_tests(
+		// Seed Helper::$request_cache['iu_api_data'] directly so the helper's
+		// memoization layer returns our test fixture without ever calling
+		// InfiniteUploadsApiHandler::get_instance(). This avoids the
+		// fixture-vs-real-class collision that bit us when we tried to declare
+		// a stub ApiHandler — see tests/fixtures/ewww-environment.php.
+		$this->seed_api_data(
 			(object) [
-				'upload_key'    => 'access-key',
-				'upload_secret' => 'secret-key',
-				'upload_bucket' => self::BUCKET,
-				'cdn_url'       => self::CDN_HOST,
+				'site' => (object) [
+					'upload_key'    => 'access-key',
+					'upload_secret' => 'secret-key',
+					'upload_bucket' => self::BUCKET,
+					'cdn_url'       => self::CDN_HOST,
+				],
 			]
 		);
-
-		// Force get_original_upload_dir_root() to resolve to our test basedir.
-		// It builds basedir from WP_CONTENT_DIR + '/uploads' when upload_path is ''.
-		// Bootstrap defines WP_CONTENT_DIR = sys_get_temp_dir() . '/iu-tests-wp-content',
-		// so the basedir resolves to that + '/uploads'. Override the constants
-		// indirectly by mocking WP_CONTENT_URL via Brain Monkey isn't possible,
-		// but we control the result by checking what the helper actually returns.
 	}
 
-	protected function tearDown(): void {
-		InfiniteUploadsApiHandler::reset_for_tests( null );
-		parent::tearDown();
+	/**
+	 * Seed (or replace) the helper's request-scoped api_data cache.
+	 *
+	 * @param  object|false  $value  null/false → simulate "no API data".
+	 */
+	private function seed_api_data( $value ): void {
+		$ref  = new ReflectionClass( InfiniteUploadsHelper::class );
+		$prop = $ref->getProperty( 'request_cache' );
+		$prop->setAccessible( true );
+		$cache                  = $prop->getValue();
+		$cache['iu_api_data']   = $value;
+		$prop->setValue( null, $cache );
 	}
 
 	private function reset_request_cache(): void {
@@ -221,8 +228,8 @@ class HelperPathsTest extends TestCase {
 	}
 
 	public function test_get_s3_url_returns_empty_when_no_api_data(): void {
-		InfiniteUploadsApiHandler::reset_for_tests( null );
 		$this->reset_request_cache();
+		$this->seed_api_data( false );
 
 		// Pre-existing source bug: when api_data is missing, $bucket is
 		// undefined at line 304 of InfiniteUploadsHelper.php. PHP 8.x emits a
@@ -259,8 +266,8 @@ class HelperPathsTest extends TestCase {
 	}
 
 	public function test_get_cloud_upload_dir_falls_back_to_local_when_api_data_missing(): void {
-		InfiniteUploadsApiHandler::reset_for_tests( null );
 		$this->reset_request_cache();
+		$this->seed_api_data( false );
 
 		$dirs = InfiniteUploadsHelper::get_cloud_upload_dir();
 
@@ -400,9 +407,9 @@ class HelperPathsTest extends TestCase {
 	}
 
 	public function test_get_iu_api_data_memoizes_after_first_call(): void {
-		$first  = InfiniteUploadsHelper::get_iu_api_data();
-		// Mutating the underlying handler state shouldn't change the cached result.
-		InfiniteUploadsApiHandler::reset_for_tests( null );
+		$first = InfiniteUploadsHelper::get_iu_api_data();
+		// Even if we mutate the underlying source, the memoized result
+		// should stick — once cached, future calls return the same object.
 		$second = InfiniteUploadsHelper::get_iu_api_data();
 
 		$this->assertSame( $first, $second, 'memoized api data must be returned on subsequent calls' );

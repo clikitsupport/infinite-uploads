@@ -519,6 +519,211 @@ class MediaFoldersTest extends TestCase {
 	// ajax_move_media — assigns attachments to a folder
 	// -------------------------------------------------------------------------
 
+	// -------------------------------------------------------------------------
+	// on_add_attachment — auto-assigns newly uploaded media to the user's
+	// selected upload folder (driven by the iu_upload_folder user meta).
+	// -------------------------------------------------------------------------
+
+	public function test_on_add_attachment_assigns_to_user_selected_folder(): void {
+		Functions\when( 'is_admin' )->justReturn( true );
+		Functions\when( 'get_current_user_id' )->justReturn( 7 );
+		Functions\when( 'get_user_meta' )->alias(
+			static function ( $uid, $key, $single ) {
+				if ( $uid === 7 && $key === 'iu_upload_folder' && $single === true ) {
+					return 12;
+				}
+				return '';
+			}
+		);
+
+		$wpdb = $this->mock_wpdb();
+		$deleted_for       = null;
+		$replaced_with     = null;
+		$wpdb->shouldReceive( 'delete' )->andReturnUsing(
+			static function ( $table, $where, $formats ) use ( &$deleted_for ) {
+				$deleted_for = $where;
+				return 1;
+			}
+		);
+		$wpdb->shouldReceive( 'replace' )->andReturnUsing(
+			static function ( $table, $data, $formats ) use ( &$replaced_with ) {
+				$replaced_with = $data;
+				return 1;
+			}
+		);
+
+		$this->folders->on_add_attachment( 999 );
+
+		$this->assertSame( [ 'attachment_id' => 999 ], $deleted_for );
+		$this->assertSame( [ 'folder_id' => 12, 'attachment_id' => 999 ], $replaced_with );
+	}
+
+	public function test_on_add_attachment_skips_when_not_admin(): void {
+		Functions\when( 'is_admin' )->justReturn( false );
+
+		$wpdb = $this->mock_wpdb();
+		$wpdb->shouldNotReceive( 'delete' );
+		$wpdb->shouldNotReceive( 'replace' );
+
+		$this->folders->on_add_attachment( 999 );
+
+		$this->assertTrue( true ); // sentinel — shouldNotReceive enforces the real assertion
+	}
+
+	public function test_on_add_attachment_skips_when_no_folder_meta(): void {
+		Functions\when( 'is_admin' )->justReturn( true );
+		Functions\when( 'get_current_user_id' )->justReturn( 7 );
+		Functions\when( 'get_user_meta' )->justReturn( '' );
+
+		$wpdb = $this->mock_wpdb();
+		$wpdb->shouldNotReceive( 'delete' );
+		$wpdb->shouldNotReceive( 'replace' );
+
+		$this->folders->on_add_attachment( 999 );
+
+		$this->assertTrue( true );
+	}
+
+	public function test_on_add_attachment_skips_when_meta_is_zero(): void {
+		Functions\when( 'is_admin' )->justReturn( true );
+		Functions\when( 'get_current_user_id' )->justReturn( 7 );
+		Functions\when( 'get_user_meta' )->justReturn( '0' );
+
+		$wpdb = $this->mock_wpdb();
+		$wpdb->shouldNotReceive( 'delete' );
+		$wpdb->shouldNotReceive( 'replace' );
+
+		$this->folders->on_add_attachment( 999 );
+
+		$this->assertTrue( true );
+	}
+
+	// -------------------------------------------------------------------------
+	// ajax_get_folders — sort mode → ORDER BY mapping
+	// -------------------------------------------------------------------------
+
+	/**
+	 * @dataProvider provide_sort_modes
+	 */
+	public function test_get_folders_uses_correct_order_by_for_sort_mode(
+		string $label,
+		string $sort_value,
+		string $expected_order_by
+	): void {
+		$_POST = [ 'sort' => $sort_value ];
+
+		$wpdb       = $this->mock_wpdb();
+		$folder_sql = '';
+		$wpdb->shouldReceive( 'get_results' )
+			->andReturnUsing(
+				static function ( $sql ) use ( &$folder_sql ) {
+					// ajax_get_folders runs MULTIPLE get_results calls — one
+					// for folders (FROM …infinite_uploads_media_folders), and
+					// several for relationship-based counts/sizes. Capture only
+					// the folder one.
+					if ( strpos( $sql, 'infinite_uploads_media_folders ' ) !== false
+						|| strpos( $sql, 'infinite_uploads_media_folders ORDER' ) !== false ) {
+						$folder_sql = $sql;
+					}
+					return [];
+				}
+			);
+		// Other helpers fan out — return empty/zero so the handler can complete.
+		$wpdb->shouldReceive( 'get_var' )->andReturn( 0 );
+		$wpdb->shouldReceive( 'get_row' )->andReturn( null );
+		$wpdb->shouldReceive( 'get_col' )->andReturn( [] );
+
+		try {
+			$this->folders->ajax_get_folders();
+		} catch ( _MediaFoldersTestSuccessException $e ) {
+			// expected
+		}
+
+		$this->assertStringContainsString(
+			$expected_order_by,
+			$folder_sql,
+			"sort '{$sort_value}' ({$label}) should produce ORDER BY clause: {$expected_order_by}"
+		);
+	}
+
+	public function provide_sort_modes(): array {
+		return [
+			'default custom'   => [ 'custom',        'custom',        'ORDER BY sort_order ASC, name ASC' ],
+			'az'               => [ 'az',            'az',            'ORDER BY name ASC' ],
+			'za'               => [ 'za',            'za',            'ORDER BY name DESC' ],
+			'date asc'         => [ 'date_asc',      'date_asc',      'ORDER BY created_at ASC, name ASC' ],
+			'date desc'        => [ 'date_desc',     'date_desc',     'ORDER BY created_at DESC, name ASC' ],
+			'modified asc'     => [ 'modified_asc',  'modified_asc',  'ORDER BY updated_at ASC, name ASC' ],
+			'modified desc'    => [ 'modified_desc', 'modified_desc', 'ORDER BY updated_at DESC, name ASC' ],
+			// size_asc/desc use the custom default ORDER BY then PHP-side usort.
+			'size asc'         => [ 'size_asc',      'size_asc',      'ORDER BY parent_id ASC, sort_order ASC, name ASC' ],
+			'size desc'        => [ 'size_desc',     'size_desc',     'ORDER BY parent_id ASC, sort_order ASC, name ASC' ],
+			'unknown fallback' => [ 'unknown_value', 'unknown_value', 'ORDER BY sort_order ASC, name ASC' ],
+		];
+	}
+
+	public function test_get_folders_returns_folder_tree_payload(): void {
+		$_POST = [ 'sort' => 'az' ];
+
+		$wpdb = $this->mock_wpdb();
+		// ajax_get_folders runs the folders SELECT plus several internal helper
+		// queries (counts, sizes). Return folder objects only for the folder
+		// SELECT; everything else returns an empty array so internal helpers
+		// short-circuit cleanly.
+		$wpdb->shouldReceive( 'get_results' )->andReturnUsing(
+			static function ( $sql ) {
+				if ( strpos( $sql, 'infinite_uploads_media_folders ' ) !== false
+					|| strpos( $sql, 'infinite_uploads_media_folders ORDER' ) !== false ) {
+					return [
+						(object) [
+							'id'         => 1,
+							'name'       => 'Photos',
+							'parent_id'  => 0,
+							'sort_order' => 0,
+							'color'      => '#aabbcc',
+						],
+						(object) [
+							'id'         => 2,
+							'name'       => 'Videos',
+							'parent_id'  => 1,
+							'sort_order' => 0,
+							'color'      => '',
+						],
+					];
+				}
+				return [];
+			}
+		);
+		$wpdb->shouldReceive( 'get_var' )->andReturn( 0 );
+		$wpdb->shouldReceive( 'get_row' )->andReturn( null );
+		$wpdb->shouldReceive( 'get_col' )->andReturn( [] );
+
+		try {
+			$this->folders->ajax_get_folders();
+			$this->fail( 'Expected success exception' );
+		} catch ( _MediaFoldersTestSuccessException $e ) {
+			$this->assertIsArray( $e->data['folders'] );
+			$this->assertCount( 2, $e->data['folders'] );
+			$this->assertSame( 'folder_1', $e->data['folders'][0]['id'] );
+			$this->assertSame( 'Photos', $e->data['folders'][0]['text'] );
+			$this->assertSame( '#', $e->data['folders'][0]['parent'], 'root folder uses jstree "#" parent' );
+			$this->assertSame( 'folder_1', $e->data['folders'][1]['parent'], 'child folder uses folder_N parent id' );
+			$this->assertArrayHasKey( 'total_count', $e->data );
+			$this->assertArrayHasKey( 'uncategorized_count', $e->data );
+		}
+	}
+
+	public function test_get_folders_rejects_unauthorised_user(): void {
+		Functions\when( 'current_user_can' )->justReturn( false );
+
+		$wpdb = $this->mock_wpdb();
+		$wpdb->shouldNotReceive( 'get_results' );
+
+		$this->expectException( _MediaFoldersTestErrorException::class );
+
+		$this->folders->ajax_get_folders();
+	}
+
 	public function test_move_media_writes_relationships(): void {
 		$_POST = [
 			'attachment_ids' => [ 100, 101, 102 ],
