@@ -2768,6 +2768,12 @@ class InfiniteUploadsAdmin {
             wp_send_json_error( 'Not connected' );
         }
 
+        // Business-tier feature. The API enforces this authoritatively; refuse here too so
+        // a non-Business site never stores settings the edge would ignore anyway.
+        if ( ! $this->api->is_business_plan() ) {
+            wp_send_json_error( 'Image optimization is available on the Business plan.' );
+        }
+
         $settings = [
             'enabled'        => isset( $_POST['enabled'] ) ? sanitize_text_field( wp_unslash( $_POST['enabled'] ) ) : 'no',
             'level'          => isset( $_POST['level'] ) ? sanitize_text_field( wp_unslash( $_POST['level'] ) ) : 'balanced',

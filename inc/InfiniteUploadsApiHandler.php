@@ -331,6 +331,21 @@ class InfiniteUploadsApiHandler {
 	}
 
 	/**
+	 * Whether the connected site is on the Business plan (or higher).
+	 *
+	 * Business tier is defined by the storage allotment: the API's get_plan() labels any
+	 * plan with storage_limit >= 100 (GB) as "Business", and existing Business-only
+	 * features gate on the same threshold. The plan rides on the cached site data.
+	 *
+	 * @return bool
+	 */
+	public function is_business_plan() {
+		$data = $this->get_site_data();
+
+		return isset( $data->plan->storage_limit ) && $data->plan->storage_limit >= 100;
+	}
+
+	/**
 	 * Parses an HTTP response object (or other value) to determine an error
 	 * reason. The error reason is added to the PHP error log.
 	 *

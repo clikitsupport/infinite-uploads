@@ -87,6 +87,7 @@
                 <p class="lead"><?php esc_html_e( 'Automatically compress your images and convert them to next-gen formats (AVIF/WebP), right-sized as they are delivered from the CDN. Your original files are never modified.', 'infinite-uploads' ); ?></p>
             </div>
             <div class="col-md-6 col-sm-12">
+                <?php if ( $this->api->is_business_plan() ) : ?>
                 <?php $iu_opt = \ClikIT\InfiniteUploads\InfiniteUploadsHelper::get_image_optimization_settings(); ?>
                 <div class="row">
                     <div class="col"><?php esc_html_e( 'Enable Image Optimization', 'infinite-uploads' ); ?></div>
@@ -130,6 +131,12 @@
                         <span id="imageOptimizationSaveStatus" style="display:none;" class="text-success ml-2"><?php esc_html_e( 'Saved!', 'infinite-uploads' ); ?></span>
                     </div>
                 </div>
+                <?php else : ?>
+                <div class="alert alert-light border" role="alert">
+                    <p class="mb-2"><strong><?php esc_html_e( 'Available on the Business plan.', 'infinite-uploads' ); ?></strong></p>
+                    <p class="mb-0"><?php printf( __( 'Image optimization is included with the Business plan. <a href="%s" class="text-warning">Upgrade to enable it.</a>', 'infinite-uploads' ), esc_url( $this->api_url( '/account/billing/' ) ) ); ?></p>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
         <div class="row justify-content-center mb-5">
