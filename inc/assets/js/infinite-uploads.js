@@ -804,6 +804,47 @@ jQuery(document).ready(function ($) {
 		});
 	});
 
+	// Image Optimization settings: reveal the detail controls only when enabled.
+	$('input[name="iu_image_optimization_enabled"]').on('change', function () {
+		$('#iu-image-optimization-options').toggle(
+			$('input[name="iu_image_optimization_enabled"]:checked').val() === 'yes'
+		);
+	});
+
+	$('#saveImageOptimizationSetting').on('click', function () {
+		var $btn = $(this);
+		$btn.prop('disabled', true);
+		$('#imageOptimizationSaveStatus').hide();
+
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'save_iu_image_optimization',
+				enabled: $('input[name="iu_image_optimization_enabled"]:checked').val(),
+				level: $('#iu_image_opt_level').val(),
+				avif: $('#iu_image_opt_avif').is(':checked') ? 'yes' : 'no',
+				webp: $('#iu_image_opt_webp').is(':checked') ? 'yes' : 'no',
+				max_width: $('#iu_image_opt_max_width').val(),
+				strip_metadata: $('#iu_image_opt_strip_metadata').is(':checked') ? 'yes' : 'no',
+				exclusions: $('#iu_image_opt_exclusions').val(),
+				nonce: iup_data.nonce.saveImageOptimization
+			},
+			success: function (response) {
+				$btn.prop('disabled', false);
+				if (response.success) {
+					$('#imageOptimizationSaveStatus').fadeIn();
+					setTimeout(function () {
+						$('#imageOptimizationSaveStatus').fadeOut();
+					}, 5000);
+				}
+			},
+			error: function () {
+				$btn.prop('disabled', false);
+			}
+		});
+	});
+
 	// Save media folders setting.
 	$('#saveMediaFoldersSetting').on('click', function () {
 		var $btn = $(this);

@@ -83,6 +83,57 @@
 		</div>
         <div class="row justify-content-center mb-5">
             <div class="col-md-6 col-sm-12">
+                <h5><?php esc_html_e( 'Image Optimization', 'infinite-uploads' ); ?></h5>
+                <p class="lead"><?php esc_html_e( 'Automatically compress your images and convert them to next-gen formats (AVIF/WebP), right-sized as they are delivered from the CDN. Your original files are never modified.', 'infinite-uploads' ); ?></p>
+            </div>
+            <div class="col-md-6 col-sm-12">
+                <?php $iu_opt = \ClikIT\InfiniteUploads\InfiniteUploadsHelper::get_image_optimization_settings(); ?>
+                <div class="row">
+                    <div class="col"><?php esc_html_e( 'Enable Image Optimization', 'infinite-uploads' ); ?></div>
+                </div>
+                <div class="">
+                    <input type="radio" name="iu_image_optimization_enabled" value="yes" <?php checked( $iu_opt['enabled'], 'yes' ); ?> /><?php esc_html_e( 'Yes', 'infinite-uploads' ); ?>
+                    <input type="radio" name="iu_image_optimization_enabled" value="no" <?php checked( $iu_opt['enabled'], 'no' ); ?> /><?php esc_html_e( 'No', 'infinite-uploads' ); ?>
+                </div>
+                <div id="iu-image-optimization-options" class="mt-3"<?php echo ( $iu_opt['enabled'] !== 'yes' ) ? ' style="display:none;"' : ''; ?>>
+                    <div class="form-group">
+                        <label for="iu_image_opt_level"><strong><?php esc_html_e( 'Optimization level', 'infinite-uploads' ); ?></strong></label>
+                        <select class="form-control" id="iu_image_opt_level" name="iu_image_opt_level">
+                            <option value="compact" <?php selected( $iu_opt['level'], 'compact' ); ?>><?php esc_html_e( 'Maximum compression (smallest files)', 'infinite-uploads' ); ?></option>
+                            <option value="balanced" <?php selected( $iu_opt['level'], 'balanced' ); ?>><?php esc_html_e( 'Balanced (recommended)', 'infinite-uploads' ); ?></option>
+                            <option value="quality" <?php selected( $iu_opt['level'], 'quality' ); ?>><?php esc_html_e( 'Highest quality (larger files)', 'infinite-uploads' ); ?></option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="d-block"><strong><?php esc_html_e( 'Next-gen formats', 'infinite-uploads' ); ?></strong></label>
+                        <label class="mr-3"><input type="checkbox" id="iu_image_opt_avif" name="iu_image_opt_avif" value="yes" <?php checked( $iu_opt['avif'], 'yes' ); ?> /> <?php esc_html_e( 'AVIF', 'infinite-uploads' ); ?></label>
+                        <label><input type="checkbox" id="iu_image_opt_webp" name="iu_image_opt_webp" value="yes" <?php checked( $iu_opt['webp'], 'yes' ); ?> /> <?php esc_html_e( 'WebP', 'infinite-uploads' ); ?></label>
+                        <p class="text-muted mt-1 mb-0"><small><?php esc_html_e( 'Delivered only to browsers that support them, with automatic fallback to the original format.', 'infinite-uploads' ); ?></small></p>
+                    </div>
+                    <div class="form-group">
+                        <label for="iu_image_opt_max_width"><strong><?php esc_html_e( 'Maximum image width (px)', 'infinite-uploads' ); ?></strong></label>
+                        <input type="number" class="form-control" id="iu_image_opt_max_width" name="iu_image_opt_max_width" min="256" max="2560" step="1" value="<?php echo esc_attr( $iu_opt['max_width'] ); ?>" />
+                        <p class="text-muted mt-1 mb-0"><small><?php esc_html_e( 'Images wider than this are scaled down on delivery. Maximum 2560px.', 'infinite-uploads' ); ?></small></p>
+                    </div>
+                    <div class="form-group">
+                        <label class="d-block"><input type="checkbox" id="iu_image_opt_strip_metadata" name="iu_image_opt_strip_metadata" value="yes" <?php checked( $iu_opt['strip_metadata'], 'yes' ); ?> /> <?php esc_html_e( 'Strip metadata (EXIF, GPS, color profile)', 'infinite-uploads' ); ?></label>
+                    </div>
+                    <div class="form-group">
+                        <label for="iu_image_opt_exclusions"><strong><?php esc_html_e( 'Exclusions', 'infinite-uploads' ); ?></strong></label>
+                        <textarea class="form-control" id="iu_image_opt_exclusions" name="iu_image_opt_exclusions" rows="3" placeholder="/wp-content/uploads/originals/"><?php echo esc_textarea( $iu_opt['exclusions'] ); ?></textarea>
+                        <p class="text-muted mt-1 mb-0"><small><?php esc_html_e( 'Paths or filenames to never optimize. One entry per line.', 'infinite-uploads' ); ?></small></p>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col text-left p-3">
+                        <button class="btn text-nowrap btn-primary btn-lg m-4" id="saveImageOptimizationSetting"><?php esc_html_e( 'Save Settings', 'infinite-uploads' ); ?></button>
+                        <span id="imageOptimizationSaveStatus" style="display:none;" class="text-success ml-2"><?php esc_html_e( 'Saved!', 'infinite-uploads' ); ?></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row justify-content-center mb-5">
+            <div class="col-md-6 col-sm-12">
                 <h5><?php esc_html_e( 'Advanced Media Library', 'infinite-uploads' ); ?></h5>
                 <p class="lead"><?php esc_html_e( 'Enable folder management, custom sorting, search filters, and the enhanced sidebar in the WordPress Media Library.', 'infinite-uploads' ); ?></p>
             </div>

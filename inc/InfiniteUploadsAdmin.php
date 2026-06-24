@@ -47,6 +47,7 @@ class InfiniteUploadsAdmin {
         add_action( 'wp_ajax_save_iu_excluded_files', [ $this, 'infinite_uploads_save_excluded_files' ] );
         add_action( 'wp_ajax_get_directory_tree', [ $this, 'get_direcotry_tree' ] );
         add_action( 'wp_ajax_save_iu_media_folders_setting', [ $this, 'save_media_folders_setting' ] );
+        add_action( 'wp_ajax_save_iu_image_optimization', [ $this, 'save_image_optimization_setting' ] );
 
         // Handle it via Action Schedular.
         add_action( 'infinite-uploads-do-sync', [ $this, 'do_sync' ] );
@@ -2208,6 +2209,7 @@ class InfiniteUploadsAdmin {
                 'saveExcludedFiles'    => wp_create_nonce( 'iu_excluded_files_nonce' ),
                 'getTree'              => wp_create_nonce( 'get_tree_nonce' ),
                 'saveMediaFolders'     => wp_create_nonce( 'iu_media_folders_nonce' ),
+                'saveImageOptimization' => wp_create_nonce( 'iu_image_optimization_nonce' ),
         ];
 
         $data['excludedFiles'] = get_site_option( 'iup_excluded_files', '' );
@@ -2747,6 +2749,46 @@ class InfiniteUploadsAdmin {
         InfiniteUploadsHelper::set_media_folders_setting( $value );
 
         wp_send_json_success();
+    }
+
+    /**
+     * AJAX: persist the per-site image optimization settings, then best-effort push them
+     * to the IU API so the Bunny edge fleet can apply them. The local option is the source
+     * of truth for the UI; the API push is additive and tolerated to fail until the
+     * server-side endpoint ships (see IMAGE-OPTIMIZATION-API-SPEC.md).
+     */
+    public function save_image_optimization_setting() {
+        check_ajax_referer( 'iu_image_optimization_nonce', 'nonce' );
+
+        if ( ! current_user_can( $this->iup_instance->capability ) ) {
+            wp_send_json_error( 'Insufficient permissions' );
+        }
+
+        if ( ! $this->api->has_token() ) {
+            wp_send_json_error( 'Not connected' );
+        }
+
+        $settings = [
+            'enabled'        => isset( $_POST['enabled'] ) ? sanitize_text_field( wp_unslash( $_POST['enabled'] ) ) : 'no',
+            'level'          => isset( $_POST['level'] ) ? sanitize_text_field( wp_unslash( $_POST['level'] ) ) : 'balanced',
+            'avif'           => isset( $_POST['avif'] ) ? sanitize_text_field( wp_unslash( $_POST['avif'] ) ) : 'no',
+            'webp'           => isset( $_POST['webp'] ) ? sanitize_text_field( wp_unslash( $_POST['webp'] ) ) : 'no',
+            'max_width'      => isset( $_POST['max_width'] ) ? (int) $_POST['max_width'] : 2560,
+            'strip_metadata' => isset( $_POST['strip_metadata'] ) ? sanitize_text_field( wp_unslash( $_POST['strip_metadata'] ) ) : 'no',
+            'exclusions'     => isset( $_POST['exclusions'] ) ? sanitize_textarea_field( wp_unslash( $_POST['exclusions'] ) ) : '',
+        ];
+
+        // Persist locally (authoritative for the UI). Helper re-sanitizes and clamps.
+        InfiniteUploadsHelper::set_image_optimization_settings( $settings );
+        $saved = InfiniteUploadsHelper::get_image_optimization_settings();
+
+        // Best-effort sync to the API/edge. Safe no-op until the endpoint exists.
+        $pushed = $this->api->push_optimization_settings( $saved );
+
+        wp_send_json_success( [
+            'settings' => $saved,
+            'synced'   => (bool) $pushed,
+        ] );
     }
 
     public function process_added_removed_excluded_files( $files_to_resync, $files_to_download_from_infinite_upload_server ) {
