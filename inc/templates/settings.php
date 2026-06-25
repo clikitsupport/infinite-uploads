@@ -105,6 +105,7 @@
                 </div>
             </div>
         </div>
+        <?php if ( \ClikIT\InfiniteUploads\InfiniteUploadsHelper::is_media_usage_scanner_available() ) : ?>
         <div class="row justify-content-center mb-5">
             <div class="col-md-6 col-sm-12">
                 <h5><?php esc_html_e( 'Media Cleanup', 'infinite-uploads' ); ?> <span style="display:inline-block;margin-left:4px;padding:2px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:#fff;background:#ee7c1e;border-radius:10px;vertical-align:middle;"><?php esc_html_e( 'Beta', 'infinite-uploads' ); ?></span></h5>
@@ -128,6 +129,7 @@
                 </div>
             </div>
         </div>
+        <?php endif; ?>
         <div class="row justify-content-center mb-5">
             <div class="col-md-6 col-sm-12">
                 <h5><?php esc_html_e( 'Files to exclude', 'infinite-uploads' ); ?></h5>

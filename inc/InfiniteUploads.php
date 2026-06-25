@@ -110,10 +110,11 @@ class InfiniteUploads {
             MediaFoldersGallery::get_instance();
         }
 
-        // Media Library Usage Scanner. Instantiated whenever the site is
-        // connected so the admin page / enable screen is available; the class
+        // Media Library Usage Scanner (Media Cleanup). Instantiated only when the
+        // feature is available — connected AND on a plan that includes it — so
+        // the submenu/enable screen appear solely for eligible plans; the class
         // gates its own active hooks on the per-feature toggle internally.
-        if ( InfiniteUploadsHelper::is_connected() ) {
+        if ( InfiniteUploadsHelper::is_media_usage_scanner_available() ) {
             MediaUsage\Scanner::get_instance();
         }
         //Add cloud permissions if present

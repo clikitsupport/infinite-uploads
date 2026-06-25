@@ -364,16 +364,52 @@ class InfiniteUploadsHelper {
 	}
 
 	/**
+	 * Whether the site's Infinite Uploads plan includes Media Cleanup.
+	 *
+	 * The API is the source of truth: it sets a `media_cleanup` flag on the
+	 * site/{id} response (the object cached in iup_api_data) for eligible plans,
+	 * read here from the same synced account data other features use. The plan
+	 * rule lives on the API so eligibility can change without a plugin update.
+	 * A constant or filter can force it on for staging/QA before the API field
+	 * ships (define IU_MEDIA_CLEANUP_PLAN_OVERRIDE, or the filter below).
+	 *
+	 * @return bool
+	 */
+	public static function media_cleanup_plan_eligible() {
+		if ( defined( 'IU_MEDIA_CLEANUP_PLAN_OVERRIDE' ) ) {
+			return (bool) IU_MEDIA_CLEANUP_PLAN_OVERRIDE;
+		}
+
+		$api_data = self::get_iu_api_data();
+		$eligible = ( $api_data && isset( $api_data->site ) && ! empty( $api_data->site->media_cleanup ) );
+
+		return (bool) apply_filters( 'infinite_uploads_media_cleanup_plan_eligible', $eligible, $api_data );
+	}
+
+	/**
+	 * Whether Media Cleanup is available to this site: an active connection AND a
+	 * plan that includes the feature. This is the business gate — the submenu and
+	 * every feature hook/endpoint register only when this is true, so the feature
+	 * is fully absent for ineligible plans.
+	 *
+	 * @return bool
+	 */
+	public static function is_media_usage_scanner_available() {
+		return self::is_connected() && self::media_cleanup_plan_eligible();
+	}
+
+	/**
 	 * Whether the Media Library Usage Scanner feature is enabled AND usable.
 	 *
-	 * Requires both an active connection (token) and the per-feature toggle to
-	 * be on. Opt-in feature: defaults to disabled. Always re-read live (never
-	 * cache) because the token can be cleared mid-request on an auth error.
+	 * Requires the feature to be available (connection + eligible plan) and the
+	 * per-feature toggle to be on. Opt-in feature: defaults to disabled. Always
+	 * re-read live (never cache) because the token can be cleared mid-request on
+	 * an auth error.
 	 *
 	 * @return bool
 	 */
 	public static function is_media_usage_scanner_enabled() {
-		if ( ! self::is_connected() ) {
+		if ( ! self::is_media_usage_scanner_available() ) {
 			return false;
 		}
 
