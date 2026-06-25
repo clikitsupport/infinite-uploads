@@ -851,4 +851,35 @@ jQuery(document).ready(function ($) {
 		});
 	});
 
+	// Save Media Library Usage Scanner setting.
+	$('#saveMediaUsageSetting').on('click', function () {
+		var $btn = $(this);
+		var enabled = $('input[name="iu_media_usage_scanner_enabled"]:checked').val();
+
+		$btn.prop('disabled', true);
+		$('#mediaUsageSaveStatus').hide();
+
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'save_iu_media_usage_setting',
+				enabled: enabled,
+				nonce: iup_data.nonce.saveMediaUsage
+			},
+			success: function (response) {
+				$btn.prop('disabled', false);
+				if (response.success) {
+					$('#mediaUsageSaveStatus').fadeIn();
+					setTimeout(function () {
+						$('#mediaUsageSaveStatus').fadeOut();
+					}, 5000);
+				}
+			},
+			error: function () {
+				$btn.prop('disabled', false);
+			}
+		});
+	});
+
 });

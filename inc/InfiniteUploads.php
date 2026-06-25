@@ -109,6 +109,13 @@ class InfiniteUploads {
             MediaFolders::get_instance();
             MediaFoldersGallery::get_instance();
         }
+
+        // Media Library Usage Scanner. Instantiated whenever the site is
+        // connected so the admin page / enable screen is available; the class
+        // gates its own active hooks on the per-feature toggle internally.
+        if ( InfiniteUploadsHelper::is_connected() ) {
+            MediaUsage\Scanner::get_instance();
+        }
         //Add cloud permissions if present
         $api_data = $this->api->get_site_data();
         if ( $api_data && isset( $api_data->site ) && ! empty( $api_data->site->upload_key ) && ! empty( $api_data->site->upload_secret ) ) {

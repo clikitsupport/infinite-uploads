@@ -47,6 +47,7 @@ class InfiniteUploadsAdmin {
         add_action( 'wp_ajax_save_iu_excluded_files', [ $this, 'infinite_uploads_save_excluded_files' ] );
         add_action( 'wp_ajax_get_directory_tree', [ $this, 'get_direcotry_tree' ] );
         add_action( 'wp_ajax_save_iu_media_folders_setting', [ $this, 'save_media_folders_setting' ] );
+        add_action( 'wp_ajax_save_iu_media_usage_setting', [ $this, 'save_media_usage_setting' ] );
 
         // Handle it via Action Schedular.
         add_action( 'infinite-uploads-do-sync', [ $this, 'do_sync' ] );
@@ -2208,6 +2209,7 @@ class InfiniteUploadsAdmin {
                 'saveExcludedFiles'    => wp_create_nonce( 'iu_excluded_files_nonce' ),
                 'getTree'              => wp_create_nonce( 'get_tree_nonce' ),
                 'saveMediaFolders'     => wp_create_nonce( 'iu_media_folders_nonce' ),
+                'saveMediaUsage'       => wp_create_nonce( 'iu_media_usage_setting_nonce' ),
         ];
 
         $data['excludedFiles'] = get_site_option( 'iup_excluded_files', '' );
@@ -2745,6 +2747,31 @@ class InfiniteUploadsAdmin {
 
         $value = isset( $_POST['enabled'] ) ? sanitize_text_field( $_POST['enabled'] ) : 'yes';
         InfiniteUploadsHelper::set_media_folders_setting( $value );
+
+        wp_send_json_success();
+    }
+
+    /**
+     * Save the Media Library Usage Scanner enabled/disabled setting.
+     *
+     * @return void
+     */
+    public function save_media_usage_setting() {
+        check_ajax_referer( 'iu_media_usage_setting_nonce', 'nonce' );
+
+        // Network-wide option: require the centralized capability
+        // (manage_network_options on multisite) like the rest of IU settings.
+        if ( ! current_user_can( $this->iup_instance->capability ) ) {
+            wp_send_json_error( 'Insufficient permissions' );
+        }
+
+        // The scanner can only be enabled while the site is connected.
+        if ( ! InfiniteUploadsHelper::is_connected() ) {
+            wp_send_json_error( 'Not connected' );
+        }
+
+        $value = isset( $_POST['enabled'] ) ? sanitize_text_field( wp_unslash( $_POST['enabled'] ) ) : 'no';
+        InfiniteUploadsHelper::set_media_usage_scanner_setting( $value );
 
         wp_send_json_success();
     }

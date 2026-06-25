@@ -17,4 +17,6 @@ package-lock.json
 phpunit.xml.dist
 README.md
 build-aws3.sh
+build-zip.sh
 webpack.config.js
+infinite-uploads.zip

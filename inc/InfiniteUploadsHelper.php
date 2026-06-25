@@ -351,6 +351,121 @@ class InfiniteUploadsHelper {
 	}
 
 	/**
+	 * Whether the site is connected to Infinite Uploads (an API token exists).
+	 *
+	 * This is the single connection predicate used to gate connected-only
+	 * features. Mirrors the token check in is_media_folders_enabled() so the
+	 * Media Library Usage Scanner gates exactly like the other gated features.
+	 *
+	 * @return bool
+	 */
+	public static function is_connected() {
+		return (bool) get_site_option( 'iup_apitoken' );
+	}
+
+	/**
+	 * Whether the Media Library Usage Scanner feature is enabled AND usable.
+	 *
+	 * Requires both an active connection (token) and the per-feature toggle to
+	 * be on. Opt-in feature: defaults to disabled. Always re-read live (never
+	 * cache) because the token can be cleared mid-request on an auth error.
+	 *
+	 * @return bool
+	 */
+	public static function is_media_usage_scanner_enabled() {
+		if ( ! self::is_connected() ) {
+			return false;
+		}
+
+		return self::get_media_usage_scanner_setting() === 'yes';
+	}
+
+	/**
+	 * Current stored value of the Media Library Usage Scanner toggle.
+	 *
+	 * @return string 'yes' or 'no'. Defaults to 'no' (opt-in feature).
+	 */
+	public static function get_media_usage_scanner_setting() {
+		return get_site_option( 'iu_media_usage_scanner_enabled', 'no' );
+	}
+
+	/**
+	 * Persist the Media Library Usage Scanner toggle.
+	 *
+	 * @param string $value 'yes' or 'no'.
+	 *
+	 * @return bool False if the value is invalid.
+	 */
+	public static function set_media_usage_scanner_setting( $value ) {
+		if ( $value !== 'yes' && $value !== 'no' ) {
+			return false;
+		}
+
+		return update_site_option( 'iu_media_usage_scanner_enabled', $value );
+	}
+
+	/**
+	 * Settings for the Possible Duplicate Images sub-feature (network-wide).
+	 *
+	 * @return array{enabled:string,show_weak:string,batch_size:int,allow_exact_hash:string}
+	 */
+	public static function get_duplicates_settings() {
+		$defaults = array(
+			'enabled'          => 'no',
+			'show_weak'        => 'no',
+			'batch_size'       => 100,
+			'allow_exact_hash' => 'yes',
+		);
+
+		$saved = get_site_option( 'iu_media_usage_duplicates', array() );
+		if ( ! is_array( $saved ) ) {
+			$saved = array();
+		}
+
+		$settings               = array_merge( $defaults, $saved );
+		$settings['batch_size'] = max( 20, min( 500, (int) $settings['batch_size'] ) );
+
+		return $settings;
+	}
+
+	/**
+	 * Persist the duplicate-detection settings (whitelisted + sanitized).
+	 *
+	 * @param array $settings Partial settings to merge.
+	 *
+	 * @return bool
+	 */
+	public static function update_duplicates_settings( array $settings ) {
+		$current = self::get_duplicates_settings();
+
+		$clean = array(
+			'enabled'          => ( isset( $settings['enabled'] ) && 'yes' === $settings['enabled'] ) ? 'yes' : 'no',
+			'show_weak'        => ( isset( $settings['show_weak'] ) && 'yes' === $settings['show_weak'] ) ? 'yes' : 'no',
+			'allow_exact_hash' => ( isset( $settings['allow_exact_hash'] ) && 'no' === $settings['allow_exact_hash'] ) ? 'no' : 'yes',
+			'batch_size'       => isset( $settings['batch_size'] ) ? max( 20, min( 500, (int) $settings['batch_size'] ) ) : $current['batch_size'],
+		);
+
+		return update_site_option( 'iu_media_usage_duplicates', $clean );
+	}
+
+	/**
+	 * Whether Possible Duplicate detection is available and turned on. Requires
+	 * the Media Library Usage Scanner (and thus an active connection) plus the
+	 * per-feature toggle.
+	 *
+	 * @return bool
+	 */
+	public static function is_duplicates_enabled() {
+		if ( ! self::is_media_usage_scanner_enabled() ) {
+			return false;
+		}
+
+		$settings = self::get_duplicates_settings();
+
+		return 'yes' === $settings['enabled'];
+	}
+
+	/**
 	 * Identify Beaver Builder cropped IMAGE files inside wp-content/uploads/bb-plugin/cache/.
 	 *
 	 * The folder is otherwise excluded from sync and rewrite via two flat strpos rules

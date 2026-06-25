@@ -29,6 +29,7 @@ require_once dirname( __FILE__ ) . '/libs/action-scheduler/action-scheduler.php'
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
     \WP_CLI::add_command( 'infinite-uploads', '\ClikIT\InfiniteUploads\InfiniteUploadsWPCLICommand' );
+    \WP_CLI::add_command( 'infinite-uploads media-usage', '\ClikIT\InfiniteUploads\MediaUsage\CLI' );
 }
 
 //require_once 'inc/class-infinite-uploads-wp-mail.php';
@@ -89,6 +90,10 @@ function infinite_uploads_upgrade() {
 	if ( INFINITE_UPLOADS_VERSION != $folders_installed ) {
 		infinite_uploads_install_folders();
 	}
+
+	// Per-site Media Library Usage Scanner tables — versioned independently of
+	// the plugin via their own schema-version option (see MediaUsage\Schema).
+	\ClikIT\InfiniteUploads\MediaUsage\Schema::maybe_upgrade();
 
 	// One-time backfill: prior versions excluded /bb-plugin/cache/ entirely, so any
 	// images BB had already cropped before this release were never added to
@@ -194,6 +199,7 @@ function infinite_uploads_install_folders() {
 add_action( 'wp_initialize_site', function ( $new_site ) {
 	switch_to_blog( $new_site->blog_id );
 	infinite_uploads_install_folders();
+	\ClikIT\InfiniteUploads\MediaUsage\Schema::install();
 	restore_current_blog();
 } );
 

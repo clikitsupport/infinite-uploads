@@ -107,6 +107,29 @@
         </div>
         <div class="row justify-content-center mb-5">
             <div class="col-md-6 col-sm-12">
+                <h5><?php esc_html_e( 'Media Cleanup', 'infinite-uploads' ); ?> <span style="display:inline-block;margin-left:4px;padding:2px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:#fff;background:#ee7c1e;border-radius:10px;vertical-align:middle;"><?php esc_html_e( 'Beta', 'infinite-uploads' ); ?></span></h5>
+                <p class="lead"><?php esc_html_e( 'Find unused files and possible duplicate images in your Media Library so you can review and tidy them up. No files are deleted automatically.', 'infinite-uploads' ); ?></p>
+            </div>
+            <div class="col-md-6 col-sm-12">
+                <div class="row">
+                    <div class="col"><?php esc_html_e( 'Enable Media Cleanup', 'infinite-uploads' ); ?></div>
+                </div>
+                <div class="">
+                    <?php $media_usage_setting = \ClikIT\InfiniteUploads\InfiniteUploadsHelper::get_media_usage_scanner_setting(); ?>
+                    <input type="radio" name="iu_media_usage_scanner_enabled" value="yes" <?php checked( $media_usage_setting, 'yes' ); ?> /><?php esc_html_e( 'Yes', 'infinite-uploads' ); ?>
+                    <input type="radio" name="iu_media_usage_scanner_enabled" value="no" <?php checked( $media_usage_setting, 'no' ); ?> /><?php esc_html_e( 'No', 'infinite-uploads' ); ?>
+                </div>
+                <p class="text-muted mt-2 mb-0"><small><?php esc_html_e( 'When enabled, a new "Media Cleanup" screen appears under the Media menu and a "Usage" column is added to the Media Library. Scans run in the background. Disabling stops future scans; stored results are kept but hidden.', 'infinite-uploads' ); ?></small></p>
+                <div class="row">
+                    <div class="col text-left p-3">
+                        <button class="btn text-nowrap btn-primary btn-lg m-4" id="saveMediaUsageSetting"><?php esc_html_e( 'Save Settings', 'infinite-uploads' ); ?></button>
+                        <span id="mediaUsageSaveStatus" style="display:none;" class="text-success ml-2"><?php esc_html_e( 'Saved! Please reload the page.', 'infinite-uploads' ); ?></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row justify-content-center mb-5">
+            <div class="col-md-6 col-sm-12">
                 <h5><?php esc_html_e( 'Files to exclude', 'infinite-uploads' ); ?></h5>
                 <p class="lead"><?php esc_html_e( 'Specify files or directories to exclude from cloud sync. For example, exclude log files with ".log" or specific directories with "/directory-path/". One entry per line.', 'infinite-uploads' ); ?></p>
             </div>

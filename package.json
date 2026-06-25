@@ -29,7 +29,7 @@
     "lint:css": "wp-scripts lint-style",
     "lint:js": "wp-scripts lint-js",
     "packages-update": "wp-scripts packages-update",
-    "plugin-zip": "wp-scripts plugin-zip",
+    "plugin-zip": "npm run build && bash build-zip.sh",
     "start": "wp-scripts start"
   },
   "repository": {

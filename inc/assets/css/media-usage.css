@@ -1,0 +1,591 @@
+/* Media Library Usage Scanner — Infinite Uploads branding.
+ * Brand: blue #26a9e0, accent orange #EE7C1E, ink #2A2A2A, white cards on the
+ * WordPress admin gray. Self-contained (no Bootstrap dependency) so it never
+ * conflicts with the WP_List_Table on this screen. */
+
+.iu-media-usage {
+	--iu-blue: #26a9e0;
+	--iu-blue-dark: #1f87b4;
+	--iu-orange: #ee7c1e;
+	--iu-ink: #2a2a2a;
+	--iu-muted: #6b7280;
+	max-width: 1320px;
+}
+
+.iu-media-usage * {
+	box-sizing: border-box;
+}
+
+/* ---- Brand bar ---- */
+.iu-mu-brandbar {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+	background: #fff;
+	border-radius: 10px;
+	border-top: 4px solid var(--iu-blue);
+	padding: 22px 28px;
+	margin: 16px 0;
+	box-shadow: 0 1px 3px rgba( 0, 0, 0, 0.08 );
+}
+
+.iu-mu-logo {
+	height: 38px;
+	width: auto;
+}
+
+.iu-mu-brandbar-text h1 {
+	margin: 0;
+	padding: 0;
+	font-size: 22px;
+	color: var(--iu-ink);
+}
+
+.iu-mu-beta {
+	display: inline-block;
+	margin-left: 10px;
+	padding: 2px 9px;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.5;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: #fff;
+	background: var(--iu-orange);
+	border-radius: 10px;
+	vertical-align: middle;
+}
+
+.iu-mu-brandbar-text p {
+	margin: 4px 0 0;
+	color: var(--iu-muted);
+}
+
+/* ---- Panels (cards) ---- */
+.iu-mu-panel {
+	background: #fff;
+	border-radius: 10px;
+	padding: 24px 28px;
+	margin: 16px 0;
+	box-shadow: 0 1px 3px rgba( 0, 0, 0, 0.08 );
+}
+
+.iu-mu-table-panel {
+	padding: 14px 18px;
+}
+
+/* ---- Summary cards ---- */
+.iu-mu-summary {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 14px;
+}
+
+.iu-mu-card {
+	flex: 1 1 150px;
+	min-width: 130px;
+	padding: 18px;
+	border-radius: 10px;
+	background: #f8fafc;
+	border: 1px solid #eef1f4;
+	text-align: center;
+}
+
+.iu-mu-card .iu-mu-num {
+	display: block;
+	font-size: 30px;
+	font-weight: 700;
+	line-height: 1.1;
+	color: var(--iu-ink);
+}
+
+.iu-mu-card .iu-mu-label {
+	display: block;
+	margin-top: 4px;
+	font-size: 12px;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: var(--iu-muted);
+}
+
+.iu-mu-card-total {
+	background: linear-gradient( 135deg, #26a9e0, #1f87b4 );
+	border-color: transparent;
+}
+
+.iu-mu-card-total .iu-mu-num,
+.iu-mu-card-total .iu-mu-label {
+	color: #fff;
+}
+
+.iu-mu-card.iu-usage-referenced .iu-mu-num {
+	color: #1a7f37;
+}
+
+.iu-mu-card.iu-usage-possibly_unused .iu-mu-num {
+	color: #b8860b;
+}
+
+.iu-mu-card.iu-usage-broken .iu-mu-num {
+	color: #b32d2e;
+}
+
+/* ---- Buttons (IU pills) ---- */
+.iu-btn {
+	display: inline-block;
+	border: 0;
+	border-radius: 24px;
+	padding: 0.55rem 1.6rem;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 1.4;
+	cursor: pointer;
+	text-decoration: none;
+	transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.iu-btn:focus {
+	outline: 2px solid rgba( 38, 169, 224, 0.45 );
+	outline-offset: 2px;
+}
+
+.iu-btn[disabled] {
+	opacity: 0.6;
+	cursor: default;
+}
+
+.iu-btn-primary {
+	background: var(--iu-blue);
+	color: #fff;
+}
+
+.iu-btn-primary:hover {
+	background: var(--iu-blue-dark);
+	color: #fff;
+}
+
+.iu-btn-accent {
+	background: var(--iu-orange);
+	color: #fff;
+}
+
+.iu-btn-accent:hover {
+	background: #d96d12;
+	color: #fff;
+}
+
+.iu-btn-ghost {
+	background: #fff;
+	color: var(--iu-ink);
+	box-shadow: inset 0 0 0 1px #cdd3da;
+}
+
+.iu-btn-ghost:hover {
+	background: #f3f5f7;
+}
+
+.iu-btn-lg {
+	padding: 0.7rem 2.2rem;
+	font-size: 15px;
+}
+
+.iu-mu-controls {
+	margin-top: 20px;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
+.iu-mu-last-scan {
+	color: var(--iu-muted);
+	margin-left: 6px;
+}
+
+/* ---- Progress ---- */
+.iu-mu-progress {
+	flex-basis: 100%;
+	margin-top: 12px;
+	max-width: 520px;
+}
+
+.iu-mu-progress-bar {
+	height: 14px;
+	background: #eef1f4;
+	border-radius: 8px;
+	overflow: hidden;
+}
+
+.iu-mu-progress-fill {
+	display: block;
+	height: 100%;
+	width: 0;
+	background: var(--iu-blue);
+	transition: width 0.3s ease;
+}
+
+.iu-mu-progress-msg {
+	margin: 8px 0 0;
+	color: var(--iu-muted);
+}
+
+/* ---- Status badges (column + list table) ---- */
+.iu-usage-badge {
+	display: inline-block;
+	padding: 3px 10px;
+	border-radius: 12px;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 1.5;
+	white-space: nowrap;
+}
+
+.iu-usage-badge.iu-usage-referenced {
+	background: #e7f7ec;
+	color: #1a7f37;
+}
+
+.iu-usage-badge.iu-usage-possibly_unused {
+	background: #fcf3e3;
+	color: #8a6d3b;
+}
+
+.iu-usage-badge.iu-usage-unknown {
+	background: #eef1f4;
+	color: #50575e;
+}
+
+.iu-usage-badge.iu-usage-broken {
+	background: #fcebec;
+	color: #b32d2e;
+}
+
+.iu-usage-badge.iu-usage-ignored,
+.iu-usage-badge.iu-usage-unscanned {
+	background: #f0f2f4;
+	color: #8c8f94;
+}
+
+/* ---- List table ---- */
+.iu-mu-table-panel .wp-list-table {
+	border: 1px solid #eef1f4;
+	border-radius: 8px;
+}
+
+.iu-mu-table-panel .subsubsub {
+	margin-top: 0;
+}
+
+.column-iu_media_usage {
+	width: 12%;
+}
+
+/* ---- Detail modal ----
+ * Scoped to the modal's ID, NOT the .iu-mu-detail class — that class is also
+ * used by the list table's "Found references" row-action links, which must
+ * stay inline (not become full-screen overlays). */
+#iu-mu-detail {
+	position: fixed;
+	inset: 0;
+	background: rgba( 20, 30, 40, 0.55 );
+	z-index: 100000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.iu-mu-detail-inner {
+	position: relative;
+	background: #fff;
+	padding: 26px;
+	border-radius: 12px;
+	max-width: 780px;
+	width: 92%;
+	max-height: 82vh;
+	overflow: auto;
+	box-shadow: 0 10px 40px rgba( 0, 0, 0, 0.25 );
+}
+
+.iu-mu-detail-inner h2 {
+	margin-top: 0;
+	color: var(--iu-ink);
+}
+
+.iu-mu-detail-close {
+	position: absolute;
+	top: 10px;
+	right: 14px;
+	border: 0;
+	background: none;
+	font-size: 26px;
+	line-height: 1;
+	cursor: pointer;
+	color: var(--iu-muted);
+}
+
+/* ---- Hero (enable / connect screens) ---- */
+.iu-mu-hero {
+	max-width: 680px;
+}
+
+.iu-mu-hero h2 {
+	margin-top: 0;
+	color: var(--iu-ink);
+}
+
+.iu-mu-lead {
+	font-size: 15px;
+	color: #3c434a;
+}
+
+.iu-mu-features {
+	margin: 14px 0 22px;
+	padding: 0;
+	list-style: none;
+}
+
+.iu-mu-features li {
+	position: relative;
+	padding-left: 26px;
+	margin: 8px 0;
+	color: #3c434a;
+}
+
+.iu-mu-features li::before {
+	content: "\2713";
+	position: absolute;
+	left: 0;
+	color: var(--iu-blue);
+	font-weight: 700;
+}
+
+.iu-mu-muted {
+	color: var(--iu-muted);
+}
+
+/* ---- Footer ---- */
+.iu-mu-footer {
+	text-align: center;
+	color: var(--iu-muted);
+	margin: 28px 0 10px;
+}
+
+/* ---- Responsive ---- */
+@media ( max-width: 782px ) {
+	.iu-mu-brandbar {
+		flex-direction: column;
+		text-align: center;
+	}
+
+	.iu-mu-card {
+		flex-basis: 45%;
+	}
+}
+
+/* ---- Tabs ---- */
+.iu-media-usage .iu-mu-tabs {
+	margin: 0 0 16px;
+}
+
+.iu-media-usage .iu-mu-tabs .nav-tab-active {
+	border-bottom-color: #fff;
+	box-shadow: inset 0 3px 0 var(--iu-blue);
+}
+
+.iu-mu-intro {
+	color: var(--iu-muted);
+	margin: 0 0 14px;
+}
+
+/* ---- Duplicate groups ---- */
+.iu-dup-group {
+	padding: 16px 20px;
+}
+
+.iu-dup-group.iu-dup-ignored {
+	opacity: 0.7;
+}
+
+.iu-dup-group-head {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-bottom: 12px;
+}
+
+.iu-dup-badge {
+	display: inline-block;
+	padding: 3px 12px;
+	border-radius: 12px;
+	font-size: 12px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.iu-dup-likely {
+	background: #e7f7ec;
+	color: #1a7f37;
+}
+
+.iu-dup-possible {
+	background: #e6f1fb;
+	color: #185fa5;
+}
+
+.iu-dup-needs_review {
+	background: #fcf3e3;
+	color: #8a6d3b;
+}
+
+.iu-dup-weak {
+	background: #eef1f4;
+	color: #50575e;
+}
+
+.iu-dup-reason {
+	color: var(--iu-muted);
+	font-size: 13px;
+	flex: 1 1 240px;
+}
+
+.iu-dup-ignored-tag {
+	background: #f0f2f4;
+	color: #8c8f94;
+	border-radius: 10px;
+	padding: 2px 8px;
+	font-size: 11px;
+}
+
+.iu-dup-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.iu-dup-actions .iu-btn {
+	padding: 0.35rem 1rem;
+	font-size: 13px;
+}
+
+.iu-dup-verify-result {
+	margin: 0 0 12px;
+	padding: 8px 12px;
+	border-radius: 8px;
+	background: #eef1f4;
+	color: #50575e;
+	font-size: 13px;
+}
+
+.iu-dup-verify-result[data-result="exact"] {
+	background: #e7f7ec;
+	color: #1a7f37;
+}
+
+.iu-dup-verify-result[data-result="similar"] {
+	background: #fcf3e3;
+	color: #8a6d3b;
+}
+
+.iu-dup-members {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px;
+}
+
+.iu-dup-member {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	flex: 1 1 280px;
+	min-width: 240px;
+	background: #f8fafc;
+	border: 1px solid #eef1f4;
+	border-radius: 8px;
+	padding: 8px 10px;
+}
+
+.iu-dup-thumb img {
+	width: 56px;
+	height: 56px;
+	object-fit: cover;
+	border-radius: 6px;
+	display: block;
+}
+
+.iu-dup-meta {
+	min-width: 0;
+}
+
+.iu-dup-meta strong {
+	display: block;
+	word-break: break-word;
+}
+
+.iu-dup-sub {
+	color: var(--iu-muted);
+	font-size: 12px;
+}
+
+.iu-dup-settings {
+	padding: 14px 20px;
+}
+
+.iu-dup-settings summary {
+	cursor: pointer;
+	font-weight: 600;
+	color: var(--iu-ink);
+}
+
+.iu-dup-settings p {
+	margin: 12px 0 0;
+}
+
+.iu-dup-saved {
+	color: #1a7f37;
+	margin-left: 8px;
+}
+
+/* ---- Bug report (alpha diagnostics) ---- */
+.iu-mu-support {
+	margin-top: 16px;
+}
+
+.iu-mu-support h3 {
+	margin: 0 0 6px;
+	font-size: 15px;
+	color: var(--iu-ink);
+}
+
+.iu-mu-support p {
+	margin: 0 0 12px;
+	max-width: 720px;
+	color: var(--iu-muted);
+}
+
+.iu-mu-bugreport-form {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	align-items: flex-start;
+	max-width: 720px;
+}
+
+.iu-mu-bugreport-note {
+	width: 100%;
+	padding: 8px 10px;
+	font-size: 13px;
+	border: 1px solid #d7dde2;
+	border-radius: 8px;
+	resize: vertical;
+}
+
+/* ---- "Keep this tab open" notice (shown when WP-Cron isn't running) ---- */
+.iu-mu-keepopen {
+	margin: 10px 0 0;
+	padding: 10px 14px;
+	font-size: 13px;
+	color: #8a6100;
+	background: #fff8e5;
+	border: 1px solid #f0d399;
+	border-radius: 8px;
+}
