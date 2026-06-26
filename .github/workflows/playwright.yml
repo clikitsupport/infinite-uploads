@@ -102,6 +102,26 @@ jobs:
       - name: Start wp-env
         run: npm run wp-env:start
 
+      - name: Ensure wp-content/uploads is writable in tests container
+        # Fresh wp-env containers don't always create wp-content/uploads with
+        # perms that allow www-data to mkdir into it. Without this, the very
+        # first fixture upload fails with `Unable to create directory
+        # wp-content/uploads/YYYY/MM. Is its parent directory writable by
+        # the server?` and every downstream test that depends on
+        # iuApi.uploadFixture() blows up.
+        run: |
+          CONTAINER=$(docker ps --format '{{.Names}}' | grep -E 'tests.wordpress' | head -1)
+          if [ -z "$CONTAINER" ]; then
+            echo "::error::Could not find tests-wordpress container"
+            docker ps --format '{{.Names}}'
+            exit 1
+          fi
+          docker exec -u root "$CONTAINER" sh -c '
+            mkdir -p /var/www/html/wp-content/uploads &&
+            chown -R www-data:www-data /var/www/html/wp-content/uploads &&
+            chmod -R 775 /var/www/html/wp-content/uploads
+          '
+
       # ----------------------------------------
       # 6. Run the tests
       # ----------------------------------------
@@ -114,12 +134,14 @@ jobs:
       # 7. Diagnostics — only fires on failure. Uploads traces, screenshots,
       #    videos, and the HTML report so a failure can be inspected.
       # ----------------------------------------
-      - name: Upload Playwright report
+      - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ github.run_attempt }}
-          path: test-results/
+          path: |
+            test-results/
+            playwright-report/
           retention-days: 14
           if-no-files-found: ignore
 

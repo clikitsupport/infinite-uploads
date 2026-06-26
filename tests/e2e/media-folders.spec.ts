@@ -24,6 +24,12 @@ test.describe( 'Media Folders — admin UI CRUD', () => {
 
 	test.beforeEach( async ( { iuApi } ) => {
 		await iuApi.reset();
+		// MediaFolders only initializes when iup_apitoken is present —
+		// see InfiniteUploadsHelper::is_media_folders_enabled(). On a real
+		// connection (typical local dev) this is a no-op; on CI with no
+		// real token it seeds fake credentials so the folder sidebar
+		// actually renders.
+		await iuApi.connect();
 	} );
 
 	test( 'creates a new folder via the toolbar button', async ( { page, adminPage, iuApi } ) => {

@@ -13,6 +13,10 @@ import * as path from 'path';
 
 const STORAGE_STATE_PATH = path.join( __dirname, 'tests/e2e/.auth/admin.json' );
 const ARTIFACTS_PATH     = path.join( __dirname, 'test-results' );
+// Keep the HTML report SEPARATE from outputDir — Playwright clears outputDir
+// at the start of each run, which would wipe the html-report if it were
+// nested inside (in newer versions this is a hard "Configuration Error").
+const HTML_REPORT_PATH   = path.join( __dirname, 'playwright-report' );
 
 export default defineConfig( {
 	testDir: './tests/e2e',
@@ -32,7 +36,7 @@ export default defineConfig( {
 	workers: process.env.CI ? 1 : 1,
 
 	reporter: [
-		[ 'html', { outputFolder: path.join( ARTIFACTS_PATH, 'html-report' ), open: 'never' } ],
+		[ 'html', { outputFolder: HTML_REPORT_PATH, open: 'never' } ],
 		[ 'list' ],
 	],
 
