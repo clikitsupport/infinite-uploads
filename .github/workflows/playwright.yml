@@ -1,0 +1,138 @@
+name: Playwright E2E
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playwright-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  e2e:
+    name: Playwright (chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ----------------------------------------
+      # 1. Toolchain — PHP for the plugin, Node for Playwright + wp-env
+      # ----------------------------------------
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # .wp-env.json sets phpVersion: 8.0 — keep the host PHP matched so
+          # composer install resolves identical packages to what's in the
+          # Docker container.
+          php-version: '8.0'
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ----------------------------------------
+      # 2. Composer (production only — E2E doesn't need PHPUnit/Brain Monkey)
+      # ----------------------------------------
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-prod-${{ runner.os }}-php8.0-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            composer-prod-${{ runner.os }}-php8.0-
+
+      - name: Install Composer dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist --no-progress --optimize-autoloader
+
+      # ----------------------------------------
+      # 3. npm — wp-env, Playwright, etc.
+      # ----------------------------------------
+      - name: Install npm dependencies
+        run: npm ci
+
+      # ----------------------------------------
+      # 4. Playwright browsers + their system libs.
+      #    Caching the browser binaries shaves ~250MB / 60-90s off later runs.
+      #    The cache key is tied to package-lock so a Playwright bump
+      #    invalidates the cache automatically.
+      # ----------------------------------------
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
+      - name: Install Playwright (with system deps)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps only
+        # When the browser binaries hit the cache, we still need the
+        # Linux system libs (libnss3, libxss1, etc.) that --with-deps would
+        # have installed alongside them.
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      # ----------------------------------------
+      # 5. wp-env — Docker-based WordPress with the plugin + test-helpers
+      #    bundled in. The host already has Docker pre-installed on the
+      #    ubuntu-latest runner image.
+      # ----------------------------------------
+      - name: Start wp-env
+        run: npm run wp-env:start
+
+      # ----------------------------------------
+      # 6. Run the tests
+      # ----------------------------------------
+      - name: Run Playwright tests
+        run: npm run test:e2e
+        env:
+          CI: 'true'
+
+      # ----------------------------------------
+      # 7. Diagnostics — only fires on failure. Uploads traces, screenshots,
+      #    videos, and the HTML report so a failure can be inspected.
+      # ----------------------------------------
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_attempt }}
+          path: test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Dump wp-env logs on failure
+        if: failure()
+        # `tests` is the env Playwright targets (port 8890). --watch=false makes
+        # the command one-shot instead of following.
+        run: npm run wp-env:logs -- tests --watch=false 2>&1 | tail -200 || true
+
+      # ----------------------------------------
+      # 8. Always stop wp-env so the runner cache stays clean. `if: always()`
+      #    ensures this runs even when the test step failed above.
+      # ----------------------------------------
+      - name: Stop wp-env
+        if: always()
+        run: npm run wp-env:stop || true
