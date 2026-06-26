@@ -109,7 +109,7 @@ class InfiniteUploadsStreamWrapper {
 	public static function register(
 		S3ClientInterface $client,
 		$protocol = 'iu',
-		CacheInterface $cache = null
+		?CacheInterface $cache = null
 	) {
 		if ( in_array( $protocol, stream_get_wrappers() ) ) {
 			stream_wrapper_unregister( $protocol );
