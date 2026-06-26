@@ -103,48 +103,53 @@ jobs:
         run: npm run wp-env:start
 
       - name: Ensure wp-content/uploads is writable
-        # wp-env's tests container bind-mounts the entire `/var/www/html`
-        # from `~/.wp-env/<hash>/tests-WordPress/` on the host, so file
-        # ownership/perms come from the HOST filesystem. On a fresh CI
-        # runner, that path is owned by the runner user (UID 1001) — the
-        # container's Apache (running as www-data, UID 33) can't mkdir
-        # there. chmod-ing INSIDE the container hits the bind mount but
-        # subtly depends on user namespacing; chmod-ing on the HOST is
-        # universally effective.
+        # wp-env bind-mounts `/var/www/html` from a host directory whose
+        # location varies by wp-env version (~/.wp-env on some, ~/wp-env on
+        # others, $WP_ENV_HOME if set). Rather than guess, discover the
+        # actual host path via `docker inspect` on the tests-wordpress
+        # container — that's the source of truth.
+        #
+        # On a fresh CI runner the bind-mounted host directory is owned by
+        # the runner user (UID 1001), but Apache inside the container runs
+        # as www-data (UID 33) — without chmod the container can't mkdir
+        # year/month subdirs and every fixture upload fails with
+        # `Unable to create directory wp-content/uploads/YYYY/MM`.
         run: |
-          # wp-env hashes the project path; there's exactly one
-          # tests-WordPress directory per project.
-          WP_ENV_ROOT=$(ls -d ~/.wp-env/*/tests-WordPress 2>/dev/null | head -1)
-          if [ -z "$WP_ENV_ROOT" ] || [ ! -d "$WP_ENV_ROOT" ]; then
-            echo "::error::Could not locate wp-env tests-WordPress directory"
-            ls -la ~/.wp-env/ || true
+          CONTAINER=$(docker ps --format '{{.Names}}' | grep -E 'tests.wordpress' | head -1)
+          if [ -z "$CONTAINER" ]; then
+            echo "::error::Could not find tests-wordpress container"
+            docker ps --format '{{.Names}}'
             exit 1
           fi
-          echo "wp-env tests root: $WP_ENV_ROOT"
+          echo "Container: $CONTAINER"
 
-          # Create + chmod world-writable so the container's Apache user
-          # (whatever UID it actually maps to from the host) can mkdir
-          # year/month subdirs during fixture uploads.
-          mkdir -p "$WP_ENV_ROOT/wp-content/uploads"
-          chmod -R 777 "$WP_ENV_ROOT/wp-content/uploads"
-
-          # Diagnostics so we can see what's actually there.
-          echo "--- Host perms on uploads ---"
-          ls -la "$WP_ENV_ROOT/wp-content/uploads/"
-
-          # Also verify from inside the container — the source of truth for
-          # what Apache will see during requests.
-          CONTAINER=$(docker ps --format '{{.Names}}' | grep -E 'tests.wordpress' | head -1)
-          if [ -n "$CONTAINER" ]; then
-            echo "--- Container view of uploads ---"
-            docker exec "$CONTAINER" ls -la /var/www/html/wp-content/uploads/
-            echo "--- Container Apache write-probe ---"
-            docker exec "$CONTAINER" sh -c '
-              touch /var/www/html/wp-content/uploads/.write-probe 2>&1 &&
-              echo "OK: writable as $(id -u -n) (UID $(id -u))" &&
-              rm /var/www/html/wp-content/uploads/.write-probe
-            ' || echo "::warning::uploads still NOT writable inside container"
+          # Find the host path that's bind-mounted to /var/www/html — that's
+          # the directory whose perms control writability for wp-content/uploads.
+          HTML_HOST=$(docker inspect "$CONTAINER" \
+            --format '{{range .Mounts}}{{if eq .Destination "/var/www/html"}}{{.Source}}{{end}}{{end}}')
+          if [ -z "$HTML_HOST" ] || [ ! -d "$HTML_HOST" ]; then
+            echo "::error::Could not discover host path for /var/www/html"
+            docker inspect "$CONTAINER" --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
+            exit 1
           fi
+          echo "Host bind path for /var/www/html: $HTML_HOST"
+
+          # Create + chmod world-writable on the HOST. The container sees
+          # the same perms via the bind mount.
+          sudo mkdir -p "$HTML_HOST/wp-content/uploads"
+          sudo chmod -R 777 "$HTML_HOST/wp-content/uploads"
+
+          echo "--- Host perms on uploads ---"
+          ls -la "$HTML_HOST/wp-content/uploads/" || sudo ls -la "$HTML_HOST/wp-content/uploads/"
+
+          echo "--- Container view of uploads ---"
+          docker exec "$CONTAINER" ls -la /var/www/html/wp-content/uploads/
+          echo "--- Container Apache write-probe ---"
+          docker exec "$CONTAINER" sh -c '
+            touch /var/www/html/wp-content/uploads/.write-probe 2>&1 &&
+            echo "OK: writable as $(id -u -n) (UID $(id -u))" &&
+            rm /var/www/html/wp-content/uploads/.write-probe
+          ' || echo "::warning::uploads still NOT writable inside container"
 
       # ----------------------------------------
       # 6. Run the tests
