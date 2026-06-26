@@ -527,8 +527,29 @@ function iu_test_upload_fixture( $request ) {
 		);
 	}
 
-	$uploads = wp_upload_dir();
+	// When IU is connected to a REAL account, it registers an `iu://` stream
+	// wrapper and filters `upload_dir` so every write under wp-content/uploads
+	// goes through S3. Image sub-size generation in
+	// wp_generate_attachment_metadata() therefore performs real cloud uploads,
+	// which can easily exceed Playwright's 10s action timeout. Force-local
+	// writes for the fixture upload by removing IU's upload_dir filter (and
+	// refreshing the cache so wp_upload_dir() returns the local path), then
+	// restore the filter afterwards so the tail of the request — and other
+	// requests — continue to see the IU-filtered values.
+	$iu_filter_removed = false;
+	if ( class_exists( '\\ClikIT\\InfiniteUploads\\InfiniteUploads' ) ) {
+		$iu = \ClikIT\InfiniteUploads\InfiniteUploads::get_instance();
+		if ( has_filter( 'upload_dir', [ $iu, 'filter_upload_dir' ] ) ) {
+			remove_filter( 'upload_dir', [ $iu, 'filter_upload_dir' ], 1 );
+			$iu_filter_removed = true;
+		}
+	}
+
+	$uploads = wp_upload_dir( null, true, true ); // refresh_cache=true
 	if ( ! empty( $uploads['error'] ) ) {
+		if ( $iu_filter_removed ) {
+			add_filter( 'upload_dir', [ $iu, 'filter_upload_dir' ], 1 );
+		}
 		return new WP_Error( 'upload_dir_error', $uploads['error'], [ 'status' => 500 ] );
 	}
 
@@ -536,6 +557,9 @@ function iu_test_upload_fixture( $request ) {
 	$dest        = $uploads['path'] . '/' . $unique_name;
 
 	if ( ! @copy( $source, $dest ) ) {
+		if ( $iu_filter_removed ) {
+			add_filter( 'upload_dir', [ $iu, 'filter_upload_dir' ], 1 );
+		}
 		return new WP_Error( 'copy_failed', "Failed to copy {$source} → {$dest}", [ 'status' => 500 ] );
 	}
 
@@ -551,6 +575,9 @@ function iu_test_upload_fixture( $request ) {
 	);
 
 	if ( is_wp_error( $attachment_id ) ) {
+		if ( $iu_filter_removed ) {
+			add_filter( 'upload_dir', [ $iu, 'filter_upload_dir' ], 1 );
+		}
 		return $attachment_id;
 	}
 
@@ -558,18 +585,24 @@ function iu_test_upload_fixture( $request ) {
 	$attach_data = wp_generate_attachment_metadata( $attachment_id, $dest );
 	wp_update_attachment_metadata( $attachment_id, $attach_data );
 
-	// `source_url` is what wp_get_attachment_url() returns — when IU is
-	// connected, this is the CDN URL (because the plugin filters
-	// wp_get_attachment_url). For tests that want to drop the LOCAL URL into
-	// a post body (so the rewriter sees an upload URL it can rewrite or
-	// exclude), expose the local form separately. We derive it from the
-	// plugin's own helper so it matches the rewriter's `$replacements[0]`.
+	// `local_url` is the on-disk URL, useful for tests that want to drop a
+	// local URL into a post body so the rewriter sees an upload URL it can
+	// rewrite or exclude. We derive it the same way IU's rewriter does.
 	$local_url = $uploads['baseurl'] . str_replace( $uploads['basedir'], '', $dest );
 	if ( class_exists( '\\ClikIT\\InfiniteUploads\\InfiniteUploadsHelper' ) ) {
 		$original  = \ClikIT\InfiniteUploads\InfiniteUploadsHelper::get_original_upload_dir_root();
 		$local_url = $original['baseurl'] . str_replace( $original['basedir'], '', $dest );
 	}
 
+	// Restore IU's upload_dir filter and re-prime the cache so subsequent
+	// calls (including wp_get_attachment_url below) see the IU-filtered view.
+	if ( $iu_filter_removed ) {
+		add_filter( 'upload_dir', [ $iu, 'filter_upload_dir' ], 1 );
+		wp_upload_dir( null, true, true );
+	}
+
+	// `source_url` is what wp_get_attachment_url() returns — when IU is
+	// connected, this is the CDN URL (because the plugin filters that URL).
 	return rest_ensure_response( [
 		'attachment_id' => $attachment_id,
 		'source_url'    => wp_get_attachment_url( $attachment_id ),
