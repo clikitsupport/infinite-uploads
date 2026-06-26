@@ -90,6 +90,107 @@ add_action( 'rest_api_init', function () {
 			],
 		]
 	);
+
+	// ------------------------------------------------------------------
+	// Connection state — fake the "connected to IU cloud" state by seeding
+	// the site options the plugin reads at setup() time. After /connect,
+	// subsequent page requests see infinite_uploads_enabled() === true and
+	// the URL rewriter activates.
+	// ------------------------------------------------------------------
+	register_rest_route(
+		'iu-test/v1',
+		'/connect',
+		[
+			'methods'             => 'POST',
+			'callback'            => 'iu_test_connect',
+			'permission_callback' => 'iu_test_permission_check',
+			'args'                => [
+				'cdn_host' => [ 'required' => false, 'type' => 'string', 'default' => 'test-cdn.iu-tests.local' ],
+			],
+		]
+	);
+
+	register_rest_route(
+		'iu-test/v1',
+		'/disconnect',
+		[
+			'methods'             => 'POST',
+			'callback'            => 'iu_test_disconnect',
+			'permission_callback' => 'iu_test_permission_check',
+		]
+	);
+
+	// ------------------------------------------------------------------
+	// Mark an attachment as "synced" — inserts a row into
+	// {prefix}infinite_uploads_files with synced=1. Used to simulate the
+	// state where IU has actually uploaded a file to its cloud.
+	// ------------------------------------------------------------------
+	register_rest_route(
+		'iu-test/v1',
+		'/mark-synced',
+		[
+			'methods'             => 'POST',
+			'callback'            => 'iu_test_mark_synced',
+			'permission_callback' => 'iu_test_permission_check',
+			'args'                => [
+				'attachment_id' => [ 'required' => true, 'type' => 'integer' ],
+			],
+		]
+	);
+
+	// ------------------------------------------------------------------
+	// File exclusion controls — set/clear the iup_excluded_files option
+	// plus the iu_file_exclusion_enabled toggle.
+	// ------------------------------------------------------------------
+	register_rest_route(
+		'iu-test/v1',
+		'/excluded-paths',
+		[
+			'methods'             => 'POST',
+			'callback'            => 'iu_test_set_excluded_paths',
+			'permission_callback' => 'iu_test_permission_check',
+			'args'                => [
+				'paths' => [ 'required' => true, 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+			],
+		]
+	);
+
+	// ------------------------------------------------------------------
+	// Upload a bundled fixture file as a WP attachment — avoids dealing
+	// with REST nonce / multipart auth from the Playwright side. Files
+	// must live under tests/e2e/iu-test-helpers/fixtures/.
+	// ------------------------------------------------------------------
+	register_rest_route(
+		'iu-test/v1',
+		'/upload-fixture',
+		[
+			'methods'             => 'POST',
+			'callback'            => 'iu_test_upload_fixture',
+			'permission_callback' => 'iu_test_permission_check',
+			'args'                => [
+				'filename' => [ 'required' => true, 'type' => 'string' ],
+			],
+		]
+	);
+
+	// ------------------------------------------------------------------
+	// Quick post creation helper — cheaper than the wp/v2/posts REST
+	// endpoint because it sidesteps Gutenberg block validation.
+	// ------------------------------------------------------------------
+	register_rest_route(
+		'iu-test/v1',
+		'/posts',
+		[
+			'methods'             => 'POST',
+			'callback'            => 'iu_test_create_post',
+			'permission_callback' => 'iu_test_permission_check',
+			'args'                => [
+				'title'   => [ 'required' => true, 'type' => 'string' ],
+				'content' => [ 'required' => true, 'type' => 'string' ],
+				'status'  => [ 'required' => false, 'type' => 'string', 'default' => 'publish' ],
+			],
+		]
+	);
 } );
 
 /**
@@ -183,5 +284,231 @@ function iu_test_get_attachment_folder( $request ) {
 
 	return rest_ensure_response( [
 		'folder_id' => $folder_id !== null ? (int) $folder_id : null,
+	] );
+}
+
+// -----------------------------------------------------------------------------
+// Connection state helpers
+// -----------------------------------------------------------------------------
+
+/**
+ * Seed every option InfiniteUploads::setup() reads so the plugin enters its
+ * "connected" code path on the NEXT page request:
+ *
+ *   - iup_apitoken   — non-empty so InfiniteUploadsApiHandler::has_token() is true
+ *   - iup_site_id    — non-zero so get_site_data() will look up cached api data
+ *   - iup_api_data   — JSON-encoded fake site config; freshness < 12h satisfies
+ *                      InfiniteUploadsApiHandler::get_site_data() cache check
+ *   - iup_enabled    — toggles infinite_uploads_enabled() to true
+ *
+ * The CDN host defaults to test-cdn.iu-tests.local. Tests can override via the
+ * `cdn_host` param. We DON'T need the host to actually resolve — Playwright
+ * just inspects the `src` attribute, not the loaded image.
+ */
+function iu_test_connect( $request ) {
+	$cdn_host = $request['cdn_host'];
+
+	update_site_option( 'iup_apitoken', 'fake-test-token-' . wp_generate_password( 8, false ) );
+	update_site_option( 'iup_site_id', 999 );
+	update_site_option(
+		'iup_api_data',
+		wp_json_encode( [
+			'refreshed' => time(),
+			'site'      => [
+				'upload_key'       => 'fake-access-key',
+				'upload_secret'    => 'fake-secret-key',
+				'upload_bucket'    => 'iu-test-bucket/999/test',
+				'cdn_url'          => $cdn_host,
+				'cname'            => $cdn_host,
+				'upload_endpoint'  => 'https://s3.iu-tests.local',
+				'upload_region'    => 'us-east-1',
+				'cdn_enabled'      => true,
+				'upload_writeable' => true,
+			],
+		] )
+	);
+	update_site_option( 'iup_enabled', 1 );
+
+	return rest_ensure_response( [
+		'connected' => true,
+		'cdn_host'  => $cdn_host,
+	] );
+}
+
+/**
+ * Clear every option /connect set, restoring the plugin to its "fresh install,
+ * not connected" state.
+ */
+function iu_test_disconnect() {
+	delete_site_option( 'iup_apitoken' );
+	delete_site_option( 'iup_site_id' );
+	delete_site_option( 'iup_api_data' );
+	delete_site_option( 'iup_enabled' );
+
+	return rest_ensure_response( [ 'disconnected' => true ] );
+}
+
+// -----------------------------------------------------------------------------
+// Sync state — pretend an attachment has been offloaded to the cloud
+// -----------------------------------------------------------------------------
+
+/**
+ * Insert a row into {prefix}infinite_uploads_files with synced=1 for the
+ * given attachment. Used to simulate the post-first-sync state where the
+ * rewriter / sync-gate believes the file is already in the cloud.
+ */
+function iu_test_mark_synced( $request ) {
+	global $wpdb;
+
+	$attachment_id = (int) $request['attachment_id'];
+	$file_path     = get_attached_file( $attachment_id );
+
+	if ( ! $file_path || ! file_exists( $file_path ) ) {
+		return new WP_Error(
+			'attachment_not_found',
+			"No file on disk for attachment {$attachment_id}",
+			[ 'status' => 404 ]
+		);
+	}
+
+	$uploads  = wp_upload_dir();
+	$relative = '/' . ltrim( str_replace( $uploads['basedir'], '', $file_path ), '/' );
+	$mime     = get_post_mime_type( $attachment_id ) ?: 'application/octet-stream';
+	$size     = filesize( $file_path );
+
+	$wpdb->query(
+		$wpdb->prepare(
+			"INSERT INTO {$wpdb->base_prefix}infinite_uploads_files
+			 (file, size, modified, type, transferred, synced, deleted, errors)
+			 VALUES (%s, %d, %d, %s, %d, 1, 0, 0)
+			 ON DUPLICATE KEY UPDATE size = VALUES(size), modified = VALUES(modified),
+			                         transferred = VALUES(transferred), synced = 1,
+			                         deleted = 0, errors = 0",
+			$relative,
+			$size,
+			(int) filemtime( $file_path ),
+			$mime,
+			$size
+		)
+	);
+
+	return rest_ensure_response( [
+		'marked'        => true,
+		'attachment_id' => $attachment_id,
+		'file'          => $relative,
+		'size'          => $size,
+	] );
+}
+
+// -----------------------------------------------------------------------------
+// File exclusion controls
+// -----------------------------------------------------------------------------
+
+/**
+ * Set or clear the file exclusion list. Passing an empty array also disables
+ * the global toggle so the rewriter doesn't even check exclusions.
+ */
+function iu_test_set_excluded_paths( $request ) {
+	$paths = array_values( array_filter( (array) $request['paths'], 'strlen' ) );
+
+	update_site_option( 'iup_excluded_files', $paths );
+	update_site_option( 'iu_file_exclusion_enabled', ! empty( $paths ) ? 'yes' : 'no' );
+
+	// Helper::get_excluded_paths() memoizes per request. We can't clear that
+	// from here (different process), but the next request will see fresh state.
+	return rest_ensure_response( [
+		'paths_set'        => $paths,
+		'exclusion_toggle' => ! empty( $paths ) ? 'yes' : 'no',
+	] );
+}
+
+// -----------------------------------------------------------------------------
+// Test attachment factory — uploads a fixture file as a real WP attachment
+// -----------------------------------------------------------------------------
+
+/**
+ * Copy a fixture from `tests/e2e/iu-test-helpers/fixtures/<filename>` into the
+ * WP uploads directory and register it as an attachment. Returns the new
+ * attachment ID + source URL so the Playwright spec can drive further state.
+ *
+ * We do this server-side instead of via wp/v2/media because WP REST media
+ * uploads require an X-WP-Nonce header that's awkward to obtain from the
+ * Playwright APIRequestContext.
+ */
+function iu_test_upload_fixture( $request ) {
+	$filename = basename( (string) $request['filename'] ); // strip any path traversal
+	$source   = __DIR__ . '/fixtures/' . $filename;
+
+	if ( ! file_exists( $source ) ) {
+		return new WP_Error(
+			'fixture_not_found',
+			"Fixture not bundled with the test plugin: {$filename}",
+			[ 'status' => 404, 'source_path' => $source ]
+		);
+	}
+
+	$uploads = wp_upload_dir();
+	if ( ! empty( $uploads['error'] ) ) {
+		return new WP_Error( 'upload_dir_error', $uploads['error'], [ 'status' => 500 ] );
+	}
+
+	$unique_name = wp_unique_filename( $uploads['path'], $filename );
+	$dest        = $uploads['path'] . '/' . $unique_name;
+
+	if ( ! @copy( $source, $dest ) ) {
+		return new WP_Error( 'copy_failed', "Failed to copy {$source} → {$dest}", [ 'status' => 500 ] );
+	}
+
+	$filetype      = wp_check_filetype( $dest, null );
+	$attachment_id = wp_insert_attachment(
+		[
+			'post_mime_type' => $filetype['type'],
+			'post_title'     => preg_replace( '/\.[^.]+$/', '', $unique_name ),
+			'post_content'   => '',
+			'post_status'    => 'inherit',
+		],
+		$dest
+	);
+
+	if ( is_wp_error( $attachment_id ) ) {
+		return $attachment_id;
+	}
+
+	require_once ABSPATH . 'wp-admin/includes/image.php';
+	$attach_data = wp_generate_attachment_metadata( $attachment_id, $dest );
+	wp_update_attachment_metadata( $attachment_id, $attach_data );
+
+	return rest_ensure_response( [
+		'attachment_id' => $attachment_id,
+		'source_url'    => wp_get_attachment_url( $attachment_id ),
+		'file'          => $dest,
+		'relative'      => '/' . ltrim( str_replace( $uploads['basedir'], '', $dest ), '/' ),
+	] );
+}
+
+// -----------------------------------------------------------------------------
+// Post factory — sidesteps Gutenberg block validation that the REST media
+// embed flow expects.
+// -----------------------------------------------------------------------------
+
+function iu_test_create_post( $request ) {
+	$post_id = wp_insert_post(
+		[
+			'post_title'   => $request['title'],
+			'post_content' => $request['content'],
+			'post_status'  => $request['status'],
+			'post_type'    => 'post',
+			'post_author'  => 1,
+		],
+		true
+	);
+
+	if ( is_wp_error( $post_id ) ) {
+		return $post_id;
+	}
+
+	return rest_ensure_response( [
+		'id'        => $post_id,
+		'permalink' => get_permalink( $post_id ),
 	] );
 }

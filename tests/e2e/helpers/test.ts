@@ -71,6 +71,91 @@ export class IUTestApi {
 		const data = await res.json();
 		return data.folder_id;
 	}
+
+	// ---------------------------------------------------------------------
+	// Connection state — fake the "connected to IU cloud" state.
+	// ---------------------------------------------------------------------
+
+	async connect( cdnHost = 'test-cdn.iu-tests.local' ): Promise< { cdn_host: string } > {
+		const res = await this.request.post( '/wp-json/iu-test/v1/connect', {
+			data: { cdn_host: cdnHost },
+		} );
+		if ( ! res.ok() ) {
+			throw new Error( `iuApi.connect failed: ${ res.status() } ${ await res.text() }` );
+		}
+		return res.json();
+	}
+
+	async disconnect(): Promise< void > {
+		const res = await this.request.post( '/wp-json/iu-test/v1/disconnect' );
+		if ( ! res.ok() ) {
+			throw new Error( `iuApi.disconnect failed: ${ res.status() } ${ await res.text() }` );
+		}
+	}
+
+	// ---------------------------------------------------------------------
+	// Pretend an attachment has been offloaded to the cloud.
+	// ---------------------------------------------------------------------
+
+	async markSynced( attachmentId: number ): Promise< { file: string; size: number } > {
+		const res = await this.request.post( '/wp-json/iu-test/v1/mark-synced', {
+			data: { attachment_id: attachmentId },
+		} );
+		if ( ! res.ok() ) {
+			throw new Error( `iuApi.markSynced failed: ${ res.status() } ${ await res.text() }` );
+		}
+		return res.json();
+	}
+
+	// ---------------------------------------------------------------------
+	// File exclusion controls.
+	// ---------------------------------------------------------------------
+
+	async setExcludedPaths( paths: string[] ): Promise< void > {
+		const res = await this.request.post( '/wp-json/iu-test/v1/excluded-paths', {
+			data: { paths },
+		} );
+		if ( ! res.ok() ) {
+			throw new Error( `iuApi.setExcludedPaths failed: ${ res.status() } ${ await res.text() }` );
+		}
+	}
+
+	async clearExcludedPaths(): Promise< void > {
+		await this.setExcludedPaths( [] );
+	}
+
+	// ---------------------------------------------------------------------
+	// Server-side fixture upload + post creation. Avoids the X-WP-Nonce
+	// dance required by wp/v2/media multipart uploads.
+	// ---------------------------------------------------------------------
+
+	async uploadFixture( filename: string ): Promise< {
+		attachment_id: number;
+		source_url: string;
+		relative: string;
+	} > {
+		const res = await this.request.post( '/wp-json/iu-test/v1/upload-fixture', {
+			data: { filename },
+		} );
+		if ( ! res.ok() ) {
+			throw new Error( `iuApi.uploadFixture failed: ${ res.status() } ${ await res.text() }` );
+		}
+		return res.json();
+	}
+
+	async createPost(
+		title: string,
+		content: string,
+		status: 'publish' | 'draft' = 'publish'
+	): Promise< { id: number; permalink: string } > {
+		const res = await this.request.post( '/wp-json/iu-test/v1/posts', {
+			data: { title, content, status },
+		} );
+		if ( ! res.ok() ) {
+			throw new Error( `iuApi.createPost failed: ${ res.status() } ${ await res.text() }` );
+		}
+		return res.json();
+	}
 }
 
 /**

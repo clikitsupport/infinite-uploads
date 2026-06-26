@@ -85,8 +85,11 @@ tests/e2e/
 │   └── bb-cache-seed/             # files seeded into /wp-content/uploads/bb-plugin/cache
 ├── media-folders.spec.ts          # CRUD: create, rename, delete, nest, filter, bulk-delete
 ├── media-upload.spec.ts           # upload + auto-folder assignment
-├── cloud-offload.spec.ts          # settings page UI shell (no real cloud connect)
-└── beaver-builder.spec.ts         # BB editor + IU Gallery module
+├── cloud-offload.spec.ts          # settings page UI shell
+├── beaver-builder.spec.ts         # BB editor + IU Gallery module
+├── setup-and-sync.spec.ts         # connect + first sync user journey
+├── cdn-delivery.spec.ts           # img src + browser hints on the live site
+└── file-exclusions.spec.ts        # exclude → local URL, un-exclude → CDN URL
 ```
 
 `.auth/` (gitignored) holds the saved admin session captured by `global-setup.ts`.
@@ -118,6 +121,12 @@ inspect database state instead of clicking through the UI for every setup step:
 | `POST /upload-folder` | Set the user's `iu_upload_folder` meta (target for new uploads). |
 | `GET /folder-count` | Quick assertion: how many folders exist? |
 | `GET /attachment/<id>/folder` | What folder is an attachment in? Returns `null` if unassigned. |
+| `POST /connect` | Seed `iup_apitoken`, `iup_site_id`, `iup_api_data`, `iup_enabled` so the plugin's setup() takes its "connected" code path. Optional `cdn_host` argument controls the fake CDN domain. |
+| `POST /disconnect` | Delete the four options above. |
+| `POST /mark-synced` | Insert a row into `wp_infinite_uploads_files` with `synced=1` for a given attachment. Simulates the post-first-sync state. |
+| `POST /excluded-paths` | Set `iup_excluded_files` to the supplied list (substring matches). Empty list also flips `iu_file_exclusion_enabled` to `'no'`. |
+| `POST /upload-fixture` | Copy a file from the test plugin's `fixtures/` directory into the WP uploads dir and register it as an attachment. Sidesteps the X-WP-Nonce dance required by `/wp-json/wp/v2/media`. |
+| `POST /posts` | Create a post with arbitrary title/content/status. Sidesteps Gutenberg block validation. |
 
 The plugin **refuses to load outside `WP_ENVIRONMENT_TYPE=local|development`**,
 so it can't accidentally be activated in production.
