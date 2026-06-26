@@ -18,14 +18,13 @@
 import { test, expect } from './helpers/test';
 
 const FIXTURE_FILENAME = 'test-image.png';
-const FAKE_CDN_HOST    = 'test-cdn.iu-tests.local';
 
 test.describe( 'File exclusions — round-trip behaviour', () => {
 
 	test.beforeEach( async ( { iuApi } ) => {
 		await iuApi.reset();
 		await iuApi.clearExcludedPaths();
-		await iuApi.connect( FAKE_CDN_HOST );
+		await iuApi.connect();
 	} );
 
 	test.afterEach( async ( { iuApi } ) => {
@@ -37,12 +36,14 @@ test.describe( 'File exclusions — round-trip behaviour', () => {
 		page,
 		iuApi,
 	} ) => {
+		const cdnHost = await iuApi.cdnHost();
+
 		// 1. Seed: upload + mark-synced + post.
 		const upload = await iuApi.uploadFixture( FIXTURE_FILENAME );
 		await iuApi.markSynced( upload.attachment_id );
 		const post = await iuApi.createPost(
 			'Exclusion round-trip',
-			`<p><img src="${ upload.source_url }" alt="" /></p>`,
+			`<p><img src="${ upload.local_url }" alt="" /></p>`,
 		);
 
 		const imgSelector = 'article img, .entry-content img, main img';
@@ -51,7 +52,7 @@ test.describe( 'File exclusions — round-trip behaviour', () => {
 		//    front-end should serve the image from the CDN host.
 		await page.goto( post.permalink );
 		let src = await page.locator( imgSelector ).first().getAttribute( 'src' );
-		expect( src, 'baseline: CDN URL expected before any exclusion' ).toContain( FAKE_CDN_HOST );
+		expect( src, 'baseline: CDN URL expected before any exclusion' ).toContain( cdnHost );
 
 		// 3. Exclude the image's path. We use the *filename* — Helper's
 		//    is_path_excluded() does a substring match (stripos), so the
@@ -63,7 +64,7 @@ test.describe( 'File exclusions — round-trip behaviour', () => {
 		//    original /wp-content/uploads/... path in the HTML.
 		await page.goto( post.permalink );
 		src = await page.locator( imgSelector ).first().getAttribute( 'src' );
-		expect( src, 'after exclusion: local URL expected' ).not.toContain( FAKE_CDN_HOST );
+		expect( src, 'after exclusion: local URL expected' ).not.toContain( cdnHost );
 		expect( src, 'after exclusion: should still be the WP uploads path' ).toContain( '/wp-content/uploads' );
 
 		// 5. Reverse: clear exclusions.
@@ -72,13 +73,15 @@ test.describe( 'File exclusions — round-trip behaviour', () => {
 		// 6. Reload. CDN URL should be back.
 		await page.goto( post.permalink );
 		src = await page.locator( imgSelector ).first().getAttribute( 'src' );
-		expect( src, 'after un-exclusion: CDN URL should be restored' ).toContain( FAKE_CDN_HOST );
+		expect( src, 'after un-exclusion: CDN URL should be restored' ).toContain( cdnHost );
 	} );
 
 	test( 'exclusion is scoped — un-excluded images on the same page still go via CDN', async ( {
 		page,
 		iuApi,
 	} ) => {
+		const cdnHost = await iuApi.cdnHost();
+
 		// Upload two images so we can exclude one and prove the other still
 		// rewrites. The fixture only has one file, so we upload it twice.
 		// wp_unique_filename ensures the destinations are different.
@@ -90,8 +93,8 @@ test.describe( 'File exclusions — round-trip behaviour', () => {
 		const post = await iuApi.createPost(
 			'Mixed exclusion',
 			`<p>` +
-				`<img class="image-a" src="${ imageA.source_url }" alt="" />` +
-				`<img class="image-b" src="${ imageB.source_url }" alt="" />` +
+				`<img class="image-a" src="${ imageA.local_url }" alt="" />` +
+				`<img class="image-b" src="${ imageB.local_url }" alt="" />` +
 			`</p>`,
 		);
 
@@ -104,8 +107,8 @@ test.describe( 'File exclusions — round-trip behaviour', () => {
 		const srcA = await page.locator( 'img.image-a' ).first().getAttribute( 'src' );
 		const srcB = await page.locator( 'img.image-b' ).first().getAttribute( 'src' );
 
-		expect( srcA, 'image A (not excluded) should still rewrite to CDN' ).toContain( FAKE_CDN_HOST );
-		expect( srcB, 'image B (excluded) should stay local' ).not.toContain( FAKE_CDN_HOST );
+		expect( srcA, 'image A (not excluded) should still rewrite to CDN' ).toContain( cdnHost );
+		expect( srcB, 'image B (excluded) should stay local' ).not.toContain( cdnHost );
 		expect( srcB! ).toContain( '/wp-content/uploads' );
 	} );
 
@@ -113,6 +116,8 @@ test.describe( 'File exclusions — round-trip behaviour', () => {
 		page,
 		iuApi,
 	} ) => {
+		const cdnHost = await iuApi.cdnHost();
+
 		// The toggle is auto-managed by setExcludedPaths — passing an empty
 		// list sets iu_file_exclusion_enabled to 'no'. We verify the
 		// rewriter short-circuits to its normal CDN path in that mode.
@@ -124,18 +129,18 @@ test.describe( 'File exclusions — round-trip behaviour', () => {
 
 		const post = await iuApi.createPost(
 			'Exclusion toggle disable test',
-			`<p><img src="${ upload.source_url }" alt="" /></p>`,
+			`<p><img src="${ upload.local_url }" alt="" /></p>`,
 		);
 
 		await page.goto( post.permalink );
 		let src = await page.locator( 'article img, .entry-content img, main img' ).first().getAttribute( 'src' );
-		expect( src, 'while excluded, src should be local' ).not.toContain( FAKE_CDN_HOST );
+		expect( src, 'while excluded, src should be local' ).not.toContain( cdnHost );
 
 		// Disable the toggle by clearing the list.
 		await iuApi.clearExcludedPaths();
 
 		await page.goto( post.permalink );
 		src = await page.locator( 'article img, .entry-content img, main img' ).first().getAttribute( 'src' );
-		expect( src, 'after disabling the toggle, src should be CDN again' ).toContain( FAKE_CDN_HOST );
+		expect( src, 'after disabling the toggle, src should be CDN again' ).toContain( cdnHost );
 	} );
 } );

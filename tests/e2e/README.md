@@ -49,6 +49,73 @@ npx playwright test tests/e2e/media-folders.spec.ts
 npx playwright test -g "creates a new folder"
 ```
 
+## Connection modes
+
+Tests that depend on IU being "connected" (the CDN-delivery, file-exclusion,
+and setup-and-sync specs) work in **two modes**, auto-detected per run:
+
+### Fake mode (default — no real IU account needed)
+
+`iuApi.connect()` seeds fake credentials into the four site options the
+plugin reads at `setup()`:
+
+```
+iup_apitoken    = "fake-test-token-<random>"
+iup_site_id     = 999
+iup_api_data    = { site: { cdn_url: "test-cdn.iu-tests.local", ... } }
+iup_enabled     = 1
+```
+
+The plugin enters its connected code path on the next request. Images get
+rewritten to `https://test-cdn.iu-tests.local/...` (which won't actually
+load — that's fine, we only assert on the rewritten `src` attribute).
+
+### Real mode (test against your actual IU account)
+
+If you connect IU manually via the wp-env admin UI, every helper auto-detects
+it and **leaves the real connection alone** — `iuApi.connect()` becomes a
+no-op, `iuApi.disconnect()` becomes a no-op, and assertions use your live
+CDN host instead of the fake one.
+
+#### To set up real mode
+
+```bash
+# 1. Start the test environment.
+npm run wp-env:start
+# Wait until you see "WordPress test site started".
+
+# 2. Open the tests env admin UI (port 8890, NOT 8889).
+open http://localhost:8890/wp-admin/upload.php?page=infinite_uploads
+
+# 3. Click "Get Started" / "Connect" and complete the IU OAuth flow with
+#    your real account. wp-env now has your real iup_apitoken etc.
+
+# 4. Verify the connection is detected.
+curl -s 'http://localhost:8890/index.php?rest_route=/iu-test/v1/state'
+#    Should print: {"enabled":true,"has_token":true,...,"is_real":true,...}
+
+# 5. Run tests. The helpers will auto-skip operations that would clobber
+#    your real connection.
+npm run test:e2e
+```
+
+#### Caveats of real mode
+
+- `cdn-delivery.spec.ts → "when the plugin is disconnected, urls stay
+  local"` skips itself in real mode — we won't disconnect your account
+  during a test run.
+- `setup-and-sync.spec.ts → "before connection..."` skips itself in real
+  mode — your account is already connected.
+- The "mark-synced" helper inserts a DB row claiming a file is in cloud,
+  but the file isn't actually uploaded. URLs get rewritten to your real
+  CDN, which then 404s — Playwright won't notice because it only checks
+  the rewritten `src` attribute, not whether the image renders.
+- If you want to flip back to fake mode without re-running the whole
+  setup, manually wipe the options in the tests env:
+  ```bash
+  npx wp-env run tests-cli wp option delete iup_apitoken iup_site_id iup_api_data iup_enabled
+  ```
+
 ## Daily workflow
 
 ```bash

@@ -10,10 +10,60 @@
  * @package ClikIT\InfiniteUploads\Tests
  */
 
-// Refuse to load outside an explicit test environment.
-if ( ! defined( 'WP_ENVIRONMENT_TYPE' ) || ! in_array( WP_ENVIRONMENT_TYPE, [ 'local', 'development' ], true ) ) {
-	return;
-}
+// IMPORTANT: do NOT add a file-level guard here. We used to bail when
+// WP_ENVIRONMENT_TYPE was missing, but that caused a 404 on every endpoint —
+// indistinguishable from "plugin not installed". The env check has moved
+// into the permission_callback so failures produce a 403 with a specific
+// error code (`iu_test_wrong_env`), giving us diagnostic signal.
+
+add_action( 'rest_api_init', function () {
+	// Diagnostic: a route with NO permission check that just confirms the
+	// plugin file was loaded. Useful when something further down errors.
+	register_rest_route(
+		'iu-test/v1',
+		'/ping',
+		[
+			'methods'             => 'GET',
+			'callback'            => function () {
+				return rest_ensure_response( [
+					'pong'                 => true,
+					'wp_environment_type'  => defined( 'WP_ENVIRONMENT_TYPE' ) ? WP_ENVIRONMENT_TYPE : null,
+					'php_version'          => PHP_VERSION,
+				] );
+			},
+			'permission_callback' => '__return_true',
+		]
+	);
+
+	// /state — report the current IU connection without modifying anything.
+	// Used by the Playwright helpers to detect whether a real manual
+	// connection is in place, so tests don't clobber it by re-seeding fake
+	// credentials.
+	register_rest_route(
+		'iu-test/v1',
+		'/state',
+		[
+			'methods'             => 'GET',
+			'callback'            => function () {
+				$raw      = get_site_option( 'iup_api_data' );
+				$api_data = $raw ? json_decode( $raw ) : null;
+
+				$site = is_object( $api_data ) && isset( $api_data->site ) ? $api_data->site : null;
+
+				return rest_ensure_response( [
+					'enabled'    => (bool) get_site_option( 'iup_enabled' ),
+					'has_token'  => ! empty( get_site_option( 'iup_apitoken' ) ),
+					'site_id'    => (int) get_site_option( 'iup_site_id' ),
+					'cdn_host'   => $site && isset( $site->cdn_url ) ? $site->cdn_url : null,
+					'bucket'     => $site && isset( $site->upload_bucket ) ? $site->upload_bucket : null,
+					'is_real'    => $site && isset( $site->upload_key )
+						&& strpos( (string) $site->upload_key, 'fake-' ) !== 0,
+				] );
+			},
+			'permission_callback' => '__return_true',
+		]
+	);
+} );
 
 add_action( 'rest_api_init', function () {
 	register_rest_route(
@@ -194,10 +244,40 @@ add_action( 'rest_api_init', function () {
 } );
 
 /**
- * Only let logged-in admins hit these endpoints — basic safeguard.
+ * Permission check for the test endpoints.
+ *
+ * Two rejections produce distinct error codes so a 403 is diagnosable:
+ *   - `iu_test_no_env_type` — WP_ENVIRONMENT_TYPE constant isn't defined.
+ *     This usually means wp-env didn't apply the `env.tests.config` block
+ *     (it should produce `define('WP_ENVIRONMENT_TYPE', 'local')` in
+ *     wp-config.php — check `npx wp-env run tests-cli wp config get
+ *     WP_ENVIRONMENT_TYPE`).
+ *   - `iu_test_wrong_env` — defined but set to something other than
+ *     local/development. Production callers will never get past this.
+ *
+ * No nonce / cap check on top because WP REST cookie auth requires
+ * X-WP-Nonce — which Playwright's APIRequestContext doesn't send — and
+ * wp-env binds to localhost-only anyway. The env-type check is enough
+ * defence in depth for a plugin that explicitly identifies as test-only.
  */
 function iu_test_permission_check() {
-	return current_user_can( 'manage_options' );
+	if ( ! defined( 'WP_ENVIRONMENT_TYPE' ) ) {
+		return new WP_Error(
+			'iu_test_no_env_type',
+			'WP_ENVIRONMENT_TYPE is not defined. wp-env\'s env.tests.config block may not be applied — verify with `npx wp-env run tests-cli wp config get WP_ENVIRONMENT_TYPE`.',
+			[ 'status' => 403 ]
+		);
+	}
+
+	if ( ! in_array( WP_ENVIRONMENT_TYPE, [ 'local', 'development' ], true ) ) {
+		return new WP_Error(
+			'iu_test_wrong_env',
+			"WP_ENVIRONMENT_TYPE is '" . WP_ENVIRONMENT_TYPE . "', expected 'local' or 'development'.",
+			[ 'status' => 403 ]
+		);
+	}
+
+	return true;
 }
 
 /**
@@ -478,9 +558,22 @@ function iu_test_upload_fixture( $request ) {
 	$attach_data = wp_generate_attachment_metadata( $attachment_id, $dest );
 	wp_update_attachment_metadata( $attachment_id, $attach_data );
 
+	// `source_url` is what wp_get_attachment_url() returns — when IU is
+	// connected, this is the CDN URL (because the plugin filters
+	// wp_get_attachment_url). For tests that want to drop the LOCAL URL into
+	// a post body (so the rewriter sees an upload URL it can rewrite or
+	// exclude), expose the local form separately. We derive it from the
+	// plugin's own helper so it matches the rewriter's `$replacements[0]`.
+	$local_url = $uploads['baseurl'] . str_replace( $uploads['basedir'], '', $dest );
+	if ( class_exists( '\\ClikIT\\InfiniteUploads\\InfiniteUploadsHelper' ) ) {
+		$original  = \ClikIT\InfiniteUploads\InfiniteUploadsHelper::get_original_upload_dir_root();
+		$local_url = $original['baseurl'] . str_replace( $original['basedir'], '', $dest );
+	}
+
 	return rest_ensure_response( [
 		'attachment_id' => $attachment_id,
 		'source_url'    => wp_get_attachment_url( $attachment_id ),
+		'local_url'     => $local_url,
 		'file'          => $dest,
 		'relative'      => '/' . ltrim( str_replace( $uploads['basedir'], '', $dest ), '/' ),
 	] );

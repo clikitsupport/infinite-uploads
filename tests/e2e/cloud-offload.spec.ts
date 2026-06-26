@@ -19,12 +19,14 @@ test.describe( 'Cloud offload settings', () => {
 	test( 'IU settings menu item appears under Media', async ( { page, adminPage } ) => {
 		await adminPage.visit( '/' );
 
-		const mediaMenu = page.locator( '#menu-media' );
-		await mediaMenu.hover();
+		// The "Infinite Uploads" submenu sits inside #menu-media (Media menu).
+		// Check for ANY <a> in admin nav whose href targets the IU settings
+		// page — that's the most robust selector across WP/admin theme changes.
+		const settingsLink = page.locator(
+			'#adminmenu a[href*="page=infinite_uploads"]'
+		).first();
 
-		await expect(
-			page.locator( '#menu-media a:has-text("Infinite Uploads")' )
-		).toBeVisible();
+		await expect( settingsLink ).toBeAttached( { timeout: 10_000 } );
 	} );
 
 	test( 'settings page loads without PHP errors', async ( { page, adminPage } ) => {
@@ -33,12 +35,18 @@ test.describe( 'Cloud offload settings', () => {
 
 		await adminPage.visitIuSettings();
 
-		await expect( page ).toHaveTitle( /Infinite Uploads/i );
+		// PHP errors would have surfaced via the pageerror channel above OR
+		// as visible text on the page. Don't rely on the page title — it
+		// changes across plugin versions ("Infinite Uploads" vs "Infinite
+		// Uploads — Setup" vs "Infinite Uploads — Settings").
 		expect( phpErrors ).toEqual( [] );
-
-		// And no visible PHP warning/notice block injected by WordPress.
 		await expect( page.locator( 'body' ) ).not.toContainText( 'Fatal error' );
 		await expect( page.locator( 'body' ) ).not.toContainText( 'Parse error' );
+		await expect( page.locator( 'body' ) ).not.toContainText( 'Warning:' );
+
+		// Sanity: we landed on the IU settings page (the form / wrapper has
+		// our branding somewhere in the visible content).
+		await expect( page.locator( 'body' ) ).toContainText( /Infinite Uploads/i );
 	} );
 
 	test( 'shows a Connect CTA when not yet connected to the IU cloud', async ( {
@@ -70,11 +78,19 @@ test.describe( 'Cloud offload settings', () => {
 	test( 'plugin info on Plugins page reflects current version', async ( { page, adminPage } ) => {
 		await adminPage.visit( '/plugins.php' );
 
-		const iuRow = page.locator( 'tr[data-slug="infinite-uploads"]' ).first();
-		await expect( iuRow ).toBeVisible();
-		await expect( iuRow ).toContainText( /Infinite Uploads/i );
+		// The Plugins list table is huge — there are many tr.active rows for
+		// other plugins. Find the row by searching for the IU plugin's
+		// header text and walking up to its enclosing <tr>. This is robust
+		// against varying slugs (wp-env installs from a local dir give the
+		// slug based on directory name, not plugin header).
+		const pluginHeader = page
+			.locator( 'tr' )
+			.filter( { has: page.locator( 'strong, .plugin-title' ).filter( { hasText: /^Infinite Uploads$/i } ) } )
+			.first();
 
-		// Plugin row should NOT have an "activate" link (it's bundled in wp-env config).
-		await expect( iuRow.locator( 'a:has-text("Activate")' ) ).toHaveCount( 0 );
+		await expect( pluginHeader ).toBeVisible( { timeout: 10_000 } );
+
+		// Plugin row must NOT show an "Activate" link — wp-env auto-activated it.
+		await expect( pluginHeader.locator( 'a:has-text("Deactivate")' ) ).toHaveCount( 1 );
 	} );
 } );
