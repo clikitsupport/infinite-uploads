@@ -383,7 +383,7 @@ class InfiniteUploadsStreamWrapper {
 				$instance->stream_api_call_count['commands'][ $action ] = 1;
 			}
 
-			$error   = new Error;
+			$error   = new \Error;
 			$trace   = $error->getTraceAsString();
 			$pattern = '/' . preg_quote( WP_PLUGIN_DIR, '/' ) . '\/(?:(?!infinite\-uploads)([^\/]+))\//';
 			preg_match( $pattern, $trace, $matches );
