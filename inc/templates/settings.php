@@ -129,6 +129,24 @@
                 </div>
             </div>
         </div>
+        <?php elseif ( \ClikIT\InfiniteUploads\InfiniteUploadsHelper::is_connected() ) : ?>
+        <div class="row justify-content-center mb-5">
+            <div class="col-md-6 col-sm-12">
+                <h5><?php esc_html_e( 'Media Cleanup', 'infinite-uploads' ); ?> <span style="display:inline-block;margin-left:4px;padding:2px 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;color:#fff;background:#ee7c1e;border-radius:10px;vertical-align:middle;"><?php esc_html_e( 'Beta', 'infinite-uploads' ); ?></span></h5>
+                <p class="lead"><?php esc_html_e( 'Find unused files and possible duplicate images in your Media Library so you can review and tidy them up. No files are deleted automatically.', 'infinite-uploads' ); ?></p>
+            </div>
+            <div class="col-md-6 col-sm-12">
+                <div class="row">
+                    <div class="col"><?php esc_html_e( 'Business plan only', 'infinite-uploads' ); ?></div>
+                </div>
+                <p class="text-muted mt-2 mb-0"><small><?php esc_html_e( 'Media Cleanup is only available on Business plans. Upgrade to scan your Media Library for unused files and possible duplicate images.', 'infinite-uploads' ); ?></small></p>
+                <div class="row">
+                    <div class="col text-left p-3">
+                        <a href="<?php echo esc_url( $this->api_url( '/account/billing/' ) ); ?>" class="btn text-nowrap btn-warning btn-lg m-4"><?php esc_html_e( 'Upgrade to Business', 'infinite-uploads' ); ?></a>
+                    </div>
+                </div>
+            </div>
+        </div>
         <?php endif; ?>
         <div class="row justify-content-center mb-5">
             <div class="col-md-6 col-sm-12">
