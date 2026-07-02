@@ -266,6 +266,33 @@
 		$detail.hide();
 	} );
 
+	/* ----- Bug report modal ----- */
+	var $bugreport = $( '#iu-mu-bugreport' );
+
+	$( document ).on( 'click', '#iu-mu-bugreport-open', function ( e ) {
+		e.preventDefault();
+		$bugreport.show();
+	} );
+
+	$bugreport.on( 'click', '.iu-mu-bugreport-close', function () {
+		$bugreport.hide();
+	} );
+
+	// Close when clicking the dimmed backdrop, but not the dialog itself.
+	$bugreport.on( 'click', function ( e ) {
+		if ( e.target === this ) {
+			$bugreport.hide();
+		}
+	} );
+
+	// The form posts to admin-post.php, which replies with a file download, so
+	// the page stays put. Close the modal shortly after submit for confirmation.
+	$bugreport.on( 'submit', '.iu-mu-bugreport-form', function () {
+		setTimeout( function () {
+			$bugreport.hide();
+		}, 600 );
+	} );
+
 	/* ----- Possible Duplicates tab ----- */
 	var dupRunning = false;
 

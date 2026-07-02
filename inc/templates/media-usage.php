@@ -84,15 +84,8 @@ $export_url = wp_nonce_url( admin_url( 'admin-post.php?action=infinite_uploads_m
 		</form>
 	</div>
 
-	<div class="iu-mu-panel iu-mu-support">
-		<h3><?php esc_html_e( 'Hit a problem?', 'infinite-uploads' ); ?></h3>
-		<p><?php esc_html_e( 'Download a diagnostic report and send it to Infinite Uploads support. It captures your environment and what the scanner did, so you don’t have to describe or remember what happened. No media files or passwords are included.', 'infinite-uploads' ); ?></p>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="iu-mu-bugreport-form">
-			<input type="hidden" name="action" value="infinite_uploads_media_usage_bug_report" />
-			<?php wp_nonce_field( 'iup_media_usage_bug_report' ); ?>
-			<textarea name="note" rows="2" maxlength="2000" class="iu-mu-bugreport-note" placeholder="<?php esc_attr_e( 'Optional: what were you doing when the problem happened?', 'infinite-uploads' ); ?>"></textarea>
-			<button type="submit" class="iu-btn iu-btn-ghost"><?php esc_html_e( 'Download Bug Report', 'infinite-uploads' ); ?></button>
-		</form>
+	<div class="iu-mu-support">
+		<button type="button" class="iu-btn iu-btn-ghost iu-btn-small" id="iu-mu-bugreport-open"><?php esc_html_e( 'Report a problem', 'infinite-uploads' ); ?></button>
 	</div>
 
 	<div class="iu-mu-footer">
@@ -113,6 +106,29 @@ $export_url = wp_nonce_url( admin_url( 'admin-post.php?action=infinite_uploads_m
 				</thead>
 				<tbody class="iu-mu-detail-rows"></tbody>
 			</table>
+		</div>
+	</div>
+
+	<div id="iu-mu-bugreport" class="iu-mu-modal" style="display:none;">
+		<div class="iu-mu-modal-inner">
+			<button type="button" class="iu-mu-modal-close iu-mu-bugreport-close" aria-label="<?php esc_attr_e( 'Close', 'infinite-uploads' ); ?>">&times;</button>
+			<h2><?php esc_html_e( 'Report a problem', 'infinite-uploads' ); ?></h2>
+			<p><?php esc_html_e( 'Download a diagnostic report, then email it to Infinite Uploads support. It captures your environment and what the scanner did, so you don’t have to describe or remember what happened. No media files or passwords are included.', 'infinite-uploads' ); ?></p>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="iu-mu-bugreport-form">
+				<input type="hidden" name="action" value="infinite_uploads_media_usage_bug_report" />
+				<?php wp_nonce_field( 'iup_media_usage_bug_report' ); ?>
+				<textarea name="note" rows="3" maxlength="2000" class="iu-mu-bugreport-note" placeholder="<?php esc_attr_e( 'Optional: what were you doing when the problem happened?', 'infinite-uploads' ); ?>"></textarea>
+				<button type="submit" class="iu-btn iu-btn-primary"><?php esc_html_e( 'Download Bug Report', 'infinite-uploads' ); ?></button>
+			</form>
+			<p class="iu-mu-bugreport-send">
+				<?php
+				printf(
+					/* translators: %s: support email address (mailto link). */
+					esc_html__( 'After it downloads, attach the file to an email to %s and describe the problem.', 'infinite-uploads' ),
+					'<a href="mailto:support@infiniteuploads.com?subject=Media%20Cleanup%20bug%20report">support@infiniteuploads.com</a>'
+				);
+				?>
+			</p>
 		</div>
 	</div>
 </div>

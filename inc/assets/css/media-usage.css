@@ -547,27 +547,67 @@
 
 /* ---- Bug report (alpha diagnostics) ---- */
 .iu-mu-support {
-	margin-top: 16px;
+	margin-top: 14px;
+	text-align: center;
 }
 
-.iu-mu-support h3 {
-	margin: 0 0 6px;
-	font-size: 15px;
+.iu-btn-small {
+	padding: 0.4rem 1.1rem;
+	font-size: 13px;
+}
+
+/* Generic centered modal (used by the bug-report dialog). Kept separate from
+ * #iu-mu-detail, whose styles are ID-scoped to avoid clashing with the inline
+ * .iu-mu-detail row-action links. */
+.iu-mu-modal {
+	position: fixed;
+	inset: 0;
+	background: rgba( 20, 30, 40, 0.55 );
+	z-index: 100000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.iu-mu-modal-inner {
+	position: relative;
+	background: #fff;
+	padding: 26px;
+	border-radius: 12px;
+	max-width: 520px;
+	width: 92%;
+	max-height: 82vh;
+	overflow: auto;
+	box-shadow: 0 10px 40px rgba( 0, 0, 0, 0.25 );
+}
+
+.iu-mu-modal-inner h2 {
+	margin-top: 0;
 	color: var(--iu-ink);
 }
 
-.iu-mu-support p {
-	margin: 0 0 12px;
-	max-width: 720px;
+.iu-mu-modal-inner p {
+	margin: 0 0 14px;
+	color: var(--iu-muted);
+}
+
+.iu-mu-modal-close {
+	position: absolute;
+	top: 10px;
+	right: 14px;
+	border: 0;
+	background: none;
+	font-size: 26px;
+	line-height: 1;
+	cursor: pointer;
 	color: var(--iu-muted);
 }
 
 .iu-mu-bugreport-form {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: 12px;
 	align-items: flex-start;
-	max-width: 720px;
 }
 
 .iu-mu-bugreport-note {
@@ -577,6 +617,11 @@
 	border: 1px solid #d7dde2;
 	border-radius: 8px;
 	resize: vertical;
+}
+
+.iu-mu-modal-inner .iu-mu-bugreport-send {
+	margin: 16px 0 0;
+	font-size: 13px;
 }
 
 /* ---- "Keep this tab open" notice (shown when WP-Cron isn't running) ---- */
