@@ -316,3 +316,16 @@ li.nav-item {
 .iu-player-control .row .col {
     min-width: 200px;
 }
+
+/* Media Cleanup locked toggle (Business-only upsell): greyed, unclickable
+   radios whose wrapper opens the upgrade modal on hover/click. */
+.iu-mc-locked {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+    opacity: 0.5;
+}
+
+.iu-mc-locked input[type="radio"] {
+    pointer-events: none;
+}

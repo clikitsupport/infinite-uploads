@@ -137,12 +137,30 @@
             </div>
             <div class="col-md-6 col-sm-12">
                 <div class="row">
-                    <div class="col"><?php esc_html_e( 'Business plan only', 'infinite-uploads' ); ?></div>
+                    <div class="col"><?php esc_html_e( 'Enable Media Cleanup', 'infinite-uploads' ); ?></div>
                 </div>
-                <p class="text-muted mt-2 mb-0"><small><?php esc_html_e( 'Media Cleanup is only available on Business plans. Upgrade to scan your Media Library for unused files and possible duplicate images.', 'infinite-uploads' ); ?></small></p>
-                <div class="row">
-                    <div class="col text-left p-3">
-                        <a href="<?php echo esc_url( $this->api_url( '/account/billing/' ) ); ?>" class="btn text-nowrap btn-warning btn-lg m-4"><?php esc_html_e( 'Upgrade to Business', 'infinite-uploads' ); ?></a>
+                <?php // Locked toggle: greyed radios with pointer-events:none so every click (incl. the radio dot) falls through to this wrapper, which opens the upgrade modal on click (Bootstrap data-toggle) and hover (infinite-uploads.js). ?>
+                <div class="iu-mc-locked" data-toggle="modal" data-target="#media-cleanup-upgrade-modal" role="button" tabindex="0" title="<?php esc_attr_e( 'Upgrade to Business to enable Media Cleanup', 'infinite-uploads' ); ?>">
+                    <input type="radio" disabled /><?php esc_html_e( 'Yes', 'infinite-uploads' ); ?>
+                    <input type="radio" checked disabled /><?php esc_html_e( 'No', 'infinite-uploads' ); ?>
+                </div>
+                <p class="text-muted mt-2 mb-0"><small><?php esc_html_e( 'When enabled, a new "Media Cleanup" screen appears under the Media menu and a "Usage" column is added to the Media Library. Scans run in the background. Disabling stops future scans; stored results are kept but hidden.', 'infinite-uploads' ); ?></small></p>
+            </div>
+        </div>
+
+        <div class="modal fade" id="media-cleanup-upgrade-modal" tabindex="-1" role="dialog" aria-labelledby="media-cleanup-upgrade-label" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="media-cleanup-upgrade-label"><?php esc_html_e( 'Media Cleanup is a Business feature', 'infinite-uploads' ); ?></h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="<?php esc_attr_e( 'Close', 'infinite-uploads' ); ?>"><span aria-hidden="true">&times;</span></button>
+                    </div>
+                    <div class="modal-body">
+                        <p><?php esc_html_e( 'Media Cleanup finds unused files and possible duplicate images in your Media Library so you can review and tidy them up. It’s available on Business plans and above. Upgrade to turn it on.', 'infinite-uploads' ); ?></p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-link text-muted" data-dismiss="modal"><?php esc_html_e( 'Not now', 'infinite-uploads' ); ?></button>
+                        <a href="<?php echo esc_url( $this->api_url( '/account/billing/' ) ); ?>" class="btn text-nowrap btn-primary btn-lg"><?php esc_html_e( 'Upgrade to Business', 'infinite-uploads' ); ?></a>
                     </div>
                 </div>
             </div>
