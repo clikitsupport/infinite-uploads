@@ -908,9 +908,15 @@ class InfiniteUploads {
         if ( ( $position = array_search( 'WP_Image_Editor_Imagick', $editors ) ) !== false ) {
             unset( $editors[ $position ] );
         }
+        if ( ( $position = array_search( 'WP_Image_Editor_GD', $editors ) ) !== false ) {
+            unset( $editors[ $position ] );
+        }
 
         require_once __DIR__ . '/InfiniteUploadsImageEditorImagick.php';
+        require_once __DIR__ . '/InfiniteUploadsImageEditorGD.php';
 
+        // Prefer Imagick when available (test() will fall through to GD if not).
+        array_unshift( $editors, '\ClikIT\InfiniteUploads\InfiniteUploadsImageEditorGD' );
         array_unshift( $editors, '\ClikIT\InfiniteUploads\InfiniteUploadsImageEditorImagick' );
 
         return $editors;
