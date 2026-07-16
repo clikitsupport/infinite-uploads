@@ -141,6 +141,21 @@
         </div>
         <div class="row justify-content-center mb-5">
             <div class="col-md-6 col-sm-12">
+                <h5><?php esc_html_e( 'CDN Cache', 'infinite-uploads' ); ?></h5>
+                <p class="lead"><?php esc_html_e( 'Remove all cached copies of your files from the CDN so recent changes show up right away.', 'infinite-uploads' ); ?></p>
+            </div>
+            <div class="col-md-6 col-sm-12">
+                <div class="row">
+                    <div class="col text-left p-3">
+                        <button class="btn text-nowrap btn-primary btn-lg m-4" id="purgeCdnCache"><?php esc_html_e( 'Purge CDN Cache', 'infinite-uploads' ); ?></button>
+                        <span id="purgeCdnStatus" style="display:none;" class="ml-2"></span>
+                    </div>
+                </div>
+                <p class="text-muted mt-1 mb-0"><small><?php esc_html_e( 'Files are re-cached automatically the next time they are visited, so the first views after a purge may be a little slower. Use this after changing image optimization settings to apply them to already-cached images. Limited to once per hour.', 'infinite-uploads' ); ?></small></p>
+            </div>
+        </div>
+        <div class="row justify-content-center mb-5">
+            <div class="col-md-6 col-sm-12">
                 <h5><?php esc_html_e( 'Advanced Media Library', 'infinite-uploads' ); ?></h5>
                 <p class="lead"><?php esc_html_e( 'Enable folder management, custom sorting, search filters, and the enhanced sidebar in the WordPress Media Library.', 'infinite-uploads' ); ?></p>
             </div>

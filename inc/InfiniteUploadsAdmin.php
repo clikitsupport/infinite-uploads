@@ -48,6 +48,7 @@ class InfiniteUploadsAdmin {
         add_action( 'wp_ajax_get_directory_tree', [ $this, 'get_direcotry_tree' ] );
         add_action( 'wp_ajax_save_iu_media_folders_setting', [ $this, 'save_media_folders_setting' ] );
         add_action( 'wp_ajax_save_iu_image_optimization', [ $this, 'save_image_optimization_setting' ] );
+        add_action( 'wp_ajax_iu_purge_cdn_cache', [ $this, 'purge_cdn_cache' ] );
 
         // Handle it via Action Schedular.
         add_action( 'infinite-uploads-do-sync', [ $this, 'do_sync' ] );
@@ -2210,6 +2211,7 @@ class InfiniteUploadsAdmin {
                 'getTree'              => wp_create_nonce( 'get_tree_nonce' ),
                 'saveMediaFolders'     => wp_create_nonce( 'iu_media_folders_nonce' ),
                 'saveImageOptimization' => wp_create_nonce( 'iu_image_optimization_nonce' ),
+                'purgeCdn'              => wp_create_nonce( 'iu_purge_cdn_nonce' ),
         ];
 
         $data['excludedFiles'] = get_site_option( 'iup_excluded_files', '' );
@@ -2794,6 +2796,43 @@ class InfiniteUploadsAdmin {
         wp_send_json_success( [
             'settings' => $saved,
             'synced'   => (bool) $pushed,
+        ] );
+    }
+
+    /**
+     * AJAX handler to purge the entire CDN cache for this site.
+     *
+     * Sends a wildcard purge through the IU API so changed settings (like image
+     * optimization) apply to files the CDN has already cached. Rate limited to
+     * once per hour: a full purge makes the edge re-fetch every file, so
+     * back-to-back purges only slow the site down for no benefit.
+     */
+    public function purge_cdn_cache() {
+        check_ajax_referer( 'iu_purge_cdn_nonce', 'nonce' );
+
+        if ( ! current_user_can( $this->iup_instance->capability ) ) {
+            wp_send_json_error( esc_html__( 'Insufficient permissions', 'infinite-uploads' ) );
+        }
+
+        if ( ! $this->api->has_token() ) {
+            wp_send_json_error( esc_html__( 'Not connected', 'infinite-uploads' ) );
+        }
+
+        if ( get_site_transient( 'iup_purge_cdn_cooldown' ) ) {
+            wp_send_json_error( esc_html__( 'The CDN cache was purged recently. Please wait up to an hour before purging again.', 'infinite-uploads' ) );
+        }
+
+        $cdn_url = InfiniteUploadsHelper::get_s3_url();
+        if ( ! $cdn_url ) {
+            wp_send_json_error( esc_html__( 'Unable to determine the CDN address for this site.', 'infinite-uploads' ) );
+        }
+
+        $this->api->purge( [ trailingslashit( $cdn_url ) . '*' ] );
+
+        set_site_transient( 'iup_purge_cdn_cooldown', time(), HOUR_IN_SECONDS );
+
+        wp_send_json_success( [
+            'message' => esc_html__( 'Purge requested. The CDN cache will rebuild automatically as files are visited.', 'infinite-uploads' ),
         ] );
     }
 

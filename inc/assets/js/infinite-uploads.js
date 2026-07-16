@@ -845,6 +845,37 @@ jQuery(document).ready(function ($) {
 		});
 	});
 
+	// Purge the full CDN cache (rate limited server-side to once per hour).
+	$('#purgeCdnCache').on('click', function () {
+		if (!confirm('Purge the entire CDN cache? Files are re-cached automatically as they are visited, but the first views after a purge may be a little slower.')) {
+			return;
+		}
+		var $btn = $(this);
+		var $status = $('#purgeCdnStatus');
+		$btn.prop('disabled', true);
+		$status.hide();
+
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'iu_purge_cdn_cache',
+				nonce: iup_data.nonce.purgeCdn
+			},
+			success: function (response) {
+				if (response.success) {
+					$status.removeClass('text-danger').addClass('text-success').text(response.data.message).fadeIn();
+				} else {
+					$btn.prop('disabled', false);
+					$status.removeClass('text-success').addClass('text-danger').text(response.data).fadeIn();
+				}
+			},
+			error: function () {
+				$btn.prop('disabled', false);
+			}
+		});
+	});
+
 	// Save media folders setting.
 	$('#saveMediaFoldersSetting').on('click', function () {
 		var $btn = $(this);
