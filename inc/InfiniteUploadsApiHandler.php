@@ -296,7 +296,7 @@ class InfiniteUploadsApiHandler {
 	}
 
 	/**
-	 * Push per-site image optimization settings to the API so the Bunny edge fleet can
+	 * Push per-site image optimization settings to the API so the IU edge fleet can
 	 * apply them. Mirrors the video library settings flow: POST the config, then merge the
 	 * authoritative response into the cached site data so the settings page reflects it.
 	 *

@@ -353,7 +353,7 @@ class InfiniteUploadsHelper {
 	/**
 	 * Per-site image optimization settings (edge AVIF/WebP conversion + on-the-fly resize).
 	 *
-	 * Stored as a single network option. The Bunny edge fleet performs the actual transcode;
+	 * Stored as a single network option. The IU edge fleet performs the actual transcode;
 	 * these are the user-facing controls the plugin persists and best-effort pushes to the API
 	 * (see IMAGE-OPTIMIZATION-API-SPEC.md for the server-side contract).
 	 *

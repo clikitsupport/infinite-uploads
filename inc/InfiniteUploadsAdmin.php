@@ -2753,7 +2753,7 @@ class InfiniteUploadsAdmin {
 
     /**
      * AJAX: persist the per-site image optimization settings, then best-effort push them
-     * to the IU API so the Bunny edge fleet can apply them. The local option is the source
+     * to the IU API so the IU edge fleet can apply them. The local option is the source
      * of truth for the UI; the API push is additive and tolerated to fail until the
      * server-side endpoint ships (see IMAGE-OPTIMIZATION-API-SPEC.md).
      */
