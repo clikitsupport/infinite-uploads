@@ -2818,6 +2818,11 @@ class InfiniteUploadsAdmin {
             wp_send_json_error( esc_html__( 'Not connected', 'infinite-uploads' ) );
         }
 
+        // Business-tier feature, and only useful once image optimization is on.
+        if ( ! $this->api->is_business_plan() || ! InfiniteUploadsHelper::is_image_optimization_enabled() ) {
+            wp_send_json_error( esc_html__( 'CDN purge is available on the Business plan with Image Optimization enabled.', 'infinite-uploads' ) );
+        }
+
         if ( get_site_transient( 'iup_purge_cdn_cooldown' ) ) {
             wp_send_json_error( esc_html__( 'The CDN cache was purged recently. Please wait up to an hour before purging again.', 'infinite-uploads' ) );
         }

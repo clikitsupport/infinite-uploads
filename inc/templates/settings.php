@@ -2,6 +2,10 @@
 	<div class="card-header h5">
 		<div class="d-flex align-items-center">
 			<h5 class="m-0 mr-auto p-0"><?php esc_html_e( 'Account & Settings', 'infinite-uploads' ); ?> <span class="dashicons dashicons-info text-muted" data-toggle="tooltip" title="<?php esc_attr_e( 'Includes usage data for all connected sites', 'infinite-uploads' ); ?>"></span></h5>
+			<?php if ( $this->api->is_business_plan() && \ClikIT\InfiniteUploads\InfiniteUploadsHelper::is_image_optimization_enabled() ) : ?>
+				<span id="purgeCdnStatus" style="display:none;" class="small mr-2"></span>
+				<button class="btn btn-outline-primary btn-sm text-nowrap mr-3" id="purgeCdnCache" data-toggle="tooltip" title="<?php esc_attr_e( 'Removes all cached copies of your files from the CDN so recent changes (like new image optimization settings) apply to already-cached images. Files re-cache automatically as they are visited. Limited to once per hour.', 'infinite-uploads' ); ?>"><?php esc_html_e( 'Purge CDN Cache', 'infinite-uploads' ); ?></button>
+			<?php endif; ?>
 			<span class="m-0 p-0 text-muted iup-refresh-icon">
 				<div class="spinner-grow spinner-grow-sm text-secondary text-hide" role="status">
 				  <span class="sr-only">Refreshing...</span>
@@ -137,21 +141,6 @@
                     <p class="mb-0"><?php printf( __( 'Image optimization is included with the Business plan. <a href="%s" class="text-warning">Upgrade to enable it.</a>', 'infinite-uploads' ), esc_url( $this->api_url( '/account/billing/' ) ) ); ?></p>
                 </div>
                 <?php endif; ?>
-            </div>
-        </div>
-        <div class="row justify-content-center mb-5">
-            <div class="col-md-6 col-sm-12">
-                <h5><?php esc_html_e( 'CDN Cache', 'infinite-uploads' ); ?></h5>
-                <p class="lead"><?php esc_html_e( 'Remove all cached copies of your files from the CDN so recent changes show up right away.', 'infinite-uploads' ); ?></p>
-            </div>
-            <div class="col-md-6 col-sm-12">
-                <div class="row">
-                    <div class="col text-left p-3">
-                        <button class="btn text-nowrap btn-primary btn-lg m-4" id="purgeCdnCache"><?php esc_html_e( 'Purge CDN Cache', 'infinite-uploads' ); ?></button>
-                        <span id="purgeCdnStatus" style="display:none;" class="ml-2"></span>
-                    </div>
-                </div>
-                <p class="text-muted mt-1 mb-0"><small><?php esc_html_e( 'Files are re-cached automatically the next time they are visited, so the first views after a purge may be a little slower. Use this after changing image optimization settings to apply them to already-cached images. Limited to once per hour.', 'infinite-uploads' ); ?></small></p>
             </div>
         </div>
         <div class="row justify-content-center mb-5">
