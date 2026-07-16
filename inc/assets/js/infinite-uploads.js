@@ -805,6 +805,19 @@ jQuery(document).ready(function ($) {
 	});
 
 	// Image Optimization settings: reveal the detail controls only when enabled.
+	// Plain-language explanation of the selected optimization level.
+	var iuLevelDescriptions = {
+		compact: 'Smallest possible files and fastest loading. Great savings, though very detailed images may soften slightly.',
+		balanced: 'Strong compression with no visible quality difference on almost all images. The right choice for most sites.',
+		quality: 'Lighter compression that preserves maximum image fidelity. Larger files; best for photography-focused sites.'
+	};
+	function iuUpdateLevelDesc() {
+		var level = $('#iu_image_opt_level').val();
+		$('#iu_image_opt_level_desc').text(iuLevelDescriptions[level] || '');
+	}
+	$('#iu_image_opt_level').on('change', iuUpdateLevelDesc);
+	iuUpdateLevelDesc();
+
 	$('input[name="iu_image_optimization_enabled"]').on('change', function () {
 		$('#iu-image-optimization-options').toggle(
 			$('input[name="iu_image_optimization_enabled"]:checked').val() === 'yes'

@@ -403,8 +403,48 @@ class InfiniteUploadsHelper {
 			'webp'           => self::image_opt_bool( $value['webp'] ?? 'yes' ),
 			'max_width'      => $max_width,
 			'strip_metadata' => self::image_opt_bool( $value['strip_metadata'] ?? 'yes' ),
-			'exclusions'     => isset( $value['exclusions'] ) ? trim( (string) $value['exclusions'] ) : '',
+			'exclusions'     => self::normalize_image_opt_exclusions( isset( $value['exclusions'] ) ? $value['exclusions'] : '' ),
 		];
+	}
+
+	/**
+	 * Normalize exclusion entries to uploads-relative path fragments.
+	 *
+	 * The CDN matches exclusions against the uploads path only (e.g.
+	 * 2026/01/logo.png), so full URLs and wp-content/uploads/ prefixes that
+	 * users naturally paste would silently never match. Strip them down to
+	 * the fragment that will.
+	 *
+	 * @param  mixed  $raw  Raw textarea value, one entry per line (commas also accepted).
+	 *
+	 * @return string  Cleaned entries, one per line.
+	 */
+	public static function normalize_image_opt_exclusions( $raw ) {
+		$lines = preg_split( '/[\r\n,]+/', (string) $raw );
+		$clean = [];
+
+		foreach ( $lines as $line ) {
+			$line = trim( $line );
+			if ( '' === $line ) {
+				continue;
+			}
+
+			if ( preg_match( '#^https?://#i', $line ) ) {
+				$line = (string) wp_parse_url( $line, PHP_URL_PATH );
+			}
+
+			$pos = strpos( $line, 'wp-content/uploads/' );
+			if ( false !== $pos ) {
+				$line = substr( $line, $pos + strlen( 'wp-content/uploads' ) );
+			}
+
+			$line = trim( $line );
+			if ( '' !== $line ) {
+				$clean[] = $line;
+			}
+		}
+
+		return implode( "\n", array_unique( $clean ) );
 	}
 
 	/**

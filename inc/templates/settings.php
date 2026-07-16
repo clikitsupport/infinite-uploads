@@ -108,6 +108,7 @@
                             <option value="balanced" <?php selected( $iu_opt['level'], 'balanced' ); ?>><?php esc_html_e( 'Balanced (recommended)', 'infinite-uploads' ); ?></option>
                             <option value="quality" <?php selected( $iu_opt['level'], 'quality' ); ?>><?php esc_html_e( 'Highest quality (larger files)', 'infinite-uploads' ); ?></option>
                         </select>
+                        <p class="text-muted mt-1 mb-0"><small id="iu_image_opt_level_desc"></small></p>
                     </div>
                     <div class="form-group">
                         <label class="d-block"><strong><?php esc_html_e( 'Next-gen formats', 'infinite-uploads' ); ?></strong></label>
@@ -125,8 +126,8 @@
                     </div>
                     <div class="form-group">
                         <label for="iu_image_opt_exclusions"><strong><?php esc_html_e( 'Exclusions', 'infinite-uploads' ); ?></strong></label>
-                        <textarea class="form-control" id="iu_image_opt_exclusions" name="iu_image_opt_exclusions" rows="3" placeholder="/wp-content/uploads/originals/"><?php echo esc_textarea( $iu_opt['exclusions'] ); ?></textarea>
-                        <p class="text-muted mt-1 mb-0"><small><?php esc_html_e( 'Paths or filenames to never optimize. One entry per line.', 'infinite-uploads' ); ?></small></p>
+                        <textarea class="form-control" id="iu_image_opt_exclusions" name="iu_image_opt_exclusions" rows="3" placeholder="logo.png"><?php echo esc_textarea( $iu_opt['exclusions'] ); ?></textarea>
+                        <p class="text-muted mt-1 mb-0"><small><?php esc_html_e( 'Paths or filenames to never optimize, one per line. Examples: logo.png skips that file anywhere, /2026/01/ skips a whole month of uploads. Full URLs are trimmed automatically.', 'infinite-uploads' ); ?></small></p>
                     </div>
                 </div>
                 <div class="row">
