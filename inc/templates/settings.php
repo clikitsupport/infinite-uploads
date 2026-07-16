@@ -4,7 +4,7 @@
 			<h5 class="m-0 mr-auto p-0"><?php esc_html_e( 'Account & Settings', 'infinite-uploads' ); ?> <span class="dashicons dashicons-info text-muted" data-toggle="tooltip" title="<?php esc_attr_e( 'Includes usage data for all connected sites', 'infinite-uploads' ); ?>"></span></h5>
 			<?php if ( $this->api->is_business_plan() && \ClikIT\InfiniteUploads\InfiniteUploadsHelper::is_image_optimization_enabled() ) : ?>
 				<span id="purgeCdnStatus" style="display:none;" class="small mr-2"></span>
-				<button class="btn btn-outline-primary btn-sm text-nowrap mr-3" id="purgeCdnCache" data-toggle="tooltip" title="<?php esc_attr_e( 'Removes all cached copies of your files from the CDN so recent changes (like new image optimization settings) apply to already-cached images. Files re-cache automatically as they are visited. Limited to once per hour.', 'infinite-uploads' ); ?>"><?php esc_html_e( 'Purge CDN Cache', 'infinite-uploads' ); ?></button>
+				<button class="btn btn-primary btn-sm text-nowrap mr-3" id="purgeCdnCache" data-toggle="tooltip" title="<?php esc_attr_e( 'Removes all cached copies of your files from the CDN so recent changes (like new image optimization settings) apply to already-cached images. Files re-cache automatically as they are visited. Limited to once per hour.', 'infinite-uploads' ); ?>"><?php esc_html_e( 'Purge CDN Cache', 'infinite-uploads' ); ?></button>
 			<?php endif; ?>
 			<span class="m-0 p-0 text-muted iup-refresh-icon">
 				<div class="spinner-grow spinner-grow-sm text-secondary text-hide" role="status">
