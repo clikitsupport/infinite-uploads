@@ -1906,6 +1906,16 @@ class InfiniteUploads {
             define( 'BP_AVATAR_URL', $original['baseurl'] );
         }
         add_filter( 'bp_attachments_uploads_dir_get', [ $this, 'bp_attachments_uploads_dir_get' ], 10, 2 );
+
+        // WP Webhooks (Pro): its integration modules are PHP files it downloads into
+        // uploads/wp-webhooks-pro/integrations/ and loads with require_once(). The
+        // loader builds that path from wp_upload_dir(), which IU rewrites to iu:// —
+        // and PHP refuses to include through a URL stream wrapper unless
+        // allow_url_include is enabled (which it must never be: it would let anyone
+        // able to place a .php file in the bucket execute it). Point the integrations
+        // folder back at the original local uploads path; /wp-webhooks-pro/ is in our
+        // sync exclusions so those files stay on local disk.
+        add_filter( 'wpwhpro/integrations/get_integrations_folder', [ $this, 'wpwh_integrations_folder' ] );
     }
 
     /**
@@ -1963,6 +1973,31 @@ class InfiniteUploads {
     }
 
     /**
+     * Map a WP Webhooks (Pro) integrations folder from the iu:// stream wrapper
+     * back to the original local uploads path.
+     *
+     * Only rewrites paths under our own bucket so a folder the site has already
+     * relocated (via the same filter at an earlier priority) passes through
+     * untouched. The subpath after the bucket is preserved as-is.
+     *
+     * Hooked to `wpwhpro/integrations/get_integrations_folder`.
+     *
+     * @param string $folder Absolute path WP Webhooks intends to load integrations from.
+     *
+     * @return string Local-disk equivalent of $folder, or $folder unchanged.
+     */
+    public function wpwh_integrations_folder( $folder ) {
+        $cloud_base = 'iu://' . untrailingslashit( $this->bucket );
+        if ( 0 !== strpos( (string) $folder, $cloud_base ) ) {
+            return $folder;
+        }
+
+        $root_dirs = $this->get_original_upload_dir_root();
+
+        return $root_dirs['basedir'] . substr( $folder, strlen( $cloud_base ) );
+    }
+
+    /**
      * Exclude specific dirs for various plugins
      */
     function compatibility_exclusions( $exclusions ) {
@@ -1976,6 +2011,10 @@ class InfiniteUploads {
 
         $exclusions[] = '/bb-plugin/';
         $exclusions[] = '/ShortpixelBackups/';
+        // WP Webhooks (Pro) downloads PHP integration modules here; they must stay
+        // local because PHP can't require_once() through the iu:// wrapper. See
+        // wpwh_integrations_folder().
+        $exclusions[] = '/wp-webhooks-pro/';
 
         return $exclusions;
     }
