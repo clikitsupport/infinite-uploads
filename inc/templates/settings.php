@@ -108,7 +108,7 @@
         <div class="row justify-content-center mb-5">
             <div class="col-md-6 col-sm-12">
                 <h5><?php esc_html_e( 'Files to exclude', 'infinite-uploads' ); ?></h5>
-                <p class="lead"><?php esc_html_e( 'Specify files or directories to exclude from cloud sync. For example, exclude log files with ".log" or specific directories with "/directory-path/". One entry per line.', 'infinite-uploads' ); ?></p>
+                <p class="lead"><?php esc_html_e( 'Specify files or directories to exclude from cloud sync. Select the specific file or folder you wish to exclude. Sorted alphabetically by default.', 'infinite-uploads' ); ?></p>
             </div>
             <div class="col-md-6 col-sm-12">
                 <div class="row">
