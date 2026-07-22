@@ -712,35 +712,109 @@ jQuery(document).ready(function ($) {
 	});
 
 
+	// ---------------------------------------------------------------------
+	// File exclusion folder tree
+	//
+	// The tree lazy loads one level at a time, so its selection only ever
+	// covers the nodes currently rendered. Reading that selection at save time
+	// drops every exclusion sitting in a branch the user has not expanded —
+	// and infinite_uploads_save_excluded_files() treats a dropped path as
+	// "no longer excluded" and re-uploads the file. The full list is tracked
+	// here instead, and the tree only updates the part of it it can actually see.
+	// ---------------------------------------------------------------------
+
+	var iupExcludedPaths = new Set(
+		Array.isArray(iup_data.excludedFiles) ? iup_data.excludedFiles : []
+	);
+	var iupTreeReady = false;
+
+	/**
+	 * Drop paths that are already covered by an excluded ancestor.
+	 *
+	 * is_path_excluded() matches by substring, so an excluded directory already
+	 * covers everything beneath it. Keeping the stored list minimal matters:
+	 * that helper loops the whole list for every file and URL it checks.
+	 */
+	function iupPruneRedundantPaths(paths) {
+		var kept = [];
+		// Sorting puts an ancestor immediately before its descendants.
+		paths.slice().sort().forEach(function (path) {
+			var covered = kept.some(function (parent) {
+				return path === parent ||
+					path.indexOf(parent + '/') === 0 ||
+					path.indexOf(parent + '\\') === 0;
+			});
+			if (!covered) {
+				kept.push(path);
+			}
+		});
+		return kept;
+	}
+
+	/**
+	 * Merge the rendered part of the tree back into iupExcludedPaths.
+	 * Only rendered paths are touched, so exclusions living inside collapsed
+	 * branches survive untouched.
+	 */
+	function iupSyncSelectionFromTree() {
+		var inst = $.jstree.reference('#folderTree');
+		if (!inst) {
+			return;
+		}
+
+		(inst.get_json('#', {flat: true}) || []).forEach(function (node) {
+			if (node.data && node.data.path) {
+				iupExcludedPaths.delete(node.data.path);
+			}
+		});
+
+		(inst.get_selected(true) || []).forEach(function (node) {
+			if (node.data && node.data.path) {
+				iupExcludedPaths.add(node.data.path);
+			}
+		});
+	}
+
 	function initFolderTree() {
 		if ($.jstree.reference('#folderTree')) {
 			return; // Already initialized.
 		}
-		$('#folderTree').jstree({
-			'plugins': ["checkbox"],
-			'checkbox': {
-				// Select all children when parent is selected
-				'three_state': true,
-				'cascade': 'up+down',
-				'tie_selection': true
-			},
-			'core': {
-				'data': {
-					"url": ajaxurl,
-					"data": function (node) {
-						var params = {
-							"action": "get_directory_tree",
-							"nonce": iup_data.nonce.getTree
-						};
-						if (node.id !== '#') {
-							params.dir = node.data.path;
-						}
-						return params;
-					},
-					"dataType": "json"
+		$('#folderTree')
+			// Ignore the selection events fired while the initial nodes render;
+			// only user changes from that point on should update the list.
+			.on('ready.jstree', function () {
+				iupTreeReady = true;
+			})
+			.on('changed.jstree', function () {
+				if (iupTreeReady) {
+					iupSyncSelectionFromTree();
 				}
-			}
-		})
+			})
+			.jstree({
+				'plugins': ["checkbox"],
+				'checkbox': {
+					// Select all children when parent is selected
+					'three_state': true,
+					'cascade': 'up+down',
+					'tie_selection': true
+				},
+				'core': {
+					'data': {
+						"url": ajaxurl,
+						"data": function (node) {
+							var params = {
+								"action": "get_directory_tree",
+								"nonce": iup_data.nonce.getTree
+							};
+							if (node.id !== '#') {
+								params.dir = node.data.path;
+							}
+							return params;
+						},
+						"dataType": "json"
+					}
+				}
+			})
 			// When folder checkbox clicked → open folder
 			.on("select_node.jstree", function (e, data) {
 				if (data.node.children.length) {
@@ -766,12 +840,9 @@ jQuery(document).ready(function ($) {
 
 	// Get selected paths
 	$('#saveExcludedFilesSettings').on("click", function () {
-		var selected = $('#folderTree').jstree("get_selected", true);
-
-		var excludedFiles = [];
-		if (selected.length) {
-			excludedFiles = selected.map(node => node.data.path);
-		}
+		// Read the tracked list rather than the tree: the tree only holds the
+		// branches that are currently rendered. See the note above iupExcludedPaths.
+		var excludedFiles = iupPruneRedundantPaths(Array.from(iupExcludedPaths));
 
 		const excludedFilesOption = $('input[name="iu_file_exclusion_enabled"]:checked').val();
 
