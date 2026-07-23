@@ -2004,7 +2004,7 @@ class InfiniteUploadsAdmin {
      * @param  string     $bucket  S3 bucket name
      * @param  array     &$errors  Array of error messages (by reference)
      */
-    private function handle_download_exception( $wpdb, Exception $e, $path, $bucket, &$errors ) {
+    private function handle_download_exception( $wpdb, \Exception $e, $path, $bucket, &$errors ) {
         $this->sync_debug_log( "Download exception: " . $e->getMessage() );
 
         if ( method_exists( $e, 'getRequest' ) ) {
@@ -2016,8 +2016,41 @@ class InfiniteUploadsAdmin {
                     str_replace( trailingslashit( $bucket ), '', $request_target )
             );
 
+            // The files table stores keys with a leading slash, so keep an
+            // unmodified copy for lookups and only trim the display copy.
+            $db_file = '/' . ltrim( $file, '/' );
+
             // SECURITY: Sanitize file name for output
             $file = ltrim( $file, '/' );
+
+            // A key that is absent from the bucket will never appear on retry.
+            // Leaving it in the queue re-poisons every batch it lands in: one
+            // failure aborts the whole Transfer, so the healthy files in that
+            // batch keep their pre-incremented error count and are dropped once
+            // it reaches 3. Retire the missing key on first sight instead.
+            if ( method_exists( $e, 'getAwsErrorCode' ) && 'NoSuchKey' === $e->getAwsErrorCode() ) {
+                $wpdb->query( $wpdb->prepare(
+                        "UPDATE `{$wpdb->base_prefix}infinite_uploads_files`
+                SET errors = 3
+                WHERE file = %s",
+                        $db_file
+                ) );
+
+                // The SDK streams the 404 body to the destination before it
+                // throws, leaving an error document named like the image.
+                $stub = untrailingslashit( $path['basedir'] ) . $db_file;
+                if ( is_file( $stub ) && filesize( $stub ) < 1024 ) {
+                    unlink( $stub );
+                }
+
+                $this->sync_debug_log( "Missing from cloud, skipping: {$db_file}" );
+                $errors[] = sprintf(
+                        esc_html__( 'Skipped %s. File is missing from cloud storage.', 'infinite-uploads' ),
+                        esc_html( $file )
+                );
+
+                return;
+            }
 
             $error_count = (int) $wpdb->get_var(
                     $wpdb->prepare(
