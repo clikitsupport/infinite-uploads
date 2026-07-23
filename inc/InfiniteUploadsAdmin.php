@@ -2960,6 +2960,14 @@ class InfiniteUploadsAdmin {
     public function do_download() {
         global $wpdb;
 
+        // Bail before touching S3. On a site that has never connected (or has
+        // since disconnected), key/secret/region are never populated, and
+        // building the S3 client throws an uncaught InvalidArgumentException
+        // that kills the whole Action Scheduler run.
+        if ( ! $this->api->has_token() || ! $this->api->get_site_data() ) {
+            return;
+        }
+
         $downloaded = 0;
         $errors     = [];
         $break      = false;
@@ -3049,6 +3057,17 @@ class InfiniteUploadsAdmin {
 
     public function do_sync() {
         global $wpdb;
+
+        // Bail before touching S3. do_sync() is hooked to a daily cron event
+        // scheduled unconditionally in the constructor (no connection check),
+        // so it fires on every site regardless of whether it has ever
+        // connected. On a site that has never connected (or has since
+        // disconnected), key/secret/region are never populated, and building
+        // the S3 client throws an uncaught InvalidArgumentException that
+        // kills the whole wp-cron run.
+        if ( ! $this->api->has_token() || ! $this->api->get_site_data() ) {
+            return;
+        }
 
         //this loop has a parallel status check, so we make the timeout 2/3 of max execution time.
         $timelimit = max( 20, floor( ini_get( 'max_execution_time' ) * .6666 ) );
