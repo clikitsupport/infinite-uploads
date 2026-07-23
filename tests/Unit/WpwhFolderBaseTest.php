@@ -1,12 +1,15 @@
 <?php
 /**
- * Tests for the WP Webhooks (Pro) integrations-folder compatibility filter.
+ * Tests for the WP Webhooks Pro folder-base compatibility filter.
  *
- * WP Webhooks Pro downloads PHP integration modules into
- * uploads/wp-webhooks-pro/integrations/ and require_once()s them from a path
- * built on wp_upload_dir() — which IU rewrites to iu://. PHP blocks includes
- * through URL stream wrappers (allow_url_include=0), so
- * wpwh_integrations_folder() must map the folder back to local disk.
+ * WP Webhooks Pro stores PHP integration modules under
+ * uploads/wp-webhooks-pro/ and require_once()s them from a path built on
+ * wp_upload_dir() — which IU rewrites to iu://. PHP blocks includes through
+ * URL stream wrappers (allow_url_include=0), so wpwh_folder_base() must map
+ * the folder back to local disk. It hooks
+ * `wpwhpro/integrations/get_wpwh_folder/folder_base` (verified in Pro 6.3.4),
+ * which fires before WP Webhooks runs wp_mkdir_p()/index.php creation on the
+ * path, so those writes land on local disk too.
  *
  * Path conventions (from tests/bootstrap.php):
  *   WP_CONTENT_DIR = sys_get_temp_dir() . '/iu-tests-wp-content'
@@ -28,12 +31,12 @@ use ClikIT\InfiniteUploads\Tests\TestCase;
  * InfiniteUploads stub from tests/fixtures/ewww-environment.php, and PHP can't
  * hold both that stub and the real class (same FQCN) in one process. A fresh
  * process lets the autoloader resolve the REAL inc/InfiniteUploads.php, which
- * is where wpwh_integrations_folder() and compatibility_exclusions() live.
+ * is where wpwh_folder_base() and compatibility_exclusions() live.
  *
  * @runTestsInSeparateProcesses
  * @preserveGlobalState disabled
  */
-class WpwhIntegrationsFolderTest extends TestCase {
+class WpwhFolderBaseTest extends TestCase {
 
 	private const BUCKET = 'iup-usa/3672/mfgqglic';
 
@@ -66,10 +69,17 @@ class WpwhIntegrationsFolderTest extends TestCase {
 		return WP_CONTENT_DIR . '/uploads';
 	}
 
-	public function test_maps_cloud_folder_to_local_uploads_path(): void {
+	public function test_maps_cloud_folder_base_to_local_uploads_path(): void {
+		$this->assertSame(
+			$this->local_basedir() . '/wp-webhooks-pro',
+			$this->instance->wpwh_folder_base( 'iu://' . self::BUCKET . '/wp-webhooks-pro' )
+		);
+	}
+
+	public function test_preserves_subpaths_under_the_bucket(): void {
 		$this->assertSame(
 			$this->local_basedir() . '/wp-webhooks-pro/integrations',
-			$this->instance->wpwh_integrations_folder( 'iu://' . self::BUCKET . '/wp-webhooks-pro/integrations' )
+			$this->instance->wpwh_folder_base( 'iu://' . self::BUCKET . '/wp-webhooks-pro/integrations' )
 		);
 	}
 
@@ -77,21 +87,21 @@ class WpwhIntegrationsFolderTest extends TestCase {
 		$this->instance->bucket = self::BUCKET . '/';
 
 		$this->assertSame(
-			$this->local_basedir() . '/wp-webhooks-pro/integrations',
-			$this->instance->wpwh_integrations_folder( 'iu://' . self::BUCKET . '/wp-webhooks-pro/integrations' )
+			$this->local_basedir() . '/wp-webhooks-pro',
+			$this->instance->wpwh_folder_base( 'iu://' . self::BUCKET . '/wp-webhooks-pro' )
 		);
 	}
 
 	public function test_leaves_local_folder_untouched(): void {
-		$local = $this->local_basedir() . '/wp-webhooks-pro/integrations';
+		$local = $this->local_basedir() . '/wp-webhooks-pro';
 
-		$this->assertSame( $local, $this->instance->wpwh_integrations_folder( $local ) );
+		$this->assertSame( $local, $this->instance->wpwh_folder_base( $local ) );
 	}
 
 	public function test_leaves_other_buckets_untouched(): void {
-		$other = 'iu://iup-eu/9999/otherbucket/wp-webhooks-pro/integrations';
+		$other = 'iu://iup-eu/9999/otherbucket/wp-webhooks-pro';
 
-		$this->assertSame( $other, $this->instance->wpwh_integrations_folder( $other ) );
+		$this->assertSame( $other, $this->instance->wpwh_folder_base( $other ) );
 	}
 
 	public function test_sync_exclusions_include_wp_webhooks_folder(): void {
