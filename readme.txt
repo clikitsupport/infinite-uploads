@@ -2,7 +2,7 @@
 
 Requires at least: 6.0
 Tested up to: 7.0
-Stable tag: 3.2.5
+Stable tag: 3.2.6
 Requires PHP: 8.0
 Contributors: bww
 Tags: cloud storage, offload media, offload, video streaming, cdn
@@ -216,12 +216,25 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Upgrade Notice ==
 
+3.2.6
+-------------
+
+* Fixed a PHP fatal in the Infinite Uploads stream wrapper debug logger, plus a PHP 8.4 deprecation warning.
+* Added a GD image editor fallback so image edits and thumbnails still work on hosts without Imagick.
+
 3.2.5
 -------------
 
 * Update: Added support to get the IU CDN url and prefix for the EWWW Image Optimizer so JS WebP and Picture WebP rewriting work automatically.
 
 == Changelog ==
+
+3.2.6
+----------------------------------------------------------------------
+
+* Fixed: PHP fatal `Class "ClikIT\InfiniteUploads\Error" not found` in the stream wrapper's debug logger — the unqualified `new Error` now resolves to PHP's global `\Error` class.
+* Fixed: PHP 8.4 deprecation notice.
+* New: GD image editor wrapper for cloud storage. When Imagick isn't available — or its stream-wrapper branch trips WordPress core's `Cannot use output buffering in output buffering display handlers` bug — image edits and sub-size generation now fall through to a GD-backed editor that writes to a local temp file and copies the result to the cloud. Mirrors the existing Imagick wrapper.
 
 3.2.5
 ----------------------------------------------------------------------

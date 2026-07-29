@@ -1,15 +1,32 @@
 <?xml version="1.0"?>
 <phpunit
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.6/phpunit.xsd"
 	bootstrap="tests/bootstrap.php"
 	backupGlobals="false"
 	colors="true"
 	convertErrorsToExceptions="true"
 	convertNoticesToExceptions="true"
 	convertWarningsToExceptions="true"
+	failOnRisky="true"
+	failOnWarning="false"
+	convertDeprecationsToExceptions="false"
+	beStrictAboutOutputDuringTests="false"
+	cacheResultFile=".phpunit.cache/test-results"
 	>
 	<testsuites>
-		<testsuite>
-			<directory prefix="test-" suffix=".php">./tests/</directory>
+		<testsuite name="unit">
+			<directory suffix="Test.php">./tests/Unit/</directory>
 		</testsuite>
 	</testsuites>
+	<coverage processUncoveredFiles="false">
+		<include>
+			<directory suffix=".php">./inc/</directory>
+		</include>
+		<exclude>
+			<directory>./inc/assets/</directory>
+			<directory>./vendor/</directory>
+			<directory>./libs/</directory>
+		</exclude>
+	</coverage>
 </phpunit>
