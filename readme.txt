@@ -2,7 +2,7 @@
 
 Requires at least: 6.0
 Tested up to: 7.0
-Stable tag: 3.2.6
+Stable tag: 3.3.0
 Requires PHP: 8.0
 Contributors: bww
 Tags: cloud storage, offload media, offload, video streaming, cdn
@@ -216,6 +216,13 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Upgrade Notice ==
 
+3.3.0
+-------------
+
+* New: Image Optimization controls on the Account & Settings page — enable edge AVIF/WebP conversion and automatic resizing directly from the plugin.
+* Fixed: File exclusions no longer drop entries that live in unexpanded branches of the exclusion tree when saved.
+* Fixed: WP Webhooks Pro fatal caused by loading its integration modules through the `iu://` stream wrapper.
+
 3.2.6
 -------------
 
@@ -228,6 +235,13 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * Update: Added support to get the IU CDN url and prefix for the EWWW Image Optimizer so JS WebP and Picture WebP rewriting work automatically.
 
 == Changelog ==
+
+3.3.0
+----------------------------------------------------------------------
+
+* New: **Image Optimization** section on the Account & Settings page. Each site can enable the native Bunny/imgproxy edge optimizer with per-option controls — master on/off, optimization level, AVIF/WebP toggles, max width (up to 2560px), strip metadata, and path exclusions. Settings are pushed to the Infinite Uploads cloud so the edge CDN picks them up automatically.
+* Fixed: File exclusion tree — saving no longer dropped exclusions that lived in unexpanded branches. The exclusion tree lazy-loads one directory level per request, so the previous `jstree('get_selected')` snapshot only covered rendered nodes; the save handler now diffs the posted list against the stored one so unrendered exclusions are preserved.
+* Fixed: WP Webhooks Pro compatibility — the plugin's PHP integration loader `require_once()`s modules from a `wp_upload_dir()`-based path, which IU rewrites to the `iu://` stream wrapper. PHP refuses to include through a URL wrapper (`allow_url_include=0`), producing a fatal on activation. IU now routes those specific includes through the local disk instead.
 
 3.2.6
 ----------------------------------------------------------------------
