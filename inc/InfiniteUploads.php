@@ -1906,6 +1906,21 @@ class InfiniteUploads {
             define( 'BP_AVATAR_URL', $original['baseurl'] );
         }
         add_filter( 'bp_attachments_uploads_dir_get', [ $this, 'bp_attachments_uploads_dir_get' ], 10, 2 );
+
+        // WP Webhooks Pro: its integration modules are PHP files it downloads into
+        // uploads/wp-webhooks-pro/ and loads with require_once(). It builds that
+        // path from wp_upload_dir(), which IU rewrites to iu:// — and PHP refuses
+        // to include through a URL stream wrapper unless allow_url_include is
+        // enabled (which it must never be: it would let anyone able to place a
+        // .php file in the bucket execute it). Filter the folder base back to the
+        // original local uploads path. We hook `get_wpwh_folder/folder_base`
+        // rather than the later `get_integrations_folder` filter because
+        // get_wpwh_folder() (verified in Pro 6.3.4) runs wp_mkdir_p() and
+        // index.php creation immediately after this filter but before the
+        // end-of-function ones — hooking here keeps those writes on local disk
+        // too, and covers every subfolder WP Webhooks derives from the base.
+        // /wp-webhooks-pro/ is in our sync exclusions so the files stay local.
+        add_filter( 'wpwhpro/integrations/get_wpwh_folder/folder_base', [ $this, 'wpwh_folder_base' ] );
     }
 
     /**
@@ -1963,6 +1978,32 @@ class InfiniteUploads {
     }
 
     /**
+     * Map the WP Webhooks Pro content folder from the iu:// stream wrapper back
+     * to the original local uploads path.
+     *
+     * Only rewrites paths under our own bucket, so the free WP Webhooks (whose
+     * integrations live in its plugin directory) and folders a site has already
+     * relocated via the same filter at an earlier priority pass through
+     * untouched. The subpath after the bucket is preserved as-is.
+     *
+     * Hooked to `wpwhpro/integrations/get_wpwh_folder/folder_base`.
+     *
+     * @param string $folder Absolute base path WP Webhooks intends to store/load content from.
+     *
+     * @return string Local-disk equivalent of $folder, or $folder unchanged.
+     */
+    public function wpwh_folder_base( $folder ) {
+        $cloud_base = 'iu://' . untrailingslashit( $this->bucket );
+        if ( 0 !== strpos( (string) $folder, $cloud_base ) ) {
+            return $folder;
+        }
+
+        $root_dirs = $this->get_original_upload_dir_root();
+
+        return $root_dirs['basedir'] . substr( $folder, strlen( $cloud_base ) );
+    }
+
+    /**
      * Exclude specific dirs for various plugins
      */
     function compatibility_exclusions( $exclusions ) {
@@ -1976,6 +2017,10 @@ class InfiniteUploads {
 
         $exclusions[] = '/bb-plugin/';
         $exclusions[] = '/ShortpixelBackups/';
+        // WP Webhooks Pro downloads PHP integration modules here; they must stay
+        // local because PHP can't require_once() through the iu:// wrapper. See
+        // wpwh_folder_base().
+        $exclusions[] = '/wp-webhooks-pro/';
 
         return $exclusions;
     }
