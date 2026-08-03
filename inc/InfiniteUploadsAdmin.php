@@ -2550,6 +2550,22 @@ class InfiniteUploadsAdmin {
             $result[] = $new_node;
         }
 
+        // FilesystemIterator returns entries in filesystem order, and virtual
+        // paths are appended after them, so the tree reads as unordered. Sort
+        // directories first, then files, each alphabetically.
+        usort( $result, function ( $a, $b ) {
+            // Use the icon rather than "children": a virtual directory with no
+            // deeper virtual segments is still a directory but carries children = false.
+            $a_is_dir = ( "jstree-folder" === $a["icon"] );
+            $b_is_dir = ( "jstree-folder" === $b["icon"] );
+
+            if ( $a_is_dir !== $b_is_dir ) {
+                return $a_is_dir ? -1 : 1;
+            }
+
+            return strnatcasecmp( $a["text"], $b["text"] );
+        } );
+
         return $result;
     }
 
