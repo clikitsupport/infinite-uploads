@@ -47,6 +47,8 @@ class InfiniteUploadsAdmin {
         add_action( 'wp_ajax_save_iu_excluded_files', [ $this, 'infinite_uploads_save_excluded_files' ] );
         add_action( 'wp_ajax_get_directory_tree', [ $this, 'get_direcotry_tree' ] );
         add_action( 'wp_ajax_save_iu_media_folders_setting', [ $this, 'save_media_folders_setting' ] );
+        add_action( 'wp_ajax_save_iu_image_optimization', [ $this, 'save_image_optimization_setting' ] );
+        add_action( 'wp_ajax_iu_purge_cdn_cache', [ $this, 'purge_cdn_cache' ] );
 
         // Handle it via Action Schedular.
         add_action( 'infinite-uploads-do-sync', [ $this, 'do_sync' ] );
@@ -2208,6 +2210,8 @@ class InfiniteUploadsAdmin {
                 'saveExcludedFiles'    => wp_create_nonce( 'iu_excluded_files_nonce' ),
                 'getTree'              => wp_create_nonce( 'get_tree_nonce' ),
                 'saveMediaFolders'     => wp_create_nonce( 'iu_media_folders_nonce' ),
+                'saveImageOptimization' => wp_create_nonce( 'iu_image_optimization_nonce' ),
+                'purgeCdn'              => wp_create_nonce( 'iu_purge_cdn_nonce' ),
         ];
 
         $data['excludedFiles'] = get_site_option( 'iup_excluded_files', '' );
@@ -2747,6 +2751,94 @@ class InfiniteUploadsAdmin {
         InfiniteUploadsHelper::set_media_folders_setting( $value );
 
         wp_send_json_success();
+    }
+
+    /**
+     * AJAX: persist the per-site image optimization settings, then best-effort push them
+     * to the IU API so the IU edge fleet can apply them. The local option is the source
+     * of truth for the UI; the API push is additive and tolerated to fail until the
+     * server-side endpoint ships (see IMAGE-OPTIMIZATION-API-SPEC.md).
+     */
+    public function save_image_optimization_setting() {
+        check_ajax_referer( 'iu_image_optimization_nonce', 'nonce' );
+
+        if ( ! current_user_can( $this->iup_instance->capability ) ) {
+            wp_send_json_error( 'Insufficient permissions' );
+        }
+
+        if ( ! $this->api->has_token() ) {
+            wp_send_json_error( 'Not connected' );
+        }
+
+        // Business-tier feature. The API enforces this authoritatively; refuse here too so
+        // a non-Business site never stores settings the edge would ignore anyway.
+        if ( ! $this->api->is_business_plan() ) {
+            wp_send_json_error( 'Image optimization is available on the Business plan.' );
+        }
+
+        $settings = [
+            'enabled'        => isset( $_POST['enabled'] ) ? sanitize_text_field( wp_unslash( $_POST['enabled'] ) ) : 'no',
+            'level'          => isset( $_POST['level'] ) ? sanitize_text_field( wp_unslash( $_POST['level'] ) ) : 'balanced',
+            'avif'           => isset( $_POST['avif'] ) ? sanitize_text_field( wp_unslash( $_POST['avif'] ) ) : 'no',
+            'webp'           => isset( $_POST['webp'] ) ? sanitize_text_field( wp_unslash( $_POST['webp'] ) ) : 'no',
+            'max_width'      => isset( $_POST['max_width'] ) ? (int) $_POST['max_width'] : 2560,
+            'strip_metadata' => isset( $_POST['strip_metadata'] ) ? sanitize_text_field( wp_unslash( $_POST['strip_metadata'] ) ) : 'no',
+            'exclusions'     => isset( $_POST['exclusions'] ) ? sanitize_textarea_field( wp_unslash( $_POST['exclusions'] ) ) : '',
+        ];
+
+        // Persist locally (authoritative for the UI). Helper re-sanitizes and clamps.
+        InfiniteUploadsHelper::set_image_optimization_settings( $settings );
+        $saved = InfiniteUploadsHelper::get_image_optimization_settings();
+
+        // Best-effort sync to the API/edge. Safe no-op until the endpoint exists.
+        $pushed = $this->api->push_optimization_settings( $saved );
+
+        wp_send_json_success( [
+            'settings' => $saved,
+            'synced'   => (bool) $pushed,
+        ] );
+    }
+
+    /**
+     * AJAX handler to purge the entire CDN cache for this site.
+     *
+     * Sends a wildcard purge through the IU API so changed settings (like image
+     * optimization) apply to files the CDN has already cached. Rate limited to
+     * once per hour: a full purge makes the edge re-fetch every file, so
+     * back-to-back purges only slow the site down for no benefit.
+     */
+    public function purge_cdn_cache() {
+        check_ajax_referer( 'iu_purge_cdn_nonce', 'nonce' );
+
+        if ( ! current_user_can( $this->iup_instance->capability ) ) {
+            wp_send_json_error( esc_html__( 'Insufficient permissions', 'infinite-uploads' ) );
+        }
+
+        if ( ! $this->api->has_token() ) {
+            wp_send_json_error( esc_html__( 'Not connected', 'infinite-uploads' ) );
+        }
+
+        // Business-tier feature, and only useful once image optimization is on.
+        if ( ! $this->api->is_business_plan() || ! InfiniteUploadsHelper::is_image_optimization_enabled() ) {
+            wp_send_json_error( esc_html__( 'CDN purge is available on the Business plan with Image Optimization enabled.', 'infinite-uploads' ) );
+        }
+
+        if ( get_site_transient( 'iup_purge_cdn_cooldown' ) ) {
+            wp_send_json_error( esc_html__( 'The CDN cache was purged recently. Please wait up to an hour before purging again.', 'infinite-uploads' ) );
+        }
+
+        $cdn_url = InfiniteUploadsHelper::get_s3_url();
+        if ( ! $cdn_url ) {
+            wp_send_json_error( esc_html__( 'Unable to determine the CDN address for this site.', 'infinite-uploads' ) );
+        }
+
+        $this->api->purge( [ trailingslashit( $cdn_url ) . '*' ] );
+
+        set_site_transient( 'iup_purge_cdn_cooldown', time(), HOUR_IN_SECONDS );
+
+        wp_send_json_success( [
+            'message' => esc_html__( 'Purge requested. The CDN cache will rebuild automatically as files are visited.', 'infinite-uploads' ),
+        ] );
     }
 
     public function process_added_removed_excluded_files( $files_to_resync, $files_to_download_from_infinite_upload_server ) {

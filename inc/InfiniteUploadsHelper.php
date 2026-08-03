@@ -351,6 +351,145 @@ class InfiniteUploadsHelper {
 	}
 
 	/**
+	 * Per-site image optimization settings (edge AVIF/WebP conversion + on-the-fly resize).
+	 *
+	 * Stored as a single network option. The IU edge fleet performs the actual transcode;
+	 * these are the user-facing controls the plugin persists and best-effort pushes to the API
+	 * (see IMAGE-OPTIMIZATION-API-SPEC.md for the server-side contract).
+	 *
+	 * @return array Sanitized settings: enabled, level, avif, webp, max_width, strip_metadata, exclusions.
+	 */
+	public static function get_image_optimization_settings() {
+		$defaults = [
+			'enabled'        => 'no',
+			'level'          => 'balanced',
+			'avif'           => 'yes',
+			'webp'           => 'yes',
+			'max_width'      => 2560,
+			'strip_metadata' => 'yes',
+			'exclusions'     => '',
+		];
+
+		$saved = get_site_option( 'iu_image_optimization', [] );
+		if ( ! is_array( $saved ) ) {
+			$saved = [];
+		}
+
+		return self::sanitize_image_optimization_settings( array_merge( $defaults, $saved ) );
+	}
+
+	/**
+	 * Validate and clamp a raw image optimization settings array.
+	 *
+	 * @param  array  $value  Raw settings.
+	 *
+	 * @return array  Sanitized settings.
+	 */
+	public static function sanitize_image_optimization_settings( $value ) {
+		$value = is_array( $value ) ? $value : [];
+
+		$level = isset( $value['level'] ) ? (string) $value['level'] : 'balanced';
+		if ( ! in_array( $level, [ 'compact', 'balanced', 'quality' ], true ) ) {
+			$level = 'balanced';
+		}
+
+		$max_width = isset( $value['max_width'] ) ? (int) $value['max_width'] : 2560;
+		$max_width = max( 256, min( 2560, $max_width ) );
+
+		return [
+			'enabled'        => self::image_opt_bool( $value['enabled'] ?? 'no' ),
+			'level'          => $level,
+			'avif'           => self::image_opt_bool( $value['avif'] ?? 'yes' ),
+			'webp'           => self::image_opt_bool( $value['webp'] ?? 'yes' ),
+			'max_width'      => $max_width,
+			'strip_metadata' => self::image_opt_bool( $value['strip_metadata'] ?? 'yes' ),
+			'exclusions'     => self::normalize_image_opt_exclusions( isset( $value['exclusions'] ) ? $value['exclusions'] : '' ),
+		];
+	}
+
+	/**
+	 * Normalize exclusion entries to uploads-relative path fragments.
+	 *
+	 * The CDN matches exclusions against the uploads path only (e.g.
+	 * 2026/01/logo.png), so full URLs and wp-content/uploads/ prefixes that
+	 * users naturally paste would silently never match. Strip them down to
+	 * the fragment that will.
+	 *
+	 * @param  mixed  $raw  Raw textarea value, one entry per line (commas also accepted).
+	 *
+	 * @return string  Cleaned entries, one per line.
+	 */
+	public static function normalize_image_opt_exclusions( $raw ) {
+		$lines = preg_split( '/[\r\n,]+/', (string) $raw );
+		$clean = [];
+
+		foreach ( $lines as $line ) {
+			$line = trim( $line );
+			if ( '' === $line ) {
+				continue;
+			}
+
+			if ( preg_match( '#^https?://#i', $line ) ) {
+				$line = (string) wp_parse_url( $line, PHP_URL_PATH );
+			}
+
+			$pos = strpos( $line, 'wp-content/uploads/' );
+			if ( false !== $pos ) {
+				$line = substr( $line, $pos + strlen( 'wp-content/uploads' ) );
+			}
+
+			$line = trim( $line );
+			if ( '' !== $line ) {
+				$clean[] = $line;
+			}
+		}
+
+		return implode( "\n", array_unique( $clean ) );
+	}
+
+	/**
+	 * Normalize a truthy/checkbox value to the canonical 'yes'/'no' used by IU settings.
+	 *
+	 * @param  mixed  $value
+	 *
+	 * @return string  'yes' or 'no'.
+	 */
+	private static function image_opt_bool( $value ) {
+		return ( $value === 'yes' || $value === true || $value === 1 || $value === '1' ) ? 'yes' : 'no';
+	}
+
+	/**
+	 * Persist the image optimization settings (re-sanitized) as a network option.
+	 *
+	 * @param  array  $value  Settings to store.
+	 *
+	 * @return bool
+	 */
+	public static function set_image_optimization_settings( $value ) {
+		return update_site_option( 'iu_image_optimization', self::sanitize_image_optimization_settings( $value ) );
+	}
+
+	/**
+	 * Whether edge image optimization is active for this site. Requires an active IU
+	 * connection and the cloud CDN enabled, since optimization runs on the IU CDN path.
+	 *
+	 * @return bool
+	 */
+	public static function is_image_optimization_enabled() {
+		if ( ! get_site_option( 'iup_apitoken' ) ) {
+			return false;
+		}
+
+		if ( function_exists( 'infinite_uploads_enabled' ) && ! infinite_uploads_enabled() ) {
+			return false;
+		}
+
+		$settings = self::get_image_optimization_settings();
+
+		return $settings['enabled'] === 'yes';
+	}
+
+	/**
 	 * Identify Beaver Builder cropped IMAGE files inside wp-content/uploads/bb-plugin/cache/.
 	 *
 	 * The folder is otherwise excluded from sync and rewrite via two flat strpos rules

@@ -804,6 +804,91 @@ jQuery(document).ready(function ($) {
 		});
 	});
 
+	// Image Optimization settings: reveal the detail controls only when enabled.
+	// Plain-language explanation of the selected optimization level.
+	var iuLevelDescriptions = {
+		compact: 'Smallest possible files and fastest loading. Great savings, though very detailed images may soften slightly.',
+		balanced: 'Strong compression with no visible quality difference on almost all images. The right choice for most sites.',
+		quality: 'Lighter compression that preserves maximum image fidelity. Larger files; best for photography-focused sites.'
+	};
+	function iuUpdateLevelDesc() {
+		var level = $('#iu_image_opt_level').val();
+		$('#iu_image_opt_level_desc').text(iuLevelDescriptions[level] || '');
+	}
+	$('#iu_image_opt_level').on('change', iuUpdateLevelDesc);
+	iuUpdateLevelDesc();
+
+	$('input[name="iu_image_optimization_enabled"]').on('change', function () {
+		$('#iu-image-optimization-options').toggle(
+			$('input[name="iu_image_optimization_enabled"]:checked').val() === 'yes'
+		);
+	});
+
+	$('#saveImageOptimizationSetting').on('click', function () {
+		var $btn = $(this);
+		$btn.prop('disabled', true);
+		$('#imageOptimizationSaveStatus').hide();
+
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'save_iu_image_optimization',
+				enabled: $('input[name="iu_image_optimization_enabled"]:checked').val(),
+				level: $('#iu_image_opt_level').val(),
+				avif: $('#iu_image_opt_avif').is(':checked') ? 'yes' : 'no',
+				webp: $('#iu_image_opt_webp').is(':checked') ? 'yes' : 'no',
+				max_width: $('#iu_image_opt_max_width').val(),
+				strip_metadata: $('#iu_image_opt_strip_metadata').is(':checked') ? 'yes' : 'no',
+				exclusions: $('#iu_image_opt_exclusions').val(),
+				nonce: iup_data.nonce.saveImageOptimization
+			},
+			success: function (response) {
+				$btn.prop('disabled', false);
+				if (response.success) {
+					$('#imageOptimizationSaveStatus').fadeIn();
+					setTimeout(function () {
+						$('#imageOptimizationSaveStatus').fadeOut();
+					}, 5000);
+				}
+			},
+			error: function () {
+				$btn.prop('disabled', false);
+			}
+		});
+	});
+
+	// Purge the full CDN cache (rate limited server-side to once per hour).
+	$('#purgeCdnCache').on('click', function () {
+		if (!confirm('Purge the entire CDN cache? Files are re-cached automatically as they are visited, but the first views after a purge may be a little slower.')) {
+			return;
+		}
+		var $btn = $(this);
+		var $status = $('#purgeCdnStatus');
+		$btn.prop('disabled', true);
+		$status.hide();
+
+		$.ajax({
+			url: ajaxurl,
+			type: 'POST',
+			data: {
+				action: 'iu_purge_cdn_cache',
+				nonce: iup_data.nonce.purgeCdn
+			},
+			success: function (response) {
+				if (response.success) {
+					$status.removeClass('text-danger').addClass('text-success').text(response.data.message).fadeIn();
+				} else {
+					$btn.prop('disabled', false);
+					$status.removeClass('text-success').addClass('text-danger').text(response.data).fadeIn();
+				}
+			},
+			error: function () {
+				$btn.prop('disabled', false);
+			}
+		});
+	});
+
 	// Save media folders setting.
 	$('#saveMediaFoldersSetting').on('click', function () {
 		var $btn = $(this);

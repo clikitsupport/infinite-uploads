@@ -296,6 +296,56 @@ class InfiniteUploadsApiHandler {
 	}
 
 	/**
+	 * Push per-site image optimization settings to the API so the IU edge fleet can
+	 * apply them. Mirrors the video library settings flow: POST the config, then merge the
+	 * authoritative response into the cached site data so the settings page reflects it.
+	 *
+	 * Best-effort by design: returns false (without disconnecting the site) when the
+	 * server-side endpoint is not yet available, so the plugin's locally-stored settings
+	 * remain the source of truth in the meantime. See IMAGE-OPTIMIZATION-API-SPEC.md.
+	 *
+	 * @param  array  $settings  The sanitized optimization settings.
+	 *
+	 * @return object|false  The applied settings from the API, or false if not synced.
+	 */
+	public function push_optimization_settings( $settings ) {
+		if ( ! $this->has_token() ) {
+			return false;
+		}
+
+		$applied = $this->call( 'site/' . $this->get_site_id() . '/optimization', $settings, 'POST' );
+
+		if ( $applied ) {
+			$cached = get_site_option( 'iup_api_data' );
+			if ( $cached ) {
+				$cached = json_decode( $cached );
+				if ( is_object( $cached ) && isset( $cached->site ) && is_object( $cached->site ) ) {
+					$cached->site->optimization = $applied;
+					$cached->refreshed          = time();
+					update_site_option( 'iup_api_data', wp_json_encode( $cached ) );
+				}
+			}
+		}
+
+		return $applied;
+	}
+
+	/**
+	 * Whether the connected site is on the Business plan (or higher).
+	 *
+	 * Business tier is defined by the storage allotment: the API's get_plan() labels any
+	 * plan with storage_limit >= 100 (GB) as "Business", and existing Business-only
+	 * features gate on the same threshold. The plan rides on the cached site data.
+	 *
+	 * @return bool
+	 */
+	public function is_business_plan() {
+		$data = $this->get_site_data();
+
+		return isset( $data->plan->storage_limit ) && $data->plan->storage_limit >= 100;
+	}
+
+	/**
 	 * Parses an HTTP response object (or other value) to determine an error
 	 * reason. The error reason is added to the PHP error log.
 	 *
