@@ -139,7 +139,7 @@
                 <?php else : ?>
                 <div class="alert alert-light border" role="alert">
                     <p class="mb-2"><strong><?php esc_html_e( 'Available on the Business plan.', 'infinite-uploads' ); ?></strong></p>
-                    <p class="mb-0"><?php printf( __( 'Image optimization is included with the Business plan. <a href="%s" class="text-warning">Upgrade to enable it.</a>', 'infinite-uploads' ), esc_url( $this->api_url( '/account/billing/' ) ) ); ?></p>
+                    <p class="mb-0"><?php printf( __( 'Image optimization is included with the Business plan. <a href="%s" target="_blank" class="text-warning">Upgrade to enable it.</a>', 'infinite-uploads' ), esc_url( $this->api_url( '/account/billing/' ) ) ); ?></p>
                 </div>
                 <?php endif; ?>
             </div>
