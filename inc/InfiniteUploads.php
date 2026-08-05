@@ -1921,6 +1921,24 @@ class InfiniteUploads {
         // too, and covers every subfolder WP Webhooks derives from the base.
         // /wp-webhooks-pro/ is in our sync exclusions so the files stay local.
         add_filter( 'wpwhpro/integrations/get_wpwh_folder/folder_base', [ $this, 'wpwh_folder_base' ] );
+
+        // Ajax Load More: its "repeater templates" are PHP files it writes into
+        // uploads/alm_templates/ and later loads with include(). It builds that
+        // path from wp_upload_dir(), which IU rewrites to iu://, and both halves
+        // break there. The write is fopen( $file, 'w+' ) — a mode our stream
+        // wrapper rejects — so fopen() returns false and ALM's unchecked
+        // fwrite() throws a fatal TypeError while the plugin is activating. The
+        // read is the same allow_url_include problem as WP Webhooks Pro above.
+        // Filter the repeater directory back to the original local uploads path;
+        // alm_get_repeater_path() (verified in ALM 8.0.1) is the only place the
+        // plugin calls wp_upload_dir(), so this one filter covers activation,
+        // the admin template editor and the front-end alm_loop() alike.
+        // /alm_templates/ is in our sync exclusions so the templates stay local.
+        add_filter( 'alm_repeater_path', [ $this, 'alm_repeater_path' ] );
+        // Ajax Load More Cache add-on: same treatment for its static query
+        // cache. See alm_cache_path() for why this one is written against the
+        // published filter rather than the (commercial) add-on source.
+        add_filter( 'alm_cache_path', [ $this, 'alm_cache_path' ] );
     }
 
     /**
@@ -1978,13 +1996,40 @@ class InfiniteUploads {
     }
 
     /**
+     * Map a path under our own iu:// bucket back to its local-disk equivalent.
+     *
+     * Shared by the compatibility filters for plugins that keep files in
+     * wp_upload_dir() but need them on the real filesystem: PHP can't
+     * include()/require() through a URL stream wrapper (allow_url_include is
+     * off, and must stay off — executing PHP out of the bucket would be RCE),
+     * and the wrapper doesn't implement every fopen() mode.
+     *
+     * Paths that aren't under our bucket are returned untouched, so a directory
+     * the site has already relocated via the same filter at an earlier priority
+     * passes through. The subpath after the bucket is preserved as-is, which
+     * keeps the multisite /sites/{id} segment intact.
+     *
+     * @param string $path Absolute path, possibly under iu://<bucket>.
+     *
+     * @return string Local-disk equivalent of $path, or $path unchanged.
+     */
+    private function cloud_path_to_local( $path ) {
+        $cloud_base = 'iu://' . untrailingslashit( $this->bucket );
+        if ( 0 !== strpos( (string) $path, $cloud_base ) ) {
+            return $path;
+        }
+
+        $root_dirs = $this->get_original_upload_dir_root();
+
+        return $root_dirs['basedir'] . substr( $path, strlen( $cloud_base ) );
+    }
+
+    /**
      * Map the WP Webhooks Pro content folder from the iu:// stream wrapper back
      * to the original local uploads path.
      *
-     * Only rewrites paths under our own bucket, so the free WP Webhooks (whose
-     * integrations live in its plugin directory) and folders a site has already
-     * relocated via the same filter at an earlier priority pass through
-     * untouched. The subpath after the bucket is preserved as-is.
+     * The free WP Webhooks keeps its integrations in its own plugin directory,
+     * so that install passes through cloud_path_to_local() untouched.
      *
      * Hooked to `wpwhpro/integrations/get_wpwh_folder/folder_base`.
      *
@@ -1993,14 +2038,54 @@ class InfiniteUploads {
      * @return string Local-disk equivalent of $folder, or $folder unchanged.
      */
     public function wpwh_folder_base( $folder ) {
-        $cloud_base = 'iu://' . untrailingslashit( $this->bucket );
-        if ( 0 !== strpos( (string) $folder, $cloud_base ) ) {
-            return $folder;
-        }
+        return $this->cloud_path_to_local( $folder );
+    }
 
-        $root_dirs = $this->get_original_upload_dir_root();
+    /**
+     * Map the Ajax Load More repeater template directory from the iu:// stream
+     * wrapper back to the original local uploads path.
+     *
+     * Covers the Custom Repeaters / ALM Templates add-on too: every branch of
+     * its admin save routine builds the target from alm_get_repeater_path().
+     * The legacy Custom Repeaters v1 / Unlimited paths live in those add-ons'
+     * own plugin directories and pass through untouched.
+     *
+     * Hooked to `alm_repeater_path`.
+     *
+     * @param string $path Absolute path Ajax Load More stores and loads repeater templates from.
+     *
+     * @return string Local-disk equivalent of $path, or $path unchanged.
+     */
+    public function alm_repeater_path( $path ) {
+        return $this->cloud_path_to_local( $path );
+    }
 
-        return $root_dirs['basedir'] . substr( $folder, strlen( $cloud_base ) );
+    /**
+     * Map the Ajax Load More Cache add-on directory from the iu:// stream
+     * wrapper back to the original local uploads path.
+     *
+     * The Cache add-on writes per-query static files under uploads/alm-cache/.
+     * Left on iu:// that is at best a cache whose every read is a round trip to
+     * object storage — slower than no cache at all, which defeats the reason
+     * anyone installs it — and at worst the same fatal as the repeater
+     * templates, since this codebase reaches for fopen( $f, 'w+' ) everywhere
+     * and our wrapper rejects that mode.
+     *
+     * NOTE: the Cache add-on is commercial and not on wordpress.org, so unlike
+     * alm_repeater_path() this is written against Connekt's published docs for
+     * the `alm_cache_path` filter rather than against the add-on source. It is
+     * safe either way: a filter nothing ever applies costs nothing, and a cache
+     * directory that turns out to live outside the bucket is returned
+     * unchanged. Worth re-verifying if we ever get a Pro licence.
+     *
+     * Hooked to `alm_cache_path`.
+     *
+     * @param string $path Absolute path the Cache add-on stores cache files in.
+     *
+     * @return string Local-disk equivalent of $path, or $path unchanged.
+     */
+    public function alm_cache_path( $path ) {
+        return $this->cloud_path_to_local( $path );
     }
 
     /**
@@ -2021,6 +2106,13 @@ class InfiniteUploads {
         // local because PHP can't require_once() through the iu:// wrapper. See
         // wpwh_folder_base().
         $exclusions[] = '/wp-webhooks-pro/';
+        // Ajax Load More writes PHP repeater templates here; they must stay
+        // local because PHP can't include() through the iu:// wrapper. See
+        // alm_repeater_path().
+        $exclusions[] = '/alm_templates/';
+        // Ajax Load More Cache add-on's per-query static cache — local-only,
+        // and pointless to sync. See alm_cache_path().
+        $exclusions[] = '/alm-cache/';
 
         return $exclusions;
     }
