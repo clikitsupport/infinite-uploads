@@ -370,7 +370,7 @@ class InfiniteUploadsAdmin {
         try {
             $manager = new Transfer( $s3, $from, $path['basedir'], $transfer_args );
             $manager->transfer();
-        } catch ( Exception $e ) {
+        } catch ( \Exception $e ) {
             //echo $e->__toString();
             if ( method_exists( $e, 'getRequest' ) ) {
                 $file        = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
@@ -443,7 +443,7 @@ class InfiniteUploadsAdmin {
             try {
                 $manager = new Transfer( $s3, $from, 's3://' . $this->iup_instance->bucket . '/', $transfer_args );
                 $manager->transfer();
-            } catch ( Exception $e ) {
+            } catch ( \Exception $e ) {
                 $this->sync_debug_log( "Transfer sync exception: " . $e->__toString() );
                 //echo $e->__toString();
                 if ( method_exists( $e, 'getRequest' ) ) {
@@ -661,7 +661,7 @@ class InfiniteUploadsAdmin {
             }
 
             wp_send_json_success( $data );
-        } catch ( Exception $e ) {
+        } catch ( \Exception $e ) {
             wp_send_json_error( $e->getMessage() );
         }
     }
@@ -785,19 +785,12 @@ class InfiniteUploadsAdmin {
                 try {
                     $manager = new Transfer( $s3, $from, 's3://' . $this->iup_instance->bucket . '/', $transfer_args );
                     $manager->transfer();
-                } catch ( Exception $e ) {
-                    $this->sync_debug_log( "Transfer sync exception: " . $e->__toString() );
-                    if ( method_exists( $e, 'getRequest' ) ) {
-                        $file        = str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() );
-                        $error_count = $wpdb->get_var( $wpdb->prepare( "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s", $file ) );
-                        if ( $error_count >= 3 ) {
-                            $errors[] = sprintf( esc_html__( 'Error uploading %s. Retries exceeded.', 'infinite-uploads' ), $file );
-                        } else {
-                            $errors[] = sprintf( esc_html__( 'Error uploading %s. Queued for retry.', 'infinite-uploads' ), $file );
-                        }
-                    } else { //I don't know which error case trigger this but it's common
-                        $errors[] = esc_html__( 'Error uploading file. Queued for retry.', 'infinite-uploads' );
-                    }
+                } catch ( \Exception $e ) {
+                    // Route through the shared handler so this catch benefits
+                    // from the permanent-failure retire logic (bumps errors to
+                    // 3 on NoSuchKey / AccessDenied / etc. so one bad key
+                    // doesn't keep aborting batches of healthy files).
+                    $this->handle_transfer_exception( $wpdb, $e, $errors );
                 }
 
             } else { // we are done with transfer manager, continue any unfinished multipart uploads one by one
@@ -892,13 +885,12 @@ class InfiniteUploadsAdmin {
                             }
                         }
 
-                    } catch ( Exception $e ) {
-                        $this->sync_debug_log( "Get multipart UploadState exception: " . $e->__toString() );
-                        if ( ( $to_sync->errors ) >= 3 ) {
-                            $errors[] = sprintf( esc_html__( 'Error uploading %s. Retries exceeded.', 'infinite-uploads' ), $to_sync->file );
-                        } else {
-                            $errors[] = sprintf( esc_html__( 'Error uploading %s. Queued for retry.', 'infinite-uploads' ), $to_sync->file );
-                        }
+                    } catch ( \Exception $e ) {
+                        // Route through the shared handler for permanent-
+                        // failure retire (NoSuchKey / AccessDenied bump the
+                        // file's errors to 3 immediately, freeing subsequent
+                        // multipart passes from re-attempting a doomed key).
+                        $this->handle_multipart_exception( $wpdb, $to_sync, $e, $errors );
                     }
 
                 } else {
@@ -1101,7 +1093,7 @@ class InfiniteUploadsAdmin {
                     $transfer_args
             );
             $manager->transfer();
-        } catch ( Exception $e ) {
+        } catch ( \Exception $e ) {
             $this->handle_transfer_exception( $wpdb, $e, $errors );
         }
     }
@@ -1170,7 +1162,7 @@ class InfiniteUploadsAdmin {
             // Handle multipart upload with retry logic
             $result = $this->execute_multipart_upload( $wpdb, $uploader, $s3, $source, $to_sync, $uploaded, $errors );
 
-        } catch ( Exception $e ) {
+        } catch ( \Exception $e ) {
             $this->handle_multipart_exception( $wpdb, $to_sync, $e, $errors );
         }
     }
@@ -1267,9 +1259,50 @@ class InfiniteUploadsAdmin {
     }
 
     /**
-     * SECURITY: Centralized exception handling with proper error messages
+     * Detect AWS errors that will never succeed on retry — the exception was
+     * thrown for a reason intrinsic to the request (missing key, bad
+     * credentials, wrong bucket name) rather than an environmental blip
+     * (throttling, timeout, 5xx). Used to decide whether to retire a file
+     * permanently vs. let the natural errors++ / errors < 3 retry loop grind.
+     *
+     * @param  \Exception  $e
+     *
+     * @return bool
      */
-    private function handle_transfer_exception( $wpdb, Exception $e, &$errors ) {
+    private function is_permanent_aws_failure( \Exception $e ) {
+        if ( ! method_exists( $e, 'getAwsErrorCode' ) ) {
+            return false;
+        }
+        $code = $e->getAwsErrorCode();
+        if ( ! is_string( $code ) || $code === '' ) {
+            return false;
+        }
+
+        return in_array( $code, [
+            'NoSuchKey',
+            'NoSuchBucket',
+            'AccessDenied',
+            'InvalidBucketName',
+            'InvalidRequest',
+            'InvalidBucketAclWithObjectOwnership',
+            'RequestTimeTooSkewed',
+        ], true );
+    }
+
+    /**
+     * SECURITY: Centralized exception handling with proper error messages.
+     *
+     * The batch upload path pre-increments `errors` for every file in a batch
+     * BEFORE the Transfer starts and only resets on per-file success. On any
+     * mid-batch exception the whole Transfer aborts, so batch-buddies never
+     * get an attempt — they'd otherwise silently climb errors → 3 → retired,
+     * despite never having been given a clean try. When the exception names
+     * a specific file AND the failure is one that won't improve on retry
+     * (NoSuchKey, AccessDenied, etc.), retire just THAT file immediately by
+     * bumping its errors to 3, so the next batch's `WHERE errors < 3` select
+     * excludes it and the healthy buddies get a fresh attempt.
+     */
+    private function handle_transfer_exception( $wpdb, \Exception $e, &$errors ) {
         $this->sync_debug_log( "Transfer sync exception: " . $e->getMessage() );
 
         if ( method_exists( $e, 'getRequest' ) ) {
@@ -1278,6 +1311,21 @@ class InfiniteUploadsAdmin {
                     '',
                     $e->getRequest()->getRequestTarget()
             );
+
+            if ( $this->is_permanent_aws_failure( $e ) ) {
+                $wpdb->update(
+                        "{$wpdb->base_prefix}infinite_uploads_files",
+                        [ 'errors' => 3 ],
+                        [ 'file' => $file ],
+                        [ '%d' ],
+                        [ '%s' ]
+                );
+                $this->sync_debug_log( sprintf(
+                        'Retired %s as permanent failure (%s)',
+                        $file,
+                        $e->getAwsErrorCode()
+                ) );
+            }
 
             $error_count = (int) $wpdb->get_var(
                     $wpdb->prepare(
@@ -1297,10 +1345,28 @@ class InfiniteUploadsAdmin {
     }
 
     /**
-     * Handle multipart exception with proper cleanup
+     * Handle multipart exception with proper cleanup. Retires the file
+     * permanently when the underlying AWS error is one that won't recover on
+     * retry — see handle_transfer_exception() for the reasoning.
      */
-    private function handle_multipart_exception( $wpdb, $to_sync, Exception $e, &$errors ) {
+    private function handle_multipart_exception( $wpdb, $to_sync, \Exception $e, &$errors ) {
         $this->sync_debug_log( "Multipart upload exception: " . $e->getMessage() );
+
+        if ( $this->is_permanent_aws_failure( $e ) ) {
+            $wpdb->update(
+                    "{$wpdb->base_prefix}infinite_uploads_files",
+                    [ 'errors' => 3 ],
+                    [ 'file' => $to_sync->file ],
+                    [ '%d' ],
+                    [ '%s' ]
+            );
+            $to_sync->errors = 3;
+            $this->sync_debug_log( sprintf(
+                    'Retired %s as permanent multipart failure (%s)',
+                    $to_sync->file,
+                    $e->getAwsErrorCode()
+            ) );
+        }
 
         $message = $to_sync->errors >= 3
                 ? sprintf( esc_html__( 'Error uploading %s. Retries exceeded.', 'infinite-uploads' ), esc_html( $to_sync->file ) )
@@ -1666,7 +1732,7 @@ class InfiniteUploadsAdmin {
             try {
                 $manager = new Transfer( $s3, $from, $path['basedir'], $transfer_args );
                 $manager->transfer();
-            } catch ( Exception $e ) {
+            } catch ( \Exception $e ) {
                 if ( method_exists( $e, 'getRequest' ) ) {
                     $file        = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
                     $error_count = $wpdb->get_var( $wpdb->prepare( "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s", $file ) );
@@ -2011,7 +2077,7 @@ class InfiniteUploadsAdmin {
      * @param  string     $bucket  S3 bucket name
      * @param  array     &$errors  Array of error messages (by reference)
      */
-    private function handle_download_exception( $wpdb, Exception $e, $path, $bucket, &$errors ) {
+    private function handle_download_exception( $wpdb, \Exception $e, $path, $bucket, &$errors ) {
         $this->sync_debug_log( "Download exception: " . $e->getMessage() );
 
         if ( method_exists( $e, 'getRequest' ) ) {
@@ -2026,9 +2092,29 @@ class InfiniteUploadsAdmin {
             // SECURITY: Sanitize file name for output
             $file = ltrim( $file, '/' );
 
+            // Retire the file permanently when the underlying AWS error won't
+            // improve on retry (e.g. NoSuchKey — S3 doesn't have it, so no
+            // amount of retrying will produce it). Otherwise the file stays
+            // eligible for the next batch, poisoning batch-buddies every
+            // time. See handle_transfer_exception() for the full rationale.
+            if ( $this->is_permanent_aws_failure( $e ) ) {
+                $wpdb->update(
+                        "{$wpdb->base_prefix}infinite_uploads_files",
+                        [ 'errors' => 3 ],
+                        [ 'file' => $file ],
+                        [ '%d' ],
+                        [ '%s' ]
+                );
+                $this->sync_debug_log( sprintf(
+                        'Retired %s as permanent download failure (%s)',
+                        $file,
+                        $e->getAwsErrorCode()
+                ) );
+            }
+
             $error_count = (int) $wpdb->get_var(
                     $wpdb->prepare(
-                            "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` 
+                            "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files`
                 WHERE file = %s",
                             $file
                     )
@@ -3064,7 +3150,7 @@ class InfiniteUploadsAdmin {
                 update_site_option( 'iup_dirs_to_downloads', '' );
                 as_schedule_single_action( time(), 'infinite-uploads-do-download' );
             }
-        } catch ( Exception $e ) {
+        } catch ( \Exception $e ) {
             wp_send_json_error( $e->getMessage() );
         }
 
@@ -3128,7 +3214,7 @@ class InfiniteUploadsAdmin {
             try {
                 $manager = new Transfer( $s3, $from, $path['basedir'], $transfer_args );
                 $manager->transfer();
-            } catch ( Exception $e ) {
+            } catch ( \Exception $e ) {
                 if ( method_exists( $e, 'getRequest' ) ) {
                     $file = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
                     // TODO: Remove file from the download list if 404.
@@ -3269,19 +3355,12 @@ class InfiniteUploadsAdmin {
                 try {
                     $manager = new Transfer( $s3, $from, 's3://' . $this->iup_instance->bucket . '/', $transfer_args );
                     $manager->transfer();
-                } catch ( Exception $e ) {
-                    $this->sync_debug_log( "Transfer sync exception: " . $e->__toString() );
-                    if ( method_exists( $e, 'getRequest' ) ) {
-                        $file        = str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() );
-                        $error_count = $wpdb->get_var( $wpdb->prepare( "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s", $file ) );
-                        if ( $error_count >= 3 ) {
-                            $errors[] = sprintf( esc_html__( 'Error uploading %s. Retries exceeded.', 'infinite-uploads' ), $file );
-                        } else {
-                            $errors[] = sprintf( esc_html__( 'Error uploading %s. Queued for retry.', 'infinite-uploads' ), $file );
-                        }
-                    } else { //I don't know which error case trigger this but it's common
-                        $errors[] = esc_html__( 'Error uploading file. Queued for retry.', 'infinite-uploads' );
-                    }
+                } catch ( \Exception $e ) {
+                    // Route through the shared handler so this catch benefits
+                    // from the permanent-failure retire logic (bumps errors to
+                    // 3 on NoSuchKey / AccessDenied / etc. so one bad key
+                    // doesn't keep aborting batches of healthy files).
+                    $this->handle_transfer_exception( $wpdb, $e, $errors );
                 }
 
             } else { // we are done with transfer manager, continue any unfinished multipart uploads one by one
@@ -3376,13 +3455,12 @@ class InfiniteUploadsAdmin {
                             }
                         }
 
-                    } catch ( Exception $e ) {
-                        $this->sync_debug_log( "Get multipart UploadState exception: " . $e->__toString() );
-                        if ( ( $to_sync->errors ) >= 3 ) {
-                            $errors[] = sprintf( esc_html__( 'Error uploading %s. Retries exceeded.', 'infinite-uploads' ), $to_sync->file );
-                        } else {
-                            $errors[] = sprintf( esc_html__( 'Error uploading %s. Queued for retry.', 'infinite-uploads' ), $to_sync->file );
-                        }
+                    } catch ( \Exception $e ) {
+                        // Route through the shared handler for permanent-
+                        // failure retire (NoSuchKey / AccessDenied bump the
+                        // file's errors to 3 immediately, freeing subsequent
+                        // multipart passes from re-attempting a doomed key).
+                        $this->handle_multipart_exception( $wpdb, $to_sync, $e, $errors );
                     }
 
                 } else {
