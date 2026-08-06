@@ -1320,13 +1320,12 @@ class InfiniteUploadsAdmin {
         $errors  = [];
         $path    = $this->iup_instance->get_original_upload_dir_root();
         $break   = false;
-        // SQL-side carve-out: BB cache images are offloaded for CDN delivery but must
-        // STAY on local disk too — if we delete them, Beaver Builder will regenerate
-        // them on the next request, creating a churn cycle (new file → sync → delete →
-        // regen). Skipping at the SELECT level keeps the loop progressing (no infinite
-        // re-fetch of unprocessed rows) and matches the carve-out applied at scan time
-        // in InfiniteUploadsHelper::is_offloadable_bb_cache_image().
-        $carve_out_sql = " AND file NOT LIKE '%/bb-plugin/cache/%'";
+        // SQL-side carve-outs: BB cache images (regeneration churn) and user-excluded
+        // paths (rewriter serves the LOCAL URL, so removing the local copy would 404
+        // the media). Applied at SELECT level so the loop progresses and the count
+        // matches the actual delete targets. See
+        // InfiniteUploadsHelper::deletable_files_where_carveout().
+        $carve_out_sql = InfiniteUploadsHelper::deletable_files_where_carveout();
         while ( ! $break ) {
             $to_delete = $wpdb->get_col( "SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 0{$carve_out_sql} LIMIT 500" );
             foreach ( $to_delete as $file ) {
@@ -1385,12 +1384,18 @@ class InfiniteUploadsAdmin {
             $this->ajax_timelimit = max( 20, floor( $max_execution_time * 0.6666 ) );
         }
 
+        // Match the ajax_delete_old carve-outs so BB cache images (churn) and
+        // user-excluded paths (rewriter serves the LOCAL URL — deleting the
+        // local copy would 404 the media) stay on disk. See
+        // InfiniteUploadsHelper::deletable_files_where_carveout().
+        $carve_out_sql = InfiniteUploadsHelper::deletable_files_where_carveout();
+
         while ( ! $break ) {
             // PERFORMANCE: Optimized query with proper preparation
             $to_delete = $wpdb->get_results(
                     $wpdb->prepare(
-                            "SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files` 
-                WHERE synced = 1 AND deleted = 0 
+                            "SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files`
+                WHERE synced = 1 AND deleted = 0{$carve_out_sql}
                 LIMIT %d",
                             $batch_size
                     ),
@@ -1406,8 +1411,8 @@ class InfiniteUploadsAdmin {
 
                 // PERFORMANCE: More efficient count check
                 $remaining = (int) $wpdb->get_var(
-                        "SELECT COUNT(*) FROM `{$wpdb->base_prefix}infinite_uploads_files` 
-                WHERE synced = 1 AND deleted = 0"
+                        "SELECT COUNT(*) FROM `{$wpdb->base_prefix}infinite_uploads_files`
+                WHERE synced = 1 AND deleted = 0{$carve_out_sql}"
                 );
 
                 $is_done = ( $remaining === 0 );
