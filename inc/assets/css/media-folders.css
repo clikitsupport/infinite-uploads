@@ -1460,6 +1460,15 @@ body.iu-resizing .iu-sidebar-handle::before {
 	max-width: none;
 }
 
+/* Vertically center the media toolbar loader against the "Bulk select"
+   button. WP core positions this spinner with `position:absolute; top:50%;
+   margin:0` but omits the `translateY(-50%)` needed to actually center it,
+   so the spinner's top edge sits at the toolbar's midline (10px below the
+   button's center). Compensate here rather than in core. */
+.media-frame .media-toolbar-secondary.iu-has-sort > .spinner {
+	transform: translateY( -50% );
+}
+
 /* List-mode: sits inline after the Filter button in .tablenav.top */
 .tablenav .iu-media-sort-wrap {
 	float: left;
