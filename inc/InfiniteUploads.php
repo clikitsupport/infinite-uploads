@@ -135,6 +135,13 @@ class InfiniteUploads {
         }
 
         add_filter( 'infinite_uploads_sync_exclusions', [ $this, 'compatibility_exclusions' ] );
+        // User-configured exclusions must reach the scan-time filter too —
+        // without this, a full re-scan uploads files the user has explicitly
+        // marked as excluded (wasting bandwidth/cloud storage), and — worse —
+        // makes those already-synced-but-excluded rows eligible for "Free Up
+        // Local Storage" deletion, producing 404 media (the rewriter keeps
+        // serving the local URL because the path is excluded).
+        add_filter( 'infinite_uploads_sync_exclusions', [ $this, 'user_exclusions' ] );
 
         if ( ! $this->api->has_token() ) {
             add_action( 'admin_notices', [ $this, 'setup_notice' ] );
@@ -499,10 +506,16 @@ class InfiniteUploads {
     public function get_sync_stats() {
         global $wpdb;
 
+        // $deletable must match what "Free Up Local Storage" would actually
+        // delete — otherwise the UI advertises freeable space that BB cache /
+        // user-excluded carve-outs will keep on disk. Same carve-out is applied
+        // to the delete loops (ajax_delete_old, ajax_delete, WP-CLI files delete).
+        $carve_out = InfiniteUploadsHelper::deletable_files_where_carveout();
+
         $total     = $wpdb->get_row( "SELECT count(*) AS files, SUM(`size`) as size, SUM(`transferred`) as transferred FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE 1" );
         $local     = $wpdb->get_row( "SELECT count(*) AS files, SUM(`size`) as size, SUM(`transferred`) as transferred FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE deleted = 0" );
         $synced    = $wpdb->get_row( "SELECT count(*) AS files, SUM(`size`) as size, SUM(`transferred`) as transferred FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1" );
-        $deletable = $wpdb->get_row( "SELECT count(*) AS files, SUM(`size`) as size, SUM(`transferred`) as transferred FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 0" );
+        $deletable = $wpdb->get_row( "SELECT count(*) AS files, SUM(`size`) as size, SUM(`transferred`) as transferred FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 0{$carve_out}" );
         $deleted   = $wpdb->get_row( "SELECT count(*) AS files, SUM(`size`) as size, SUM(`transferred`) as transferred FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 1" );
 
         $progress = (array) get_site_option( 'iup_files_scanned' );
@@ -2001,6 +2014,23 @@ class InfiniteUploads {
         $root_dirs = $this->get_original_upload_dir_root();
 
         return $root_dirs['basedir'] . substr( $folder, strlen( $cloud_base ) );
+    }
+
+    /**
+     * Merge the user's own excluded-paths list (option `iup_excluded_files`)
+     * into the sync-exclusion filter. This is what makes full re-scans stop
+     * queuing user-excluded files for upload; per-file un-exclude still
+     * re-syncs via process_added_removed_excluded_files() → add_files_to_sync(),
+     * which iterates $paths_left directly and does not consult is_excluded(),
+     * so re-syncing an un-excluded file still works.
+     */
+    function user_exclusions( $exclusions ) {
+        $user = InfiniteUploadsHelper::get_excluded_paths();
+        if ( ! empty( $user ) ) {
+            $exclusions = array_merge( $exclusions, $user );
+        }
+
+        return $exclusions;
     }
 
     /**
