@@ -18,6 +18,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # `vendor/composer/autoload_*.php` and `vendor/composer/installed.*` are
+      # git-untracked (composer-generated per-environment). The rsync below
+      # copies vendor/ into the ZIP as-is, so we must regenerate those files
+      # first or the ZIP is missing autoload → fatal on install.
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.0'
+          tools: composer:v2
+          coverage: none
+
+      - name: Install Composer dependencies (production)
+        run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
       - name: Set up Node.js (if needed)
         uses: actions/setup-node@v4
         with:
