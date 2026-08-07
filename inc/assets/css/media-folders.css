@@ -1436,14 +1436,21 @@ body.iu-resizing .iu-sidebar-handle::before {
 
 /* Modal / grid: expand the secondary toolbar to fit our extra controls.
    WP normally sets overflow:hidden and right:50% on .media-toolbar-secondary,
-   which clips anything beyond the two native filter selects. */
+   which clips anything beyond the two native filter selects.
+
+   Historically this rule also set `right: 130px` (position:relative shift) to
+   "leave room for the search input in .media-toolbar-primary" — but the
+   Folders sidebar (#iu-media-folders-wrap) has z-index:10 and its right edge
+   overlapped the shifted toolbar's left edge by ~23px, which visually covered
+   the "All " prefix of the "All media items" filter select. If items don't
+   fit on one line the wrap value moves the overflow to a second row instead
+   of squeezing the natives into clipped-text territory. */
 .media-frame .media-toolbar-secondary.iu-has-sort {
 	overflow: visible;
 	width: auto;
-	right: 130px; /* leave room for the search input in .media-toolbar-primary */
 	display: flex;
 	align-items: center;
-	flex-wrap: nowrap;
+	flex-wrap: wrap;
 }
 
 /* Reset WP's percentage-based widths on the two native selects so they
@@ -1451,6 +1458,15 @@ body.iu-resizing .iu-sidebar-handle::before {
 .media-frame .media-toolbar-secondary.iu-has-sort select.attachment-filters {
 	width: auto;
 	max-width: none;
+}
+
+/* Vertically center the media toolbar loader against the "Bulk select"
+   button. WP core positions this spinner with `position:absolute; top:50%;
+   margin:0` but omits the `translateY(-50%)` needed to actually center it,
+   so the spinner's top edge sits at the toolbar's midline (10px below the
+   button's center). Compensate here rather than in core. */
+.media-frame .media-toolbar-secondary.iu-has-sort > .spinner {
+	transform: translateY( -50% );
 }
 
 /* List-mode: sits inline after the Filter button in .tablenav.top */

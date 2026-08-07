@@ -1,87 +1,68 @@
-=== Infinite Uploads - Offload Media and Video to Cloud Storage ===
+=== Infinite Uploads - Offload, Optimize & Organize Your Media Library ===
 
 Requires at least: 6.0
 Tested up to: 7.0
-Stable tag: 3.2.6
+Stable tag: 3.3.0
 Requires PHP: 8.0
 Contributors: bww
-Tags: cloud storage, offload media, offload, video streaming, cdn
+Tags: media library, image optimization, uploads, cloud storage, cdn
 License: GPLv2
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Move, encode, and serve all your video and other media files from the cloud to boost performance and save on storage.
+The all-in-one media library for WordPress. Optimize images, reclaim storage, and manage a growing library with ease.
 
 == Description ==
 
-**Infinite Uploads is your all-in-one media solution: cloud storage, global CDN delivery, video hosting with encoding and streaming, and media library organization with folders and sorting, all fully managed for the WordPress media library. Connect an unlimited number of sites and offload every upload to the cloud automatically. Unlike plugins that require you to configure Amazon S3, Cloudflare R2, Google Cloud Storage, DigitalOcean Spaces, or Azure Blob yourself, Infinite Uploads handles the infrastructure. No API keys, no IAM policies, no CloudFront distribution setup. Handle massive.**
+**Infinite Uploads is the all-in-one media library for WordPress, reimagined to keep your site fast and your growing library simple to manage. It optimizes every image you upload automatically, frees up space on your hosting, keeps your media organized, and takes the work out of managing it as your site scales, without complicated cloud setup or a separate plugin for every job.**
+
+Quick Links:
+
+- **[Test Your Site](https://scan.infiniteuploads.com/)** – See how much faster we can make your site.
+- **[Documentation](https://infiniteuploads.com/support/)** – Get help, read tutorials, and contact support.
+- **[See Your Savings](https://infiniteuploads.com/pricing/#compare)** – See how much Infinite Uploads can save you.
 
 [youtube https://youtu.be/wanINaK0u5M]
 
-### NEW: Media Library Folders
+A WordPress media library shouldn't slow your site down or turn into a mess as it grows. But that's what usually happens: images pile up, pages get heavier, hosting storage fills, and suddenly you have 4 of the same image. Most plugins fix only one piece of that. Infinite Uploads rethinks the whole experience, so your media library makes your site faster and easier to manage instead of holding it back.
 
-Organize your WordPress Media Library with unlimited nested folders, drag-and-drop file management, sorting, search, and color-coded folders. Included with all paid Infinite Uploads plans. No extra plugin. No extra cost.
+It starts the moment you upload. Every image is automatically optimized and delivered in modern formats, resized to the sizes your site actually uses, and stripped of unnecessary metadata, so pages load faster and score better on Core Web Vitals. As your library grows, Infinite Uploads scales with it: reclaim server space, deliver every file worldwide, organize everything, and even host and stream video, all from one plugin with **no** API keys, buckets, or cloud configuration to manage.
 
-Create folders, nest them as deep as you need, and move files individually or in bulk. Upload directly into specific folders from your computer, including full folder structures. Sort files by date added, date modified, title, filename, author, file type, extension, or file size. Search across title, filename, alt text, description, caption, and folder name in the grid and modal views.
+### Faster: Automatic Image Optimization
 
-Folders appear in the media picker across all major page builders: Elementor, Divi, Bricks, Gutenberg/FSE, Beaver Builder, Oxygen, Brizy, and WooCommerce product galleries.
+New in 3.3.0. Infinite Uploads now optimizes and compresses images for you automatically at the edge, so your pages load faster without any manual work. Every image is compressed and converted to modern next-gen formats like AVIF and WebP, resized to a maximum width you choose, and stripped of unnecessary metadata before it reaches your visitors.
 
-### NEW: Simple, Unbranded, GDPR-compliant Video Hosting!
+You stay in control. A simple Image Optimization panel lets you turn optimization on or off, set the optimization level, toggle AVIF and WebP, choose a maximum image width, strip metadata, and exclude specific paths that should be left untouched. There are no queues to run and no originals to lose. Your source files stay safe while your visitors get lighter, faster images and better Core Web Vitals scores.
 
-Introducing the ultimate solution for all your video storage and streaming needs. You can now **upload any size video directly to our cloud from your WordPress dashboard** and have it encoded into multiple resolutions for seamless streaming on your site. Our built-in cloud storage and global CDN ensures that your videos are available to your audience anytime, anywhere, without any buffering or lag.
+### Easier to Manage: Your Whole Media Library, Organized
 
-Our new video feature offers more than just infinitely scalable video hosting. We give you a fully customizable, unbranded video player that seamlessly integrates with WordPress, giving you complete control over the look and feel of your videos! With Infinite Uploads, you don't have to worry about unwanted ads or tracking, as it is fully GDPR compliant and secure. Manage your videos with ease and stream them confidently, knowing that your audience's privacy is protected.
+As your library grows, finding and managing files should get easier, not harder. Infinite Uploads brings real organization to the WordPress Media Library.
 
-### Cloud Storage and CDN
+- Unlimited nested folders with drag-and-drop, color coding, and bulk actions.
+- Upload directly into a specific folder, including full folder structures from your computer.
+- Sort files by date added, date modified, title, filename, author, file type, extension, or file size, and sort folders by name, date, or size.
+- Search across title, filename, alt text, description, caption, and folder name in the grid and modal views.
+- Folders appear in the media picker inside Elementor, Divi, Bricks, Gutenberg, Beaver Builder, Oxygen, Brizy, and WooCommerce.
+- Manage everything right from the WordPress dashboard, with no FTP client, server names, ports, or credentials to juggle.
 
-Paying high overage fees or running out of storage or bandwidth with your hosting provider? Upgrading to a new plan just for more storage can be expensive. Moving your media uploads and other large files to the cloud is more affordable and scales infinitely as your site grows.
+### Scales as You Grow: Storage, Delivery, and Video
 
-Upload directly to your Infinite Uploads cloud storage and manage your files right from the WordPress Media Library. Eliminate the need for an FTP file manager and skip confusing Amazon S3, Google Cloud, Azure, or other account setup, API integration, or expensive 3rd-party connect plugins. Use the Infinite Uploads plugin to connect all your sites and only pay for your total storage and bandwidth.
+When your media outgrows your hosting, Infinite Uploads grows with it, without turning you into a cloud architect. Offload your media to fully managed cloud storage, reclaim server space, and serve every file fast from a worldwide content delivery network with 50+ points of presence. Connect an unlimited number of sites and pay only for the storage and bandwidth you use, with no per-site or per-file license fees.
 
-### Infinite Uploads - Smart Cloud Plugin Features
+Need more than images? Upload any size video straight from your WordPress dashboard, have it encoded into multiple resolutions, and stream it through a clean, unbranded, GDPR-friendly player, all from the same media library. Store and deliver large digital downloads and other files the same way.
 
-- **Unlimited files** – no limits to the number of files you can add each month
-- **Unlimited sites** - you can connect just one site, hundreds, or thousands...no extra license costs
-- **Video upload, encoding, and streaming** - upload any size video and have it encoded into multiple resolutions for fast streaming via our customizable video player
-- **Cloud video library** - manage, upload, and embed videos from our custom WordPress Media Library
-- **Video statistics** - track video views, storage, and bandwidth usage
-- **Video thumbnail** - choose from a selection of auto-generated thumbnail images or upload your own
-- **Video block** - easily upload, customize, and embed videos from your cloud library into your posts and pages with our Gutenberg block
-- **Media storage analyzer** - For both your local and cloud-connected media files located in the Media Library
-- **Auto-connect** – no confusing cloud account API's. Simply click to connect
-- **No 3rd-party utility needed** - developed and maintained by the team behind Infinite Uploads
-- **Secure** - move, store, and deliver files with peace-of-mind
-- **Make WordPress a stateless application** - moving media files to the cloud makes your site light, fast, and efficient
-- **Easy File Manager** - Use the WordPress Media Library to manage files in the cloud without an FTP/SFTP manager
-- **Bulk transfer** - move existing media files to or from the cloud with a click or WP CLI command
-- **Simple restore** - no contract and easy to restore all your files to your media library
-- **Universal compatibility** - Works with most well-coded plugins and themes including eCommerce and performance optimization
-- **Media Library folders** – unlimited nested folders with drag-and-drop, color coding, and bulk actions
-- **Folder upload** – upload files directly into a specific folder, including full folder structures from your computer
-- **Sort and enhanced search** – sort files by 8 fields (date added, date modified, title, filename, author, file type, extension, file size) and sort folders by name, date created, date modified, or folder size. Search by title, filename, alt text, description, caption, or folder name.
-- **Resizable folder sidebar** – multiple folder tree themes including a Dropbox-style icon view
-- **Page builder folder support** – folders appear in the media picker inside Elementor, Divi, Bricks, Gutenberg, Beaver Builder, Oxygen, Brizy, and WooCommerce
-- **One-click media migration** — migrate your existing WordPress media library to the cloud without touching S3 buckets or CDN configurations.
+Unlike plugins that ask you to configure Amazon S3, Cloudflare R2, Google Cloud Storage, DigitalOcean Spaces, or Azure Blob yourself, Infinite Uploads handles the infrastructure. No API keys, no IAM policies, no CloudFront distribution setup. One click connects your site.
 
-### Better Performance, Less Time, Lower-cost
-If you upload a lot of images, publish video content, share motion graphics, want to add big beautiful video backgrounds, have a podcast, or stream large audio files for sermons or lectures, you will save time, resources, and improve performance by moving your files to Infinite Uploads. Keep your site moving at top-speed with dedicated media delivery that seamlessly integrates with WordPress.
+### See Where Your Storage Goes
 
-### Simple Cloud Delivery
-
-The Infinite Uploads plugin makes it so anyone can connect to the cloud without setting up confusing storage provider accounts or paying for expensive third-party utility plugins. Use smart-connect to set up and move your library to the cloud. No more copy and paste API keys or cloud configurations.
-
-### Media File Storage Calculator
-
-Install the Infinite Uploads plugin, scan your Media Library for a breakdown of your media files by type and size. See how many images, videos, archives, documents, code, and other files (like audio) there are and how much space they're taking up.
-
-Infinite Uploads helps you identify which files are using the most space on your server and allows you to move all your media files to cloud storage.
+Not sure what's filling up your hosting? Scan your Media Library for a clear breakdown of your files by type and size, so you can see exactly how many images, videos, archives, documents, and audio files you have and how much space they're taking up, then move the biggest offenders off your server with a click.
 
 ### Ecommerce Ready
 
-Not only is Infinite Uploads great for delivering highquality product images and videos, store and deliver your large digital download files in the cloud. Infinite Uploads works with both Forced Downloads PHP protection and X-Accel-Redirect/X-Sendfile (nginx/apache).
+Deliver high-quality product images and videos fast, and store large digital download files in the cloud.
 
 ### Widely Compatible
 
-Infinite Uploads is built with the latest in cloud technology to work flawlessly with the widest variety of your favorite themes and plugins and has been tested with:
+Infinite Uploads is built to work flawlessly with the widest variety of your favorite themes and plugins, and has been tested with:
 
 - [WooCommerce](https://wordpress.org/plugins/woocommerce/)
 - [Easy Digital Downloads](https://wordpress.org/plugins/easy-digital-downloads/)
@@ -93,42 +74,26 @@ Infinite Uploads is built with the latest in cloud technology to work flawlessly
 - [Elementor Page Builder](https://wordpress.org/plugins/elementor/)
 - [WPML](https://wpml.org/)
 - [WP Rocket](https://wp-rocket.me/)
-- [NextGen Gallary](https://wordpress.org/plugins/nextgen-gallery/)
+- [NextGen Gallery](https://wordpress.org/plugins/nextgen-gallery/)
 - [FileBird](https://wordpress.org/plugins/filebird/)
 - [ACF](https://wordpress.org/plugins/advanced-custom-fields/)
 - [EWWW Image Optimizer](https://wordpress.org/plugins/ewww-image-optimizer/)
+- [ShortPixel](https://wordpress.org/plugins/shortpixel-image-optimiser/)
 - And many, many, more!
 
 ### Fast and Incredibly Secure
-Infinite Uploads uses encrypted SSL to transfer files, is stored in highly resilient and available storage with 99.999999999% (11 x 9s) of durability, and our API was designed from the ground up with with bulletproof security. All API tokens and credentials are hashed, encrypted, segmented per customer and site, and rotated without you having to do a thing. We support multiple 2-factor login methods including phish-proof U2F security keys to protect access to your account and data.
 
-For low latency and legal compliance with laws like GDPR you can choose a USA or Europe (Germany) cloud storage location for each site you connect. And for lightning fast download speeds all files are served from the location closest to your visitors via our world-wide enterprise-class Content Delivery Network (CDN) with 50+ points of presence!
-
-### FTP/SFTP Client-free File Manager
-Keep managing all your files right from inside the WordPress dashboard just like before. Skip the protocol settings, server names, port numbers, usernames, long passwords, private keys, and API credentials. Manage access to the Media Library with the built-in user roles to streamline customer, visitor, and team member training.
-
-Power user? We provide S3-compatible credentials for direct cloud file managment, or use our WP CLI commands to move files to and from the cloud, scan your library, and more.
-
-### Bulk Sync & Restore
-Already being hit with overages or experiencing performance issues because you have a ton of images and huge video or audio files? Use Infinite Uploads to free up space. Connect and move your entire existing library with a click.
-
-### Compatible Media File Types
-If you can upload it to the WordPress Media Library, you can move it to the cloud. Infinite Uploads essentially replaces your WordPress uploads directory with cloud storage, so any theme or plugin that writes files there sends them to the cloud instead!
-
-### Smaller More Efficient Hosting
-Transform WordPress into a stateless application ready for the cloud. Hosting your media files in the cloud makes your site super portable and makes backups and migrations tiny, fast, and efficient. It's the go-to tool to enable usage of advanced hosting architectures like Horizontal Scaling and High Availability.
+Files are transferred over encrypted SSL and stored with 99.999999999% (11 x 9s) durability. All API tokens and credentials are hashed, encrypted, segmented per customer and site, and rotated automatically. For low latency and legal compliance with laws like GDPR, you can choose a USA or Europe (Germany) storage location for each site you connect.
 
 ★★★★★
-> “Infinite Uploads changes the game. Thousands of files stored safely without slowing down my site. If that’s not a win…I don’t know what is.” - Micah, Podcast Host
+> "This plugin does exactly what it promises for images, files, and video. It outperformed other cloud-based plugins we tested against. It's very simple to set up." - [theinnographer](https://profiles.wordpress.org/theinnographer/)
 
 ★★★★★
-> “From their smart media file scanner to their simple pricing and one-click connect, The cloud for WordPress and Divi users could’nt be easier! Now anyone that can add an image to WordPress can move to the cloud and manage media files without client software, third-party plugins, or the need to become a cloud architect. It’s just awesome.” - [David Blackmon](https://profiles.wordpress.org/davidblackmon/)
-
+> "This plugin is super easy to use. It scans your WordPress install and lets you know exactly how much will be moved to cloud storage. It was a life-saver for us as our web hosting accounts were getting full, now we can offload media to free up space, and the support is very responsive. So far, a great experience!" - [authenticmedia](https://profiles.wordpress.org/authenticmedia/)
 
 ### What about Multisite?
 
-Use Infinite Uploads to store and manage the media files for your entire Multisite network with one account. Settings and syncing are network-wide. You never have to worry about running out of storage as we make your uploads "infinite"!
-
+Use Infinite Uploads to optimize, store, and manage the media for your entire Multisite network with one account. Settings and syncing are network-wide, so you never have to worry about running out of storage.
 
 ### Privacy
 
@@ -136,85 +101,84 @@ This plugin does not collect or share data other than your uploaded files to you
 
 ### Check Out Big File Uploads
 
-[Big File Uploads](https://wordpress.org/plugins/tuxedo-big-file-uploads/) lets you upload large media files directly to  the media library with the WordPress media uploader. Increase your  maximum upload size to any value – as large as your available disk space  allows – and add file chunking to avoid server timeout errors.
+[Big File Uploads](https://wordpress.org/plugins/tuxedo-big-file-uploads/) lets you upload large media files directly to the media library with the WordPress media uploader. Increase your maximum upload size to any value, as large as your available disk space allows, and add file chunking to avoid server timeout errors.
 
 ### Check out Big File Form Uploads
 
-[Big File Form Uploads](https://infiniteuploads.com/big-file-form-uploads/) is a paid add-on that  extends the functionality of increasing the maximum WordPress file upload size to your favorite form plugins for WordPress, including Contact Form 7, Gravity Forms, and Forminator! Set the limit in Big File Uploads, and that carries over to your file uploads in your forms to let your users upload big files! [Learn more about Big File Form Uploads!](https://infiniteuploads.com/big-file-form-uploads/)
+[Big File Form Uploads](https://infiniteuploads.com/big-file-form-uploads/) is a paid add-on that extends the maximum WordPress file upload size to your favorite form plugins, including Contact Form 7, Gravity Forms, Fluent Forms, Elementor Forms, and Forminator. Set the limit in Big File Uploads and it carries over to your forms. [Learn more about Big File Form Uploads!](https://infiniteuploads.com/big-file-form-uploads/)
 
 == About Us ==
-Infinite Uploads is a premium cloud storage provider and content delivery network (CDN) for all your WordPress media files. Learn more here:
+
+Infinite Uploads builds WordPress plugins and provides fully managed media optimization, storage, and delivery for WordPress. Learn more here:
 [infiniteuploads.com](https://infiniteuploads.com/?utm_source=wordpress.org&utm_medium=readme&utm_campaign=iup_readme&utm_term=about_us)
 
-Learn how to get the most out of your cloud-hosted files on our blog:
+Learn how to get the most out of your media library on our blog:
 [Infinite Uploads Blog, Tips, Tricks, How-tos, and News](https://infiniteuploads.com/blog/?utm_source=wordpress.org&utm_medium=readme&utm_campaign=iup_readme&utm_term=blog)
-
-[Contribute to the plugin's development on Github!](https://github.com/clikitsupport/infinite-uploads)
 
 Enjoy!
 
 == Contact and Credits ==
 
-Built by the cloud architects and WordPress engineers at [Infinite Uploads](https://infiniteuploads.com/?utm_source=wordpress.org&utm_medium=readme&utm_campaign=iup_readme&utm_term=credits).
+Built by the WordPress engineers and media infrastructure team at [Infinite Uploads](https://infiniteuploads.com/?utm_source=wordpress.org&utm_medium=readme&utm_campaign=iup_readme&utm_term=credits).
 
 == Frequently Asked Questions ==
 
-= Why should I move and share my media library from the cloud? =
+= Does Infinite Uploads optimize my images automatically? =
 
-Images, videos, and audio files are the biggest performance drain on a website. Hosting your media files alongside your site code both slows performance and quickly creates overages for your more expensive web hosting storage. Moving your Media Library to performance-optimized cloud storage and serving your files from  a Content Delivery Network will not only save space and lower cost, it improves performance.
+Yes. With image optimization enabled (requires business plan), every image is automatically compressed and converted to next-gen formats like AVIF and WebP, resized to your chosen maximum width, and stripped of unnecessary metadata at the edge, before it reaches your visitors. There are no queues to run and nothing to do manually.
+
+= Will optimization change or delete my original images? =
+
+No. Your original source files stay safe. Optimization happens at the edge on the versions delivered to visitors, so you always keep your originals and can turn optimization off or adjust it at any time.
+
+= Do I need an account, and is the plugin free? =
+
+The plugin is free. Image optimization, cloud storage, CDN delivery, media library folders, and video hosting are powered by an Infinite Uploads account. You can connect an unlimited number of sites with no per-site or per-file license fees, and only pay for the storage and bandwidth you use.
+
+= Will Infinite Uploads work without connecting to the cloud? =
+
+Yes. Use the built-in storage scanner to analyze your media library and see what's taking up space. To use image optimization, cloud storage, and CDN delivery, you'll connect your Infinite Uploads account.
 
 = Will this let me upload large files like videos to WordPress? =
 
-Our video hosting feature let's you upload directly to the cloud from the WordPress dashboard, bypassing all host limits. For other media types, you can use our free plugin [Big File Uploads](https://wordpress.org/plugins/tuxedo-big-file-uploads/) to bypass server limitations.
+Our video hosting feature lets you upload directly from the WordPress dashboard, bypassing host limits. For other media types, our free plugin [Big File Uploads](https://wordpress.org/plugins/tuxedo-big-file-uploads/) removes server upload size limits.
 
-= Is the Infinite Uploads plugin free? =
+= How many websites can I connect to one account? =
 
-Yes the Infinite Uploads plugin is free but it does require an Infinite Uploads account to be useful in storing and serving your files from the cloud. It can be used on an unlimited number of sites without per-site or per file licensing costs like competitors.
+An unlimited number, at no extra cost. You only pay for your total storage and bandwidth usage.
 
-= Will the Infinite Uploads plugin work without connecting to Cloud Storage? =
+= Why can't I just use AWS S3, Google Cloud Storage, or Azure myself? =
 
-Yes. Use the Infinite Uploads storage scanner to analyze the files in your media library. See what files are causing overages with a graphic breakdown of the files size and type and learn what content is taking up your hosting storage. You will have to connect to our cloud to use the cloud storage and CDN features.
+You can, but those plugins are bring-your-own-bucket: you configure the cloud provider and CDN yourself, then pay for storage, per-request API costs, and egress bandwidth, which often costs several times more than the storage itself. Infinite Uploads includes optimization, storage, delivery, and video in one managed service with flat, predictable pricing and no infrastructure to configure.
 
-= How many websites can I connect to one cloud account? =
+= Can I access my files directly, outside of WordPress? =
 
-Connect an unlimited number of sites to your Infinite Uploads account at no cost. Pay only for your cloud storage usage.
-
-= How many files can I upload each month? =
-
-Upload as many files as you like and only ever pay for the cost of your storage and bandwidth. No file overages or per-site charges.
-
-= What servers is Infinite Uploads using? =
-
-Infinite Uploads is a hybrid custom stack built and hosted with multiple enterprise-grade cloud services for the ultimate in security, speed, power, and performance. All without the cost of a sysadmin or the complexity of configuring servers, policies, permissions, keys, etc...pure magic.
-
-= Why can't I just use AWS S3, Google Cloud Storage, Azure, etc? =
-
-There are plugins for that, but they all have expensive per-site or per-file annual license fees. And then you have to figure out how to signup for and configure complicated cloud providers and CDNs.
-Finally, while the per/GB prices of cloud storage may seem cheap, there are all the hidden costs you don't realize like class A/B/C/D API transaction costs, and bandwidth x3 (to cloud > to cdn > to user). Bandwidth costs alone can often total 8x more than your storage bill!
-Infinite Uploads makes the power of the cloud simple and affordable for non-cloud architects like you.
-
-= How does Infinite Uploads compare to other S3 offload plugins? =
-
-The main difference is that Infinite Uploads is an all-in-one solution: the plugin, cloud storage, video hosting and transcoding, media folders, media library sorting, and global CDN delivery are all included. Most other offload plugins are bring-your-own-bucket, meaning you configure an Amazon S3, Cloudflare R2, or similar account separately, pay that provider's storage, API request, and egress fees, then connect the plugin. That works if you're comfortable managing cloud infrastructure and multiple providers. Infinite Uploads is built for site owners who want to offload media to the cloud without becoming a cloud architect. No API keys, no bucket policies, no CloudFront distribution, no per-site license fees. One connection, flat predictable pricing, and zero infrastructure to manage.
+Yes, and you're never locked in. Nearly everyone manages their media right inside the WordPress Media Library and never needs anything else. But if you (or your developer) ever want to work with your files directly, Business plans include S3-compatible access that plugs into popular file tools, so your media stays open and portable.
 
 = How can I report security bugs? =
 
-You can report security bugs through the Patchstack Vulnerability Disclosure Program. The Patchstack team help validate, triage and handle any security vulnerabilities. [Report a security vulnerability.](https://patchstack.com/database/wordpress/plugin/infinite-uploads/vdp)
-
+You can report security bugs through the Patchstack Vulnerability Disclosure Program. The Patchstack team helps validate, triage, and handle any security vulnerabilities. [Report a security vulnerability.](https://patchstack.com/database/wordpress/plugin/infinite-uploads/vdp)
 
 == Screenshots ==
 
-1. Run a quick scan to determine usage.
-2. Shows a complete media library report for analyzing storage.
-3. Sync your files to the cloud with a click.
-4. Cloud video library and management.
-5. Video statistics and editing.
-6. Video cloud settings.
+1. Run a quick scan to see how much of your hosting storage your media is using.
+2. A complete media library report for analyzing storage by type and size.
+3. Move your media to the cloud and free up server space with a click.
+4. Media Library folders for organizing a growing library.
+5. Cloud video library and management.
+6. Video statistics and editing.
 7. Cloud video Gutenberg block.
 8. Create a custom CDN URL, track storage, and free up space.
-9. Media Library Folders.
+9. Automatically compress and convert your images to next-gen AVIF/WebP, right-sized and delivered from the CDN, with your original files never modified.
 
 == Upgrade Notice ==
+
+3.3.0
+-------------
+
+* New: Image Optimization controls on the Account & Settings page — enable edge AVIF/WebP conversion and automatic resizing directly from the plugin.
+* Fixed: File exclusions no longer drop entries that live in unexpanded branches of the exclusion tree when saved.
+* Fixed: WP Webhooks Pro fatal caused by loading its integration modules through the `iu://` stream wrapper.
 
 3.2.6
 -------------
@@ -228,6 +192,13 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * Update: Added support to get the IU CDN url and prefix for the EWWW Image Optimizer so JS WebP and Picture WebP rewriting work automatically.
 
 == Changelog ==
+
+3.3.0
+----------------------------------------------------------------------
+
+* New: **Image Optimization** section on the Account & Settings page. Each site can enable the native edge image optimizer with per-option controls — master on/off, optimization level, AVIF/WebP toggles, max width (up to 2560px), strip metadata, and path exclusions. Settings are pushed to the Infinite Uploads cloud so the edge CDN picks them up automatically.
+* Fixed: File exclusion tree — saving no longer dropped exclusions that lived in unexpanded branches. The exclusion tree lazy-loads one directory level per request, so the previous `jstree('get_selected')` snapshot only covered rendered nodes; the save handler now diffs the posted list against the stored one so unrendered exclusions are preserved.
+* Fixed: WP Webhooks Pro compatibility — the plugin's PHP integration loader `require_once()`s modules from a `wp_upload_dir()`-based path, which IU rewrites to the `iu://` stream wrapper. PHP refuses to include through a URL wrapper (`allow_url_include=0`), producing a fatal on activation. IU now routes those specific includes through the local disk instead.
 
 3.2.6
 ----------------------------------------------------------------------
@@ -386,7 +357,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 - Fix: Multisite issue
 - Update: Upload big files
 - Update: WordPress 6.8.2 compatibility
-- Update: wpForo, wpDiscus & Content Videos exclusions 
+- Update: wpForo, wpDiscus & Content Videos exclusions
 
 3.0.1 - 2025-06-03
 ----------------------------------------------------------------------
@@ -500,5 +471,3 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 1.0 - 2021-2-7
 ----------------------------------------------------------------------
 - Initial release after a year of hard work!
-
-

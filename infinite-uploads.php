@@ -2,7 +2,7 @@
 /*
  * Plugin Name: Infinite Uploads
  * Description: Infinitely scalable cloud storage and delivery for your videos and uploads made easy! Upload directly to cloud storage and manage your files right from the WordPress Media Library.
- * Version: 3.2.6
+ * Version: 3.3.0
  * Author: Infinite Uploads
  * Author URI: https://infiniteuploads.com/?utm_source=iup_plugin&utm_medium=plugin&utm_campaign=iup_plugin&utm_content=meta
  * Text Domain: infinite-uploads
@@ -18,11 +18,32 @@
  * Copyright 2021-2025 ClikIT, LLC
 */
 
-define( 'INFINITE_UPLOADS_VERSION', '3.2.6' );
+define( 'INFINITE_UPLOADS_VERSION', '3.3.0' );
 
-if ( file_exists( __DIR__ . '/vendor/autoload.php' ) ) {
-    require_once __DIR__ . '/vendor/autoload.php';
+// Composer-generated autoload files (vendor/autoload.php,
+// vendor/composer/autoload_*.php, vendor/composer/installed.*) are NOT
+// committed to git — they must be regenerated per-environment by running
+// `composer install --no-dev` from the plugin directory. Historically these
+// files WERE committed with dev references baked in, which fataled on live
+// (`require '.../mockery/library/helpers.php'` — dev-only, absent on prod).
+// If they're missing on this install, halt the plugin gracefully with an
+// admin notice instead of a hard fatal on the first autoloaded class access.
+if ( ! file_exists( __DIR__ . '/vendor/composer/autoload_real.php' ) ) {
+    add_action( 'admin_notices', 'infinite_uploads_missing_autoload_notice' );
+    add_action( 'network_admin_notices', 'infinite_uploads_missing_autoload_notice' );
+
+    function infinite_uploads_missing_autoload_notice() {
+        echo '<div class="notice notice-error"><p><strong>Infinite Uploads:</strong> '
+             . esc_html__( 'Composer dependencies are not installed. Run ', 'infinite-uploads' )
+             . '<code>composer install --no-dev</code>'
+             . esc_html__( ' from the plugin directory, or replace this checkout with the release ZIP from wordpress.org.', 'infinite-uploads' )
+             . '</p></div>';
+    }
+
+    return;
 }
+
+require_once __DIR__ . '/vendor/autoload.php';
 
 // Load action scheduler.
 require_once dirname( __FILE__ ) . '/libs/action-scheduler/action-scheduler.php';

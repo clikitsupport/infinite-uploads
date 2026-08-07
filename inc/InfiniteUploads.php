@@ -135,6 +135,13 @@ class InfiniteUploads {
         }
 
         add_filter( 'infinite_uploads_sync_exclusions', [ $this, 'compatibility_exclusions' ] );
+        // User-configured exclusions must reach the scan-time filter too —
+        // without this, a full re-scan uploads files the user has explicitly
+        // marked as excluded (wasting bandwidth/cloud storage), and — worse —
+        // makes those already-synced-but-excluded rows eligible for "Free Up
+        // Local Storage" deletion, producing 404 media (the rewriter keeps
+        // serving the local URL because the path is excluded).
+        add_filter( 'infinite_uploads_sync_exclusions', [ $this, 'user_exclusions' ] );
 
         if ( ! $this->api->has_token() ) {
             add_action( 'admin_notices', [ $this, 'setup_notice' ] );
@@ -499,10 +506,16 @@ class InfiniteUploads {
     public function get_sync_stats() {
         global $wpdb;
 
+        // $deletable must match what "Free Up Local Storage" would actually
+        // delete — otherwise the UI advertises freeable space that BB cache /
+        // user-excluded carve-outs will keep on disk. Same carve-out is applied
+        // to the delete loops (ajax_delete_old, ajax_delete, WP-CLI files delete).
+        $carve_out = InfiniteUploadsHelper::deletable_files_where_carveout();
+
         $total     = $wpdb->get_row( "SELECT count(*) AS files, SUM(`size`) as size, SUM(`transferred`) as transferred FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE 1" );
         $local     = $wpdb->get_row( "SELECT count(*) AS files, SUM(`size`) as size, SUM(`transferred`) as transferred FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE deleted = 0" );
         $synced    = $wpdb->get_row( "SELECT count(*) AS files, SUM(`size`) as size, SUM(`transferred`) as transferred FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1" );
-        $deletable = $wpdb->get_row( "SELECT count(*) AS files, SUM(`size`) as size, SUM(`transferred`) as transferred FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 0" );
+        $deletable = $wpdb->get_row( "SELECT count(*) AS files, SUM(`size`) as size, SUM(`transferred`) as transferred FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 0{$carve_out}" );
         $deleted   = $wpdb->get_row( "SELECT count(*) AS files, SUM(`size`) as size, SUM(`transferred`) as transferred FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 1" );
 
         $progress = (array) get_site_option( 'iup_files_scanned' );
@@ -1906,6 +1919,21 @@ class InfiniteUploads {
             define( 'BP_AVATAR_URL', $original['baseurl'] );
         }
         add_filter( 'bp_attachments_uploads_dir_get', [ $this, 'bp_attachments_uploads_dir_get' ], 10, 2 );
+
+        // WP Webhooks Pro: its integration modules are PHP files it downloads into
+        // uploads/wp-webhooks-pro/ and loads with require_once(). It builds that
+        // path from wp_upload_dir(), which IU rewrites to iu:// — and PHP refuses
+        // to include through a URL stream wrapper unless allow_url_include is
+        // enabled (which it must never be: it would let anyone able to place a
+        // .php file in the bucket execute it). Filter the folder base back to the
+        // original local uploads path. We hook `get_wpwh_folder/folder_base`
+        // rather than the later `get_integrations_folder` filter because
+        // get_wpwh_folder() (verified in Pro 6.3.4) runs wp_mkdir_p() and
+        // index.php creation immediately after this filter but before the
+        // end-of-function ones — hooking here keeps those writes on local disk
+        // too, and covers every subfolder WP Webhooks derives from the base.
+        // /wp-webhooks-pro/ is in our sync exclusions so the files stay local.
+        add_filter( 'wpwhpro/integrations/get_wpwh_folder/folder_base', [ $this, 'wpwh_folder_base' ] );
     }
 
     /**
@@ -1963,6 +1991,49 @@ class InfiniteUploads {
     }
 
     /**
+     * Map the WP Webhooks Pro content folder from the iu:// stream wrapper back
+     * to the original local uploads path.
+     *
+     * Only rewrites paths under our own bucket, so the free WP Webhooks (whose
+     * integrations live in its plugin directory) and folders a site has already
+     * relocated via the same filter at an earlier priority pass through
+     * untouched. The subpath after the bucket is preserved as-is.
+     *
+     * Hooked to `wpwhpro/integrations/get_wpwh_folder/folder_base`.
+     *
+     * @param string $folder Absolute base path WP Webhooks intends to store/load content from.
+     *
+     * @return string Local-disk equivalent of $folder, or $folder unchanged.
+     */
+    public function wpwh_folder_base( $folder ) {
+        $cloud_base = 'iu://' . untrailingslashit( $this->bucket );
+        if ( 0 !== strpos( (string) $folder, $cloud_base ) ) {
+            return $folder;
+        }
+
+        $root_dirs = $this->get_original_upload_dir_root();
+
+        return $root_dirs['basedir'] . substr( $folder, strlen( $cloud_base ) );
+    }
+
+    /**
+     * Merge the user's own excluded-paths list (option `iup_excluded_files`)
+     * into the sync-exclusion filter. This is what makes full re-scans stop
+     * queuing user-excluded files for upload; per-file un-exclude still
+     * re-syncs via process_added_removed_excluded_files() → add_files_to_sync(),
+     * which iterates $paths_left directly and does not consult is_excluded(),
+     * so re-syncing an un-excluded file still works.
+     */
+    function user_exclusions( $exclusions ) {
+        $user = InfiniteUploadsHelper::get_excluded_paths();
+        if ( ! empty( $user ) ) {
+            $exclusions = array_merge( $exclusions, $user );
+        }
+
+        return $exclusions;
+    }
+
+    /**
      * Exclude specific dirs for various plugins
      */
     function compatibility_exclusions( $exclusions ) {
@@ -1976,6 +2047,10 @@ class InfiniteUploads {
 
         $exclusions[] = '/bb-plugin/';
         $exclusions[] = '/ShortpixelBackups/';
+        // WP Webhooks Pro downloads PHP integration modules here; they must stay
+        // local because PHP can't require_once() through the iu:// wrapper. See
+        // wpwh_folder_base().
+        $exclusions[] = '/wp-webhooks-pro/';
 
         return $exclusions;
     }

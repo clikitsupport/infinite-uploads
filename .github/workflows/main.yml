@@ -22,7 +22,24 @@ jobs:
           mkdir -p ~/.subversion
           echo "[global]" >> ~/.subversion/servers
           echo "http-timeout = 3600" >> ~/.subversion/servers
-          
+
+      # Step 2.2: Setup PHP + install Composer prod deps.
+      # `vendor/composer/autoload_*.php` and `vendor/composer/installed.*` are
+      # not committed to git (they were tainted with dev refs and used to fatal
+      # on live). Regenerate them cleanly here — .distignore does NOT exclude
+      # `vendor/`, so the 10up plugin-deploy action SVN-commits whatever is in
+      # `vendor/` at this point. Without this step, wp.org users would install
+      # a plugin with no autoload → hard fatal on activation.
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.0'
+          tools: composer:v2
+          coverage: none
+
+      - name: Install Composer dependencies (production)
+        run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
       # Step 3: Build the plugin
       - name: Build the plugin
         run: |

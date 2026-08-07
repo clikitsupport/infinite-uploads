@@ -173,6 +173,26 @@ class InfiniteUploadsFilelist {
 				$path = rtrim( $this->root_path, '/' ) . $path;
 			}
 
+			// Un-exclude flow (process_added_removed_excluded_files → new
+			// InfiniteUploadsFilelist($path, 20, $files_to_resync)) passes
+			// individual FILE paths in $paths_left. The glob() branch below
+			// treats every path as a directory pattern — glob() on a file
+			// returns [], so the file would be silently skipped and never
+			// re-queued for sync. Handle files directly first.
+			if ( is_file( $path ) ) {
+				if ( ! is_link( $path ) ) {
+					if ( is_readable( $path ) ) {
+						$file         = $this->get_file_info( $path );
+						$file['name'] = $this->relative_path( $path );
+						$this->add_file( $file );
+					} else {
+						error_log( sprintf( '[INFINITE_UPLOADS Filelist Error] %s could not be read for syncing', $path ) );
+					}
+				}
+				$this->paths_left = $paths;
+				continue;
+			}
+
 			$contents = defined( 'GLOB_BRACE' )
 				? glob( trailingslashit( $path ) . '{,.}[!.,!..]*', GLOB_BRACE )
 				: glob( trailingslashit( $path ) . '[!.,!..]*' );
