@@ -355,7 +355,7 @@ class InfiniteUploadsAdmin {
         $transfer_args = [
                 'concurrency' => INFINITE_UPLOADS_SYNC_CONCURRENCY,
                 'base_dir'    => 's3://' . $this->iup_instance->bucket,
-                'before'      => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$downloaded ) {//add middleware to intercept result of each file upload
+                'before'      => function ( Command $command ) use ( $wpdb, &$downloaded ) {//add middleware to intercept result of each file upload
                     if ( in_array( $command->getName(), [ 'GetObject' ], true ) ) {
                         $command->getHandlerList()->appendSign(
                                 Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, &$downloaded ) {
@@ -417,7 +417,7 @@ class InfiniteUploadsAdmin {
             $transfer_args = [
                     'concurrency' => $concurrency,
                     'base_dir'    => $path['basedir'],
-                    'before'      => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
+                    'before'      => function ( Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
                         //add middleware to modify object headers
                         if ( in_array( $command->getName(), [ 'PutObject', 'CreateMultipartUpload' ], true ) ) {
                             /// Expires:
@@ -815,7 +815,7 @@ class InfiniteUploadsAdmin {
                         $uploader      = new MultipartUploader( $s3, $source, [
                                 'concurrency'   => INFINITE_UPLOADS_SYNC_MULTIPART_CONCURRENCY,
                                 'state'         => $upload_state,
-                                'before_upload' => function ( \ClikIT\Infinite_Uploads\Aws\Command $command ) use ( &$parts_started, $uploaded, $errors ) {
+                                'before_upload' => function ( \Command $command ) use ( &$parts_started, $uploaded, $errors ) {
                                     $this->sync_debug_log( "Uploading key {$command['Key']} part {$command['PartNumber']}" );
 
                                     $command->getHandlerList()->appendSign(
@@ -839,7 +839,7 @@ class InfiniteUploadsAdmin {
                             } catch ( MultipartUploadException $e ) {
                                 $uploader = new MultipartUploader( $s3, $source, [
                                         'state'         => $e->getState(),
-                                        'before_upload' => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb ) {
+                                        'before_upload' => function ( Command $command ) use ( $wpdb ) {
                                             $this->sync_debug_log( "Uploading key {$command['Key']} part {$command['PartNumber']}" );
                                             $command->getHandlerList()->appendSign(
                                                     Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, $command ) {
@@ -3162,7 +3162,7 @@ class InfiniteUploadsAdmin {
             $transfer_args = [
                     'concurrency' => INFINITE_UPLOADS_SYNC_CONCURRENCY,
                     'base_dir'    => 's3://' . $this->iup_instance->bucket,
-                    'before'      => function ( \ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$downloaded ) {//add middleware to intercept result of each file upload
+                    'before'      => function ( \Command $command ) use ( $wpdb, &$downloaded ) {//add middleware to intercept result of each file upload
                         if ( in_array( $command->getName(), [ 'GetObject' ], true ) ) {
                             $command->getHandlerList()->appendSign(
                                     Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, &$downloaded ) {
@@ -3253,7 +3253,7 @@ class InfiniteUploadsAdmin {
                 $transfer_args = [
                         'concurrency' => $concurrency,
                         'base_dir'    => $path['basedir'],
-                        'before'      => function ( \ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
+                        'before'      => function ( \Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
                             //add middleware to modify object headers
                             if ( in_array( $command->getName(), [ 'PutObject', 'CreateMultipartUpload' ], true ) ) {
                                 /// Expires:
@@ -3354,7 +3354,7 @@ class InfiniteUploadsAdmin {
                         $uploader      = new MultipartUploader( $s3, $source, [
                                 'concurrency'   => INFINITE_UPLOADS_SYNC_MULTIPART_CONCURRENCY,
                                 'state'         => $upload_state,
-                                'before_upload' => function ( \ClikIT\Infinite_Uploads\Aws\Command $command ) use ( &$parts_started, $uploaded, $errors ) {
+                                'before_upload' => function ( \Command $command ) use ( &$parts_started, $uploaded, $errors ) {
                                     $this->sync_debug_log( "Uploading key {$command['Key']} part {$command['PartNumber']}" );
 
                                     $command->getHandlerList()->appendSign(
@@ -3378,7 +3378,7 @@ class InfiniteUploadsAdmin {
                             } catch ( MultipartUploadException $e ) {
                                 $uploader = new MultipartUploader( $s3, $source, [
                                         'state'         => $e->getState(),
-                                        'before_upload' => function ( \ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb ) {
+                                        'before_upload' => function ( \Command $command ) use ( $wpdb ) {
                                             $this->sync_debug_log( "Uploading key {$command['Key']} part {$command['PartNumber']}" );
                                             $command->getHandlerList()->appendSign(
                                                     Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, $command ) {

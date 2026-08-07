@@ -7,6 +7,7 @@ use ClikIT\Infinite_Uploads\Aws\Exception\AwsException;
 use ClikIT\Infinite_Uploads\Aws\S3\Exception\S3Exception;
 use ClikIT\Infinite_Uploads\Aws\Middleware;
 use ClikIT\Infinite_Uploads\Aws\ResultInterface;
+use ClikIT\Infinite_Uploads\Aws\Command;
 
 class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 
@@ -166,7 +167,7 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 		$transfer_args = [
 			'concurrency' => $args_assoc['concurrency'],
 			'debug'       => (bool) $args_assoc['verbose'],
-			'before'      => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) {
+			'before'      => function ( Command $command ) {
 				if ( in_array( $command->getName(), [ 'PutObject', 'CreateMultipartUpload' ], true ) ) {
 					/// Expires:
 					if ( defined( 'INFINITE_UPLOADS_HTTP_EXPIRES' ) ) {
@@ -250,7 +251,7 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 			$transfer_args = [
 				'concurrency' => $args_assoc['concurrency'],
 				'base_dir'    => $path['basedir'],
-				'before'      => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $args_assoc, $progress_bar, $wpdb, $unsynced, &$uploaded ) {
+				'before'      => function ( Command $command ) use ( $args_assoc, $progress_bar, $wpdb, $unsynced, &$uploaded ) {
 					if ( in_array( $command->getName(), [ 'PutObject', 'CreateMultipartUpload' ], true ) ) {
 						/// Expires:
 						if ( defined( 'INFINITE_UPLOADS_HTTP_EXPIRES' ) ) {
@@ -529,7 +530,7 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 			$transfer_args = [
 				'concurrency' => $args_assoc['concurrency'],
 				'base_dir'    => 's3://' . $instance->bucket,
-				'before'      => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $args_assoc, $progress_bar, $wpdb, $unsynced, &$downloaded ) {
+				'before'      => function ( Command $command ) use ( $args_assoc, $progress_bar, $wpdb, $unsynced, &$downloaded ) {
 					//add middleware to intercept result of each file upload
 					if ( in_array( $command->getName(), [ 'GetObject' ], true ) ) {
 						$command->getHandlerList()->appendSign(
