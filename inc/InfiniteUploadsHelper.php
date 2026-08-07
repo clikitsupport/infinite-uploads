@@ -47,6 +47,38 @@ class InfiniteUploadsHelper {
 	}
 
 	/**
+	 * Detect AWS errors that will never succeed on retry — the exception was
+	 * thrown for a reason intrinsic to the request (missing key, bad
+	 * credentials, wrong bucket name) rather than an environmental blip
+	 * (throttling, timeout, 5xx). Used by both the admin sync/download paths
+	 * and the WP-CLI download command to decide whether to retire a file
+	 * permanently vs. let the natural errors++ / errors < 3 retry loop grind.
+	 *
+	 * @param  \Exception  $e
+	 *
+	 * @return bool True if the failure won't recover on retry.
+	 */
+	public static function is_permanent_aws_failure( \Exception $e ) {
+		if ( ! method_exists( $e, 'getAwsErrorCode' ) ) {
+			return false;
+		}
+		$code = $e->getAwsErrorCode();
+		if ( ! is_string( $code ) || $code === '' ) {
+			return false;
+		}
+
+		return in_array( $code, [
+			'NoSuchKey',
+			'NoSuchBucket',
+			'AccessDenied',
+			'InvalidBucketName',
+			'InvalidRequest',
+			'InvalidBucketAclWithObjectOwnership',
+			'RequestTimeTooSkewed',
+		], true );
+	}
+
+	/**
 	 * Build the SQL fragment that carves files out of the "deletable" set
 	 * used by "Free Up Local Storage" (the delete loop + the deletable-count
 	 * stat). The fragment starts with " AND ..." so it can be concatenated

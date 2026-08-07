@@ -107,7 +107,7 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 			foreach ( $objects as $object ) {
 				\WP_CLI::line( str_replace( $prefix, '', $object['Key'] ) . "\t" . size_format( $object['Size'] ) . "\t" . $object['LastModified']->__toString() );
 			}
-		} catch ( Exception $e ) {
+		} catch ( \Exception $e ) {
 			\WP_CLI::error( $e->getMessage() );
 		}
 
@@ -186,7 +186,7 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 		try {
 			$manager = new Transfer( $s3, $from, 's3://' . InfiniteUploads::get_instance()->bucket . '/' . $to, $transfer_args );
 			$manager->transfer();
-		} catch ( Exception $e ) {
+		} catch ( \Exception $e ) {
 			\WP_CLI::error( $e->getMessage() );
 		}
 	}
@@ -291,7 +291,7 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 			try {
 				$manager = new Transfer( $s3, $from, 's3://' . $instance->bucket . '/', $transfer_args );
 				$manager->transfer();
-			} catch ( Exception $e ) {
+			} catch ( \Exception $e ) {
 				if ( method_exists( $e, 'getRequest' ) ) {
 					$file        = str_replace( trailingslashit( $instance->bucket ), '', $e->getRequest()->getRequestTarget() );
 					$error_count = $wpdb->get_var( $wpdb->prepare( "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s", $file ) );
@@ -406,7 +406,7 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 			$progress['compare_finished'] = time();
 			update_site_option( 'iup_files_scanned', $progress );
 
-		} catch ( Exception $e ) {
+		} catch ( \Exception $e ) {
 			\WP_CLI::error( $e->getMessage() );
 		}
 
@@ -556,19 +556,68 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 			try {
 				$manager = new Transfer( $s3, $from, $path['basedir'], $transfer_args );
 				$manager->transfer();
-			} catch ( Exception $e ) {
+			} catch ( \Exception $e ) {
 				if ( method_exists( $e, 'getRequest' ) ) {
-					$file        = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
-					$error_count = $wpdb->get_var( $wpdb->prepare( "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s", $file ) );
-					$error_count ++;
-					if ( $error_count >= 3 ) {
-						\WP_CLI::warning( sprintf( esc_html__( 'Error downloading %s. Retries exceeded.', 'infinite-uploads' ), $file ) );
+					$file = str_replace(
+						untrailingslashit( $path['basedir'] ),
+						'',
+						str_replace( trailingslashit( $instance->bucket ), '', $e->getRequest()->getRequestTarget() )
+					);
+
+					// Retire the file permanently when the underlying AWS
+					// error won't recover on retry (NoSuchKey, AccessDenied,
+					// etc.). Without this, one missing S3 key aborts the
+					// whole Transfer, the outer while() loop re-selects the
+					// same 1000-file batch, and every batch dies on the same
+					// bad key — the download never progresses past the first
+					// broken file. Matches InfiniteUploadsAdmin's retire
+					// logic in handle_transfer_exception / handle_download_
+					// exception; the shared helper is the single source of
+					// truth for which codes count as permanent.
+					if ( InfiniteUploadsHelper::is_permanent_aws_failure( $e ) ) {
+						$error_count = 3;
+						$wpdb->update(
+							"{$wpdb->base_prefix}infinite_uploads_files",
+							[ 'errors' => $error_count ],
+							[ 'file' => $file ]
+						);
+						\WP_CLI::warning( sprintf(
+							esc_html__( 'Retired %1$s as permanent failure (%2$s). Continuing.', 'infinite-uploads' ),
+							$file,
+							$e->getAwsErrorCode()
+						) );
 					} else {
-						\WP_CLI::warning( sprintf( esc_html__( 'Error downloading %s. Queued for retry.', 'infinite-uploads' ), $file ) );
+						$error_count = (int) $wpdb->get_var(
+							$wpdb->prepare(
+								"SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s",
+								$file
+							)
+						);
+						$error_count++;
+						if ( $error_count >= 3 ) {
+							\WP_CLI::warning( sprintf( esc_html__( 'Error downloading %s. Retries exceeded.', 'infinite-uploads' ), $file ) );
+						} else {
+							\WP_CLI::warning( sprintf( esc_html__( 'Error downloading %s. Queued for retry.', 'infinite-uploads' ), $file ) );
+						}
+						$wpdb->update(
+							"{$wpdb->base_prefix}infinite_uploads_files",
+							[ 'errors' => $error_count ],
+							[ 'file' => $file ]
+						);
 					}
-					$wpdb->update( "{$wpdb->base_prefix}infinite_uploads_files", [ 'errors' => $error_count ], [ 'file' => $file ] );
 				} else {
-					\WP_CLI::warning( sprintf( esc_html__( '%s error downloading %s. Queued for retry.', 'infinite-uploads' ), $e->getAwsErrorCode(), $file ) );
+					// No getRequest() → we can't identify the specific file.
+					// Log a generic warning and let the outer loop continue;
+					// individual files still hit the +1 retry logic via the
+					// getRequest branch on their next batch attempt.
+					// (Previously this branch referenced an undefined $file
+					// variable, producing a PHP notice on top of the real
+					// error.)
+					$code = method_exists( $e, 'getAwsErrorCode' ) ? $e->getAwsErrorCode() : 'Unknown';
+					\WP_CLI::warning( sprintf(
+						esc_html__( 'Download batch error (%s). Continuing.', 'infinite-uploads' ),
+						$code
+					) );
 				}
 			}
 
@@ -632,7 +681,7 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 				]
 			);
 
-		} catch ( Exception $e ) {
+		} catch ( \Exception $e ) {
 			\WP_CLI::error( $e->getMessage() );
 		}
 

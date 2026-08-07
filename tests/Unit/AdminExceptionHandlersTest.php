@@ -31,6 +31,7 @@ namespace ClikIT\InfiniteUploads\Tests\Unit;
 
 use Brain\Monkey\Functions;
 use ClikIT\InfiniteUploads\InfiniteUploadsAdmin;
+use ClikIT\InfiniteUploads\InfiniteUploadsHelper;
 use ClikIT\InfiniteUploads\Tests\TestCase;
 use Mockery;
 use ReflectionClass;
@@ -57,7 +58,9 @@ class AdminExceptionHandlersTest extends TestCase {
 		parent::setUp();
 
 		// Load the class without executing constructor side effects
-		// (add_action wiring, WP function calls, etc.).
+		// (add_action wiring, WP function calls, etc.). Also load the
+		// helper — the handlers delegate to it for retire decisions.
+		require_once IU_PLUGIN_ROOT . '/inc/InfiniteUploadsHelper.php';
 		require_once IU_PLUGIN_ROOT . '/inc/InfiniteUploadsAdmin.php';
 
 		$this->reflection = new ReflectionClass( InfiniteUploadsAdmin::class );
@@ -155,7 +158,7 @@ class AdminExceptionHandlersTest extends TestCase {
 	public function test_is_permanent_aws_failure_true_for_known_permanent_codes( string $code ): void {
 		$aws_exception = $this->build_aws_exception( '/bucket/f', $code );
 		$this->assertTrue(
-			$this->invoke_private( 'is_permanent_aws_failure', [ $aws_exception ] ),
+			InfiniteUploadsHelper::is_permanent_aws_failure( $aws_exception ),
 			"AWS code {$code} should be classified as permanent failure"
 		);
 	}
@@ -178,7 +181,7 @@ class AdminExceptionHandlersTest extends TestCase {
 	public function test_is_permanent_aws_failure_false_for_transient_or_unknown_codes( string $code ): void {
 		$aws_exception = $this->build_aws_exception( '/bucket/f', $code );
 		$this->assertFalse(
-			$this->invoke_private( 'is_permanent_aws_failure', [ $aws_exception ] )
+			InfiniteUploadsHelper::is_permanent_aws_failure( $aws_exception )
 		);
 	}
 
@@ -195,14 +198,14 @@ class AdminExceptionHandlersTest extends TestCase {
 	public function test_is_permanent_aws_failure_false_for_non_aws_exception(): void {
 		// Plain \Exception — no getAwsErrorCode method.
 		$this->assertFalse(
-			$this->invoke_private( 'is_permanent_aws_failure', [ new \Exception( 'plain' ) ] )
+			InfiniteUploadsHelper::is_permanent_aws_failure( new \Exception( 'plain' ) )
 		);
 	}
 
 	public function test_is_permanent_aws_failure_false_for_empty_or_non_string_code(): void {
 		$empty_string_code = $this->build_aws_exception( '/bucket/f', '' );
 		$this->assertFalse(
-			$this->invoke_private( 'is_permanent_aws_failure', [ $empty_string_code ] )
+			InfiniteUploadsHelper::is_permanent_aws_failure( $empty_string_code )
 		);
 	}
 
