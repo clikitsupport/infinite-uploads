@@ -355,7 +355,7 @@ class InfiniteUploadsAdmin {
         $transfer_args = [
                 'concurrency' => INFINITE_UPLOADS_SYNC_CONCURRENCY,
                 'base_dir'    => 's3://' . $this->iup_instance->bucket,
-                'before'      => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$downloaded ) {//add middleware to intercept result of each file upload
+                'before'      => function ( Command $command ) use ( $wpdb, &$downloaded ) {//add middleware to intercept result of each file upload
                     if ( in_array( $command->getName(), [ 'GetObject' ], true ) ) {
                         $command->getHandlerList()->appendSign(
                                 Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, &$downloaded ) {
@@ -370,7 +370,7 @@ class InfiniteUploadsAdmin {
         try {
             $manager = new Transfer( $s3, $from, $path['basedir'], $transfer_args );
             $manager->transfer();
-        } catch ( Exception $e ) {
+        } catch ( \Exception $e ) {
             //echo $e->__toString();
             if ( method_exists( $e, 'getRequest' ) ) {
                 $file        = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
@@ -417,7 +417,7 @@ class InfiniteUploadsAdmin {
             $transfer_args = [
                     'concurrency' => $concurrency,
                     'base_dir'    => $path['basedir'],
-                    'before'      => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
+                    'before'      => function ( Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
                         //add middleware to modify object headers
                         if ( in_array( $command->getName(), [ 'PutObject', 'CreateMultipartUpload' ], true ) ) {
                             /// Expires:
@@ -443,7 +443,7 @@ class InfiniteUploadsAdmin {
             try {
                 $manager = new Transfer( $s3, $from, 's3://' . $this->iup_instance->bucket . '/', $transfer_args );
                 $manager->transfer();
-            } catch ( Exception $e ) {
+            } catch ( \Exception $e ) {
                 $this->sync_debug_log( "Transfer sync exception: " . $e->__toString() );
                 //echo $e->__toString();
                 if ( method_exists( $e, 'getRequest' ) ) {
@@ -661,7 +661,7 @@ class InfiniteUploadsAdmin {
             }
 
             wp_send_json_success( $data );
-        } catch ( Exception $e ) {
+        } catch ( \Exception $e ) {
             wp_send_json_error( $e->getMessage() );
         }
     }
@@ -785,19 +785,12 @@ class InfiniteUploadsAdmin {
                 try {
                     $manager = new Transfer( $s3, $from, 's3://' . $this->iup_instance->bucket . '/', $transfer_args );
                     $manager->transfer();
-                } catch ( Exception $e ) {
-                    $this->sync_debug_log( "Transfer sync exception: " . $e->__toString() );
-                    if ( method_exists( $e, 'getRequest' ) ) {
-                        $file        = str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() );
-                        $error_count = $wpdb->get_var( $wpdb->prepare( "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s", $file ) );
-                        if ( $error_count >= 3 ) {
-                            $errors[] = sprintf( esc_html__( 'Error uploading %s. Retries exceeded.', 'infinite-uploads' ), $file );
-                        } else {
-                            $errors[] = sprintf( esc_html__( 'Error uploading %s. Queued for retry.', 'infinite-uploads' ), $file );
-                        }
-                    } else { //I don't know which error case trigger this but it's common
-                        $errors[] = esc_html__( 'Error uploading file. Queued for retry.', 'infinite-uploads' );
-                    }
+                } catch ( \Exception $e ) {
+                    // Route through the shared handler so this catch benefits
+                    // from the permanent-failure retire logic (bumps errors to
+                    // 3 on NoSuchKey / AccessDenied / etc. so one bad key
+                    // doesn't keep aborting batches of healthy files).
+                    $this->handle_transfer_exception( $wpdb, $e, $errors );
                 }
 
             } else { // we are done with transfer manager, continue any unfinished multipart uploads one by one
@@ -822,7 +815,7 @@ class InfiniteUploadsAdmin {
                         $uploader      = new MultipartUploader( $s3, $source, [
                                 'concurrency'   => INFINITE_UPLOADS_SYNC_MULTIPART_CONCURRENCY,
                                 'state'         => $upload_state,
-                                'before_upload' => function ( \ClikIT\Infinite_Uploads\Aws\Command $command ) use ( &$parts_started, $uploaded, $errors ) {
+                                'before_upload' => function ( \Command $command ) use ( &$parts_started, $uploaded, $errors ) {
                                     $this->sync_debug_log( "Uploading key {$command['Key']} part {$command['PartNumber']}" );
 
                                     $command->getHandlerList()->appendSign(
@@ -846,7 +839,7 @@ class InfiniteUploadsAdmin {
                             } catch ( MultipartUploadException $e ) {
                                 $uploader = new MultipartUploader( $s3, $source, [
                                         'state'         => $e->getState(),
-                                        'before_upload' => function ( ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb ) {
+                                        'before_upload' => function ( Command $command ) use ( $wpdb ) {
                                             $this->sync_debug_log( "Uploading key {$command['Key']} part {$command['PartNumber']}" );
                                             $command->getHandlerList()->appendSign(
                                                     Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, $command ) {
@@ -892,13 +885,12 @@ class InfiniteUploadsAdmin {
                             }
                         }
 
-                    } catch ( Exception $e ) {
-                        $this->sync_debug_log( "Get multipart UploadState exception: " . $e->__toString() );
-                        if ( ( $to_sync->errors ) >= 3 ) {
-                            $errors[] = sprintf( esc_html__( 'Error uploading %s. Retries exceeded.', 'infinite-uploads' ), $to_sync->file );
-                        } else {
-                            $errors[] = sprintf( esc_html__( 'Error uploading %s. Queued for retry.', 'infinite-uploads' ), $to_sync->file );
-                        }
+                    } catch ( \Exception $e ) {
+                        // Route through the shared handler for permanent-
+                        // failure retire (NoSuchKey / AccessDenied bump the
+                        // file's errors to 3 immediately, freeing subsequent
+                        // multipart passes from re-attempting a doomed key).
+                        $this->handle_multipart_exception( $wpdb, $to_sync, $e, $errors );
                     }
 
                 } else {
@@ -1101,7 +1093,7 @@ class InfiniteUploadsAdmin {
                     $transfer_args
             );
             $manager->transfer();
-        } catch ( Exception $e ) {
+        } catch ( \Exception $e ) {
             $this->handle_transfer_exception( $wpdb, $e, $errors );
         }
     }
@@ -1170,7 +1162,7 @@ class InfiniteUploadsAdmin {
             // Handle multipart upload with retry logic
             $result = $this->execute_multipart_upload( $wpdb, $uploader, $s3, $source, $to_sync, $uploaded, $errors );
 
-        } catch ( Exception $e ) {
+        } catch ( \Exception $e ) {
             $this->handle_multipart_exception( $wpdb, $to_sync, $e, $errors );
         }
     }
@@ -1267,9 +1259,19 @@ class InfiniteUploadsAdmin {
     }
 
     /**
-     * SECURITY: Centralized exception handling with proper error messages
+     * SECURITY: Centralized exception handling with proper error messages.
+     *
+     * The batch upload path pre-increments `errors` for every file in a batch
+     * BEFORE the Transfer starts and only resets on per-file success. On any
+     * mid-batch exception the whole Transfer aborts, so batch-buddies never
+     * get an attempt — they'd otherwise silently climb errors → 3 → retired,
+     * despite never having been given a clean try. When the exception names
+     * a specific file AND the failure is one that won't improve on retry
+     * (NoSuchKey, AccessDenied, etc.), retire just THAT file immediately by
+     * bumping its errors to 3, so the next batch's `WHERE errors < 3` select
+     * excludes it and the healthy buddies get a fresh attempt.
      */
-    private function handle_transfer_exception( $wpdb, Exception $e, &$errors ) {
+    private function handle_transfer_exception( $wpdb, \Exception $e, &$errors ) {
         $this->sync_debug_log( "Transfer sync exception: " . $e->getMessage() );
 
         if ( method_exists( $e, 'getRequest' ) ) {
@@ -1278,6 +1280,21 @@ class InfiniteUploadsAdmin {
                     '',
                     $e->getRequest()->getRequestTarget()
             );
+
+            if ( InfiniteUploadsHelper::is_permanent_aws_failure( $e ) ) {
+                $wpdb->update(
+                        "{$wpdb->base_prefix}infinite_uploads_files",
+                        [ 'errors' => 3 ],
+                        [ 'file' => $file ],
+                        [ '%d' ],
+                        [ '%s' ]
+                );
+                $this->sync_debug_log( sprintf(
+                        'Retired %s as permanent failure (%s)',
+                        $file,
+                        $e->getAwsErrorCode()
+                ) );
+            }
 
             $error_count = (int) $wpdb->get_var(
                     $wpdb->prepare(
@@ -1297,10 +1314,28 @@ class InfiniteUploadsAdmin {
     }
 
     /**
-     * Handle multipart exception with proper cleanup
+     * Handle multipart exception with proper cleanup. Retires the file
+     * permanently when the underlying AWS error is one that won't recover on
+     * retry — see handle_transfer_exception() for the reasoning.
      */
-    private function handle_multipart_exception( $wpdb, $to_sync, Exception $e, &$errors ) {
+    private function handle_multipart_exception( $wpdb, $to_sync, \Exception $e, &$errors ) {
         $this->sync_debug_log( "Multipart upload exception: " . $e->getMessage() );
+
+        if ( InfiniteUploadsHelper::is_permanent_aws_failure( $e ) ) {
+            $wpdb->update(
+                    "{$wpdb->base_prefix}infinite_uploads_files",
+                    [ 'errors' => 3 ],
+                    [ 'file' => $to_sync->file ],
+                    [ '%d' ],
+                    [ '%s' ]
+            );
+            $to_sync->errors = 3;
+            $this->sync_debug_log( sprintf(
+                    'Retired %s as permanent multipart failure (%s)',
+                    $to_sync->file,
+                    $e->getAwsErrorCode()
+            ) );
+        }
 
         $message = $to_sync->errors >= 3
                 ? sprintf( esc_html__( 'Error uploading %s. Retries exceeded.', 'infinite-uploads' ), esc_html( $to_sync->file ) )
@@ -1320,13 +1355,12 @@ class InfiniteUploadsAdmin {
         $errors  = [];
         $path    = $this->iup_instance->get_original_upload_dir_root();
         $break   = false;
-        // SQL-side carve-out: BB cache images are offloaded for CDN delivery but must
-        // STAY on local disk too — if we delete them, Beaver Builder will regenerate
-        // them on the next request, creating a churn cycle (new file → sync → delete →
-        // regen). Skipping at the SELECT level keeps the loop progressing (no infinite
-        // re-fetch of unprocessed rows) and matches the carve-out applied at scan time
-        // in InfiniteUploadsHelper::is_offloadable_bb_cache_image().
-        $carve_out_sql = " AND file NOT LIKE '%/bb-plugin/cache/%'";
+        // SQL-side carve-outs: BB cache images (regeneration churn) and user-excluded
+        // paths (rewriter serves the LOCAL URL, so removing the local copy would 404
+        // the media). Applied at SELECT level so the loop progresses and the count
+        // matches the actual delete targets. See
+        // InfiniteUploadsHelper::deletable_files_where_carveout().
+        $carve_out_sql = InfiniteUploadsHelper::deletable_files_where_carveout();
         while ( ! $break ) {
             $to_delete = $wpdb->get_col( "SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 0{$carve_out_sql} LIMIT 500" );
             foreach ( $to_delete as $file ) {
@@ -1385,12 +1419,18 @@ class InfiniteUploadsAdmin {
             $this->ajax_timelimit = max( 20, floor( $max_execution_time * 0.6666 ) );
         }
 
+        // Match the ajax_delete_old carve-outs so BB cache images (churn) and
+        // user-excluded paths (rewriter serves the LOCAL URL — deleting the
+        // local copy would 404 the media) stay on disk. See
+        // InfiniteUploadsHelper::deletable_files_where_carveout().
+        $carve_out_sql = InfiniteUploadsHelper::deletable_files_where_carveout();
+
         while ( ! $break ) {
             // PERFORMANCE: Optimized query with proper preparation
             $to_delete = $wpdb->get_results(
                     $wpdb->prepare(
-                            "SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files` 
-                WHERE synced = 1 AND deleted = 0 
+                            "SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files`
+                WHERE synced = 1 AND deleted = 0{$carve_out_sql}
                 LIMIT %d",
                             $batch_size
                     ),
@@ -1406,8 +1446,8 @@ class InfiniteUploadsAdmin {
 
                 // PERFORMANCE: More efficient count check
                 $remaining = (int) $wpdb->get_var(
-                        "SELECT COUNT(*) FROM `{$wpdb->base_prefix}infinite_uploads_files` 
-                WHERE synced = 1 AND deleted = 0"
+                        "SELECT COUNT(*) FROM `{$wpdb->base_prefix}infinite_uploads_files`
+                WHERE synced = 1 AND deleted = 0{$carve_out_sql}"
                 );
 
                 $is_done = ( $remaining === 0 );
@@ -1661,7 +1701,7 @@ class InfiniteUploadsAdmin {
             try {
                 $manager = new Transfer( $s3, $from, $path['basedir'], $transfer_args );
                 $manager->transfer();
-            } catch ( Exception $e ) {
+            } catch ( \Exception $e ) {
                 if ( method_exists( $e, 'getRequest' ) ) {
                     $file        = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
                     $error_count = $wpdb->get_var( $wpdb->prepare( "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s", $file ) );
@@ -2006,7 +2046,7 @@ class InfiniteUploadsAdmin {
      * @param  string     $bucket  S3 bucket name
      * @param  array     &$errors  Array of error messages (by reference)
      */
-    private function handle_download_exception( $wpdb, Exception $e, $path, $bucket, &$errors ) {
+    private function handle_download_exception( $wpdb, \Exception $e, $path, $bucket, &$errors ) {
         $this->sync_debug_log( "Download exception: " . $e->getMessage() );
 
         if ( method_exists( $e, 'getRequest' ) ) {
@@ -2021,9 +2061,29 @@ class InfiniteUploadsAdmin {
             // SECURITY: Sanitize file name for output
             $file = ltrim( $file, '/' );
 
+            // Retire the file permanently when the underlying AWS error won't
+            // improve on retry (e.g. NoSuchKey — S3 doesn't have it, so no
+            // amount of retrying will produce it). Otherwise the file stays
+            // eligible for the next batch, poisoning batch-buddies every
+            // time. See handle_transfer_exception() for the full rationale.
+            if ( InfiniteUploadsHelper::is_permanent_aws_failure( $e ) ) {
+                $wpdb->update(
+                        "{$wpdb->base_prefix}infinite_uploads_files",
+                        [ 'errors' => 3 ],
+                        [ 'file' => $file ],
+                        [ '%d' ],
+                        [ '%s' ]
+                );
+                $this->sync_debug_log( sprintf(
+                        'Retired %s as permanent download failure (%s)',
+                        $file,
+                        $e->getAwsErrorCode()
+                ) );
+            }
+
             $error_count = (int) $wpdb->get_var(
                     $wpdb->prepare(
-                            "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` 
+                            "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files`
                 WHERE file = %s",
                             $file
                     )
@@ -3059,7 +3119,7 @@ class InfiniteUploadsAdmin {
                 update_site_option( 'iup_dirs_to_downloads', '' );
                 as_schedule_single_action( time(), 'infinite-uploads-do-download' );
             }
-        } catch ( Exception $e ) {
+        } catch ( \Exception $e ) {
             wp_send_json_error( $e->getMessage() );
         }
 
@@ -3067,6 +3127,14 @@ class InfiniteUploadsAdmin {
 
     public function do_download() {
         global $wpdb;
+
+        // Bail before touching S3. On a site that has never connected (or has
+        // since disconnected), key/secret/region are never populated, and
+        // building the S3 client throws an uncaught InvalidArgumentException
+        // that kills the whole Action Scheduler run.
+        if ( ! $this->api->has_token() || ! $this->api->get_site_data() ) {
+            return;
+        }
 
         $downloaded = 0;
         $errors     = [];
@@ -3102,7 +3170,7 @@ class InfiniteUploadsAdmin {
             $transfer_args = [
                     'concurrency' => INFINITE_UPLOADS_SYNC_CONCURRENCY,
                     'base_dir'    => 's3://' . $this->iup_instance->bucket,
-                    'before'      => function ( \ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$downloaded ) {//add middleware to intercept result of each file upload
+                    'before'      => function ( \Command $command ) use ( $wpdb, &$downloaded ) {//add middleware to intercept result of each file upload
                         if ( in_array( $command->getName(), [ 'GetObject' ], true ) ) {
                             $command->getHandlerList()->appendSign(
                                     Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, &$downloaded ) {
@@ -3123,7 +3191,7 @@ class InfiniteUploadsAdmin {
             try {
                 $manager = new Transfer( $s3, $from, $path['basedir'], $transfer_args );
                 $manager->transfer();
-            } catch ( Exception $e ) {
+            } catch ( \Exception $e ) {
                 if ( method_exists( $e, 'getRequest' ) ) {
                     $file = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
                     // TODO: Remove file from the download list if 404.
@@ -3157,6 +3225,17 @@ class InfiniteUploadsAdmin {
 
     public function do_sync() {
         global $wpdb;
+
+        // Bail before touching S3. do_sync() is hooked to a daily cron event
+        // scheduled unconditionally in the constructor (no connection check),
+        // so it fires on every site regardless of whether it has ever
+        // connected. On a site that has never connected (or has since
+        // disconnected), key/secret/region are never populated, and building
+        // the S3 client throws an uncaught InvalidArgumentException that
+        // kills the whole wp-cron run.
+        if ( ! $this->api->has_token() || ! $this->api->get_site_data() ) {
+            return;
+        }
 
         //this loop has a parallel status check, so we make the timeout 2/3 of max execution time.
         $timelimit = max( 20, floor( ini_get( 'max_execution_time' ) * .6666 ) );
@@ -3193,7 +3272,7 @@ class InfiniteUploadsAdmin {
                 $transfer_args = [
                         'concurrency' => $concurrency,
                         'base_dir'    => $path['basedir'],
-                        'before'      => function ( \ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
+                        'before'      => function ( \Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
                             //add middleware to modify object headers
                             if ( in_array( $command->getName(), [ 'PutObject', 'CreateMultipartUpload' ], true ) ) {
                                 /// Expires:
@@ -3264,19 +3343,12 @@ class InfiniteUploadsAdmin {
                 try {
                     $manager = new Transfer( $s3, $from, 's3://' . $this->iup_instance->bucket . '/', $transfer_args );
                     $manager->transfer();
-                } catch ( Exception $e ) {
-                    $this->sync_debug_log( "Transfer sync exception: " . $e->__toString() );
-                    if ( method_exists( $e, 'getRequest' ) ) {
-                        $file        = str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() );
-                        $error_count = $wpdb->get_var( $wpdb->prepare( "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s", $file ) );
-                        if ( $error_count >= 3 ) {
-                            $errors[] = sprintf( esc_html__( 'Error uploading %s. Retries exceeded.', 'infinite-uploads' ), $file );
-                        } else {
-                            $errors[] = sprintf( esc_html__( 'Error uploading %s. Queued for retry.', 'infinite-uploads' ), $file );
-                        }
-                    } else { //I don't know which error case trigger this but it's common
-                        $errors[] = esc_html__( 'Error uploading file. Queued for retry.', 'infinite-uploads' );
-                    }
+                } catch ( \Exception $e ) {
+                    // Route through the shared handler so this catch benefits
+                    // from the permanent-failure retire logic (bumps errors to
+                    // 3 on NoSuchKey / AccessDenied / etc. so one bad key
+                    // doesn't keep aborting batches of healthy files).
+                    $this->handle_transfer_exception( $wpdb, $e, $errors );
                 }
 
             } else { // we are done with transfer manager, continue any unfinished multipart uploads one by one
@@ -3301,7 +3373,7 @@ class InfiniteUploadsAdmin {
                         $uploader      = new MultipartUploader( $s3, $source, [
                                 'concurrency'   => INFINITE_UPLOADS_SYNC_MULTIPART_CONCURRENCY,
                                 'state'         => $upload_state,
-                                'before_upload' => function ( \ClikIT\Infinite_Uploads\Aws\Command $command ) use ( &$parts_started, $uploaded, $errors ) {
+                                'before_upload' => function ( \Command $command ) use ( &$parts_started, $uploaded, $errors ) {
                                     $this->sync_debug_log( "Uploading key {$command['Key']} part {$command['PartNumber']}" );
 
                                     $command->getHandlerList()->appendSign(
@@ -3325,7 +3397,7 @@ class InfiniteUploadsAdmin {
                             } catch ( MultipartUploadException $e ) {
                                 $uploader = new MultipartUploader( $s3, $source, [
                                         'state'         => $e->getState(),
-                                        'before_upload' => function ( \ClikIT\Infinite_Uploads\Aws\Command $command ) use ( $wpdb ) {
+                                        'before_upload' => function ( \Command $command ) use ( $wpdb ) {
                                             $this->sync_debug_log( "Uploading key {$command['Key']} part {$command['PartNumber']}" );
                                             $command->getHandlerList()->appendSign(
                                                     Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, $command ) {
@@ -3371,13 +3443,12 @@ class InfiniteUploadsAdmin {
                             }
                         }
 
-                    } catch ( Exception $e ) {
-                        $this->sync_debug_log( "Get multipart UploadState exception: " . $e->__toString() );
-                        if ( ( $to_sync->errors ) >= 3 ) {
-                            $errors[] = sprintf( esc_html__( 'Error uploading %s. Retries exceeded.', 'infinite-uploads' ), $to_sync->file );
-                        } else {
-                            $errors[] = sprintf( esc_html__( 'Error uploading %s. Queued for retry.', 'infinite-uploads' ), $to_sync->file );
-                        }
+                    } catch ( \Exception $e ) {
+                        // Route through the shared handler for permanent-
+                        // failure retire (NoSuchKey / AccessDenied bump the
+                        // file's errors to 3 immediately, freeing subsequent
+                        // multipart passes from re-attempting a doomed key).
+                        $this->handle_multipart_exception( $wpdb, $to_sync, $e, $errors );
                     }
 
                 } else {

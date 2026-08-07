@@ -47,6 +47,68 @@ class InfiniteUploadsHelper {
 	}
 
 	/**
+	 * Detect AWS errors that will never succeed on retry — the exception was
+	 * thrown for a reason intrinsic to the request (missing key, bad
+	 * credentials, wrong bucket name) rather than an environmental blip
+	 * (throttling, timeout, 5xx). Used by both the admin sync/download paths
+	 * and the WP-CLI download command to decide whether to retire a file
+	 * permanently vs. let the natural errors++ / errors < 3 retry loop grind.
+	 *
+	 * @param  \Exception  $e
+	 *
+	 * @return bool True if the failure won't recover on retry.
+	 */
+	public static function is_permanent_aws_failure( \Exception $e ) {
+		if ( ! method_exists( $e, 'getAwsErrorCode' ) ) {
+			return false;
+		}
+		$code = $e->getAwsErrorCode();
+		if ( ! is_string( $code ) || $code === '' ) {
+			return false;
+		}
+
+		return in_array( $code, [
+			'NoSuchKey',
+			'NoSuchBucket',
+			'AccessDenied',
+			'InvalidBucketName',
+			'InvalidRequest',
+			'InvalidBucketAclWithObjectOwnership',
+			'RequestTimeTooSkewed',
+		], true );
+	}
+
+	/**
+	 * Build the SQL fragment that carves files out of the "deletable" set
+	 * used by "Free Up Local Storage" (the delete loop + the deletable-count
+	 * stat). The fragment starts with " AND ..." so it can be concatenated
+	 * directly after a `WHERE synced = 1 AND deleted = 0` clause.
+	 *
+	 * Two things must stay on local disk even after they're synced:
+	 *
+	 * 1. Beaver Builder cache images (`/bb-plugin/cache/`) — BB regenerates
+	 *    missing files on the next request, creating a sync/delete churn
+	 *    (new file → scan → sync → free-up-deletes → regen → repeat).
+	 *
+	 * 2. User-excluded paths — the rewriter is told to serve the LOCAL URL
+	 *    for excluded files; deleting the local copy while keeping the row
+	 *    marked synced produces 404 media until the file is re-downloaded.
+	 *
+	 * @return string SQL fragment (prefixed with " AND ...") safe to append
+	 *                to an existing WHERE clause.
+	 */
+	public static function deletable_files_where_carveout() {
+		global $wpdb;
+
+		$sql = " AND file NOT LIKE '%/bb-plugin/cache/%'";
+		foreach ( self::get_excluded_paths() as $ex ) {
+			$sql .= $wpdb->prepare( ' AND file NOT LIKE %s', '%' . $wpdb->esc_like( $ex ) . '%' );
+		}
+
+		return $sql;
+	}
+
+	/**
 	 * Get the list of excluded files from the WordPress option.
 	 *
 	 * @return array|false An array of excluded file paths.
