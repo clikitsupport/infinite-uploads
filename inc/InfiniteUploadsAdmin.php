@@ -1259,37 +1259,6 @@ class InfiniteUploadsAdmin {
     }
 
     /**
-     * Detect AWS errors that will never succeed on retry — the exception was
-     * thrown for a reason intrinsic to the request (missing key, bad
-     * credentials, wrong bucket name) rather than an environmental blip
-     * (throttling, timeout, 5xx). Used to decide whether to retire a file
-     * permanently vs. let the natural errors++ / errors < 3 retry loop grind.
-     *
-     * @param  \Exception  $e
-     *
-     * @return bool
-     */
-    private function is_permanent_aws_failure( \Exception $e ) {
-        if ( ! method_exists( $e, 'getAwsErrorCode' ) ) {
-            return false;
-        }
-        $code = $e->getAwsErrorCode();
-        if ( ! is_string( $code ) || $code === '' ) {
-            return false;
-        }
-
-        return in_array( $code, [
-            'NoSuchKey',
-            'NoSuchBucket',
-            'AccessDenied',
-            'InvalidBucketName',
-            'InvalidRequest',
-            'InvalidBucketAclWithObjectOwnership',
-            'RequestTimeTooSkewed',
-        ], true );
-    }
-
-    /**
      * SECURITY: Centralized exception handling with proper error messages.
      *
      * The batch upload path pre-increments `errors` for every file in a batch
@@ -1312,7 +1281,7 @@ class InfiniteUploadsAdmin {
                     $e->getRequest()->getRequestTarget()
             );
 
-            if ( $this->is_permanent_aws_failure( $e ) ) {
+            if ( InfiniteUploadsHelper::is_permanent_aws_failure( $e ) ) {
                 $wpdb->update(
                         "{$wpdb->base_prefix}infinite_uploads_files",
                         [ 'errors' => 3 ],
@@ -1352,7 +1321,7 @@ class InfiniteUploadsAdmin {
     private function handle_multipart_exception( $wpdb, $to_sync, \Exception $e, &$errors ) {
         $this->sync_debug_log( "Multipart upload exception: " . $e->getMessage() );
 
-        if ( $this->is_permanent_aws_failure( $e ) ) {
+        if ( InfiniteUploadsHelper::is_permanent_aws_failure( $e ) ) {
             $wpdb->update(
                     "{$wpdb->base_prefix}infinite_uploads_files",
                     [ 'errors' => 3 ],
@@ -2097,7 +2066,7 @@ class InfiniteUploadsAdmin {
             // amount of retrying will produce it). Otherwise the file stays
             // eligible for the next batch, poisoning batch-buddies every
             // time. See handle_transfer_exception() for the full rationale.
-            if ( $this->is_permanent_aws_failure( $e ) ) {
+            if ( InfiniteUploadsHelper::is_permanent_aws_failure( $e ) ) {
                 $wpdb->update(
                         "{$wpdb->base_prefix}infinite_uploads_files",
                         [ 'errors' => 3 ],
