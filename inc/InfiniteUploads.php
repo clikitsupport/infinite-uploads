@@ -1952,6 +1952,21 @@ class InfiniteUploads {
         // cache. See alm_cache_path() for why this one is written against the
         // published filter rather than the (commercial) add-on source.
         add_filter( 'alm_cache_path', [ $this, 'alm_cache_path' ] );
+
+        // WP All Import Pro: its Function Editor writes a PHP file to
+        // uploads/wpallimport/functions.php and loads it with require_once() on
+        // every admin request that renders an import screen. Same
+        // allow_url_include wall as WP Webhooks Pro above, but this one fatals
+        // in the admin rather than on the front end, which locks the user out
+        // of All Import entirely. `import_functions_file_path` (verified in Pro
+        // 4.11) is applied at all four sites that touch the file --
+        // setup_allimport_dir()'s @touch, CodeBox::requireFunctionsFile()'s
+        // require_once, CodeBox::revertToFunctionsFile()'s rename, and the
+        // wp_ajax_save_import_functions save handler -- so this single filter
+        // covers create, read, write and revert. The _backup.php sibling is
+        // derived from the filtered value, so it follows automatically.
+        // /wpallimport/ is in our sync exclusions so the whole tree stays local.
+        add_filter( 'import_functions_file_path', [ $this, 'wpai_functions_file_path' ] );
     }
 
     /**
@@ -2102,6 +2117,32 @@ class InfiniteUploads {
     }
 
     /**
+     * Map the WP All Import Pro functions file from the iu:// stream wrapper
+     * back to the original local uploads path.
+     *
+     * WP All Import builds this as uploads/wpallimport/functions.php from
+     * wp_upload_dir() and require_once()s it from
+     * Wpai\Integrations\CodeBox::requireFunctionsFile() on admin_init, so a
+     * cloud-backed path takes down every All Import admin screen with
+     * "iu:// wrapper is disabled in the server configuration by
+     * allow_url_include=0" rather than failing quietly.
+     *
+     * The filter also fires on the create/save/revert paths, so the file is
+     * authored on local disk in the first place and never lands in the bucket.
+     * The free WP All Import has no Function Editor and never applies this
+     * filter, so that install is unaffected.
+     *
+     * Hooked to `import_functions_file_path`.
+     *
+     * @param string $functions Absolute path to WP All Import's functions.php.
+     *
+     * @return string Local-disk equivalent of $functions, or $functions unchanged.
+     */
+    public function wpai_functions_file_path( $functions ) {
+        return $this->cloud_path_to_local( $functions );
+    }
+
+    /**
      * Merge the user's own excluded-paths list (option `iup_excluded_files`)
      * into the sync-exclusion filter. This is what makes full re-scans stop
      * queuing user-excluded files for upload; per-file un-exclude still
@@ -2143,6 +2184,13 @@ class InfiniteUploads {
         // Ajax Load More Cache add-on's per-query static cache — local-only,
         // and pointless to sync. See alm_cache_path().
         $exclusions[] = '/alm-cache/';
+        // WP All Import Pro's working tree. functions.php must stay local
+        // because PHP can't require_once() through the iu:// wrapper (see
+        // wpai_functions_file_path()), and the sibling logs/, files/, temp/,
+        // uploads/ and history/ folders are import scratch space: chunked
+        // writes, large source files and per-run logs that are churn to sync
+        // and are deleted again once the import finishes.
+        $exclusions[] = '/wpallimport/';
 
         return $exclusions;
     }
