@@ -176,7 +176,8 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 3.3.1
 -------------
 
-* Fixed several rare crashes that could stop the plugin from loading or interrupt uploads, downloads, and the daily background sync.
+* Update: WP All Import Pro compatibility.
+* Fixed: Several rare crashes that could stop the plugin from loading or interrupt uploads, downloads, and the daily background sync.
 * Fixed: One problem file no longer stops the entire upload or download batch — missing or unreachable files are automatically skipped so the rest of your library keeps syncing.
 * Fixed: "Free Up Local Storage" no longer deletes local copies of files you've excluded from CDN delivery.
 * Fixed: Removing a single file from your exclusion list now correctly re-uploads it to the cloud.
