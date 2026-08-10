@@ -1,6 +1,7 @@
 /.git
 /.github
 /.wordpress-org
+/.claude
 bin
 node_modules
 tests
@@ -18,3 +19,8 @@ phpunit.xml.dist
 README.md
 build-aws3.sh
 webpack.config.js
+playwright.config.js
+playwright.config.ts
+.wp-env.json
+AGENTS.md
+CLAUDE.md

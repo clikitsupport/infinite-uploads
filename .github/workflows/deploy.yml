@@ -90,7 +90,7 @@ jobs:
             -o -name "readme.md" -o -name "gulpfile.js" -o -name "build-aws3.sh" \
             -o -name "AGENTS.md" -o -name "CLAUDE.md" \
             -o -name "AGENTS.md" -o -name "travis.yml" -o -name ".phpcsignore" \
-            -o -name "webpack.config.js" \
+            -o -name "webpack.config.js" -o -name "playwright.config.js" \
           \) -delete
           find . -type d \( -name "tests" -o -name "bin" \) -exec rm -rf {} +
           find . -mindepth 1 -name ".*" -exec rm -rf {} +

@@ -92,7 +92,7 @@ jobs:
             -o -name "readme.md" -o -name "gulpfile.js" -o -name "deploy.sh" \
             -o -name "postcss.config.js" -o -name "tailwind.config.js" -o -name "deploy.sh" -o -name "Gruntfile.js" \
             -o -name "webpack.config.js" -o -name "CLAUDE.md" -o -name "openapi.json" \
-            -o -name "build-aws3.sh" \
+            -o -name "build-aws3.sh" -o -name "playwright.config.js" \
             -o -name "AGENTS.md" -o -name "travis.yml" -o -name ".phpcsignore" \
           \) -delete
           find . -type d \( -name "tests" -o -name "bin" \) -exec rm -rf {} +

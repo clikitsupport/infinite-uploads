@@ -2,7 +2,7 @@
 
 Requires at least: 6.0
 Tested up to: 7.0
-Stable tag: 3.3.0
+Stable tag: 3.3.1
 Requires PHP: 8.0
 Contributors: bww
 Tags: media library, image optimization, uploads, cloud storage, cdn
@@ -173,6 +173,16 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Upgrade Notice ==
 
+3.3.1
+-------------
+
+* Fixed several rare crashes that could stop the plugin from loading or interrupt uploads, downloads, and the daily background sync.
+* Fixed: One problem file no longer stops the entire upload or download batch — missing or unreachable files are automatically skipped so the rest of your library keeps syncing.
+* Fixed: "Free Up Local Storage" no longer deletes local copies of files you've excluded from CDN delivery.
+* Fixed: Removing a single file from your exclusion list now correctly re-uploads it to the cloud.
+* Fixed: Compatibility with the Ajax Load More plugin.
+* Fixed: The Media Folders sidebar no longer overlaps the "All media items" filter in the media library toolbar.
+
 3.3.0
 -------------
 
@@ -192,6 +202,19 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * Update: Added support to get the IU CDN url and prefix for the EWWW Image Optimizer so JS WebP and Picture WebP rewriting work automatically.
 
 == Changelog ==
+
+3.3.1
+----------------------------------------------------------------------
+
+* Fixed: A rare crash that could stop the plugin from loading on some installations after an update.
+* Fixed: Upload and download operations now recover gracefully when a specific file can't be transferred. Previously, one missing or unreachable file could halt the whole batch. Problem files are automatically skipped and the rest of your library continues syncing.
+* Fixed: The `wp infinite-uploads download` command no longer stops on the first missing file. Missing files are logged as warnings and the download runs to completion.
+* Fixed: The daily background sync no longer errors out on sites that haven't connected to Infinite Uploads yet, or that have disconnected. It now waits for a valid connection before running.
+* Fixed: Compatibility with the Ajax Load More plugin — its repeater templates and cache files now load correctly, and the plugin activates without errors.
+* Fixed: "Free Up Local Storage" no longer deletes local copies of files you've excluded from CDN delivery. Excluded files stay on disk so the local URLs served for them keep working. The "deletable files" count on the settings page now reflects only files that will actually be removed.
+* Fixed: Removing a single file from your exclusion list now correctly re-uploads it to the cloud. Previously it was silently skipped and stayed local.
+* Fixed: Files you've added to your exclusion list are now respected during a full re-scan, so excluded files won't get re-uploaded when scanning from scratch.
+* Fixed: The Media Folders sidebar no longer overlaps the media library toolbar. The "All media items" filter dropdown is fully visible again.
 
 3.3.0
 ----------------------------------------------------------------------
