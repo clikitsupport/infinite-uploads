@@ -1967,6 +1967,29 @@ class InfiniteUploads {
         // derived from the filtered value, so it follows automatically.
         // /wpallimport/ is in our sync exclusions so the whole tree stays local.
         add_filter( 'import_functions_file_path', [ $this, 'wpai_functions_file_path' ] );
+
+        // Elementor "Apply Website Template" / kit importer: downloads the
+        // template kit as a ZIP into uploads/elementor/tmp/ and calls
+        // ZipArchive::open() + extractTo() on it. ZipArchive uses libzip's
+        // raw filesystem I/O — NOT PHP streams — so it cannot read a file
+        // path under our iu:// wrapper. open() fails silently, every
+        // subsequent call throws "Invalid or uninitialized Zip object", and
+        // Elementor's UI blames "a conflict with one or more third-party
+        // plugins" without saying which.
+        //
+        // Elementor's Uploads_Manager exposes the temp-dir path through the
+        // `elementor/files/temp-dir` filter (since 3.7.0) at exactly the
+        // one place its whole file-writing pipeline gets the directory from
+        // — get_temp_dir() at core/files/uploads-manager.php:406. Route it
+        // back to local disk so ZipArchive is happy. `temp-file-path` is
+        // filtered on top of that same path so hooking it too is redundant
+        // in practice, but covers the case where an add-on / future code
+        // path builds a temp path without going through get_temp_dir().
+        //
+        // /elementor/tmp/ is in our sync exclusions so the extracted kit
+        // never lands in the bucket in the first place.
+        add_filter( 'elementor/files/temp-dir', [ $this, 'elementor_temp_dir' ] );
+        add_filter( 'elementor/files/temp-file-path', [ $this, 'elementor_temp_dir' ] );
     }
 
     /**
@@ -2143,6 +2166,27 @@ class InfiniteUploads {
     }
 
     /**
+     * Map Elementor's uploads temp directory (and any temp file path built
+     * from it) back to the local uploads path.
+     *
+     * Elementor uses this directory as the extract target for kit / website
+     * template ZIPs; PHP's ZipArchive::open() cannot read files whose path
+     * lives under a stream wrapper, so a cloud-backed temp dir turns every
+     * "Apply Website Template" click into the generic
+     * "Invalid or uninitialized Zip object" fatal and the surface-level
+     * "conflict with one or more third-party plugins" message in Elementor's UI.
+     *
+     * Hooked to `elementor/files/temp-dir` AND `elementor/files/temp-file-path`.
+     *
+     * @param string $path Path Elementor is about to extract into or write a temp file at.
+     *
+     * @return string Local-disk equivalent of $path, or $path unchanged.
+     */
+    public function elementor_temp_dir( $path ) {
+        return $this->cloud_path_to_local( $path );
+    }
+
+    /**
      * Merge the user's own excluded-paths list (option `iup_excluded_files`)
      * into the sync-exclusion filter. This is what makes full re-scans stop
      * queuing user-excluded files for upload; per-file un-exclude still
@@ -2191,6 +2235,15 @@ class InfiniteUploads {
         // writes, large source files and per-run logs that are churn to sync
         // and are deleted again once the import finishes.
         $exclusions[] = '/wpallimport/';
+        // Elementor's kit / website template import extracts a ZIP here.
+        // The extract path is already routed to local disk via the
+        // elementor/files/temp-dir filter (see elementor_temp_dir()); this
+        // exclusion is the belt to that suspenders — makes sure a stray
+        // scan doesn't try to sync a half-extracted kit tree mid-import.
+        // Only /tmp/ is excluded; Elementor's persistent subfolders under
+        // /elementor/ (css/, thumbs/, animations/) legitimately want CDN
+        // delivery and stay in the sync scope.
+        $exclusions[] = '/elementor/tmp/';
 
         return $exclusions;
     }
