@@ -1990,6 +1990,41 @@ class InfiniteUploads {
         // never lands in the bucket in the first place.
         add_filter( 'elementor/files/temp-dir', [ $this, 'elementor_temp_dir' ] );
         add_filter( 'elementor/files/temp-file-path', [ $this, 'elementor_temp_dir' ] );
+
+        // Koko Analytics writes a per-page-view buffer and aggregator state
+        // under uploads/koko-analytics/. Two problems on iu://:
+        //   1. Every page view does file_put_contents(FILE_APPEND) — turning
+        //      each hit into an S3 round-trip.
+        //   2. Koko's "Optimized endpoint" mode installs a standalone PHP
+        //      file at ABSPATH/koko-analytics-collect.php that runs WITHOUT
+        //      loading WordPress. The upload-dir path is baked into that
+        //      file at endpoint-install time via a `define()` in Koko's
+        //      own template — so runtime filters on wp_upload_dir / stream
+        //      wrappers can't reach it once the endpoint is installed.
+        //
+        // Koko's get_upload_dir() (src/Resources/functions/collect.php:127)
+        // checks defined( 'KOKO_ANALYTICS_UPLOAD_DIR' ) FIRST — before it
+        // ever asks wp_upload_dir(). Define it here at plugins_loaded time
+        // (both plugins load at priority 10, and 'infinite-uploads' <
+        // 'koko-analytics' alphabetically, so we're first), so when Koko's
+        // endpoint installer captures the path, it bakes our local value
+        // into the standalone endpoint file. From then on every page view
+        // — through the optimized endpoint OR the REST fallback — writes
+        // to local disk.
+        //
+        // Note for existing sites that already installed Koko while IU was
+        // active: the standalone endpoint file was baked with the iu:// path
+        // and this runtime define can't reach it. Users must trigger a
+        // one-time regeneration by reactivating Koko Analytics or clicking
+        // "Reinstall endpoint" in Koko → Settings → Advanced. New installs
+        // get it right on Koko's first activation.
+        if ( ! defined( 'KOKO_ANALYTICS_UPLOAD_DIR' ) ) {
+            $original = $this->get_original_upload_dir_root();
+            define(
+                'KOKO_ANALYTICS_UPLOAD_DIR',
+                rtrim( $original['basedir'], '/' ) . '/koko-analytics'
+            );
+        }
     }
 
     /**
@@ -2244,6 +2279,11 @@ class InfiniteUploads {
         // /elementor/ (css/, thumbs/, animations/) legitimately want CDN
         // delivery and stay in the sync scope.
         $exclusions[] = '/elementor/tmp/';
+        // Koko Analytics's per-page-view buffer + aggregator state. Never
+        // wanted in the bucket — the KOKO_ANALYTICS_UPLOAD_DIR define at
+        // plugin init keeps writes local, and this exclusion prevents any
+        // stray scan-time sweep from grabbing the transient buffer files.
+        $exclusions[] = '/koko-analytics/';
 
         return $exclusions;
     }
