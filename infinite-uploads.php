@@ -72,6 +72,15 @@ function infinite_uploads_init() {
 	if ( ! defined( 'INFINITE_UPLOADS_SYNC_PER_LOOP' ) ) {
 		define( 'INFINITE_UPLOADS_SYNC_PER_LOOP', 1000 );
 	}
+	// Page size for the continuous-iterator sync/download Generators. The
+	// generator refreshes from the DB when the current page exhausts, and
+	// each refresh's NOT IN clause carries the file names yielded so far
+	// (to avoid re-yielding a still-in-flight file). Keeping the page
+	// modest keeps that NOT IN list bounded and the prepared statement
+	// snappy on shared MySQL.
+	if ( ! defined( 'INFINITE_UPLOADS_SYNC_ITERATOR_PAGE_SIZE' ) ) {
+		define( 'INFINITE_UPLOADS_SYNC_ITERATOR_PAGE_SIZE', 200 );
+	}
 	if ( ! defined( 'INFINITE_UPLOADS_HTTP_CACHE_CONTROL' ) ) {
 		define( 'INFINITE_UPLOADS_HTTP_CACHE_CONTROL', YEAR_IN_SECONDS );
 	}

@@ -307,6 +307,29 @@ class InfiniteUploadsAdmin {
         }
     }
 
+    /**
+     * Emit a single-line diagnostic when a transfer aborts. Unlike
+     * sync_debug_log() this always writes to PHP's standard error log
+     * regardless of INFINITE_UPLOADS_API_DEBUG — the point is that when a
+     * user reports "Too many server errors" there is at least ONE entry
+     * to grep for. Includes the AwsException class name, AWS error code
+     * (when present), and short message; enough to identify the failure
+     * mode without needing the debug flag flipped on first.
+     *
+     * @param  string      $phase  "Transfer", "Multipart", or "Download".
+     * @param  \Throwable  $e
+     * @param  string|null $file   Optional file the exception applied to.
+     */
+    private function log_transfer_failure( $phase, $e, $file = null ) {
+        $code    = method_exists( $e, 'getAwsErrorCode' ) ? (string) $e->getAwsErrorCode() : '';
+        $klass   = get_class( $e );
+        $message = trim( preg_replace( '/\s+/', ' ', (string) $e->getMessage() ) );
+        $prefix  = null === $file
+                ? sprintf( '[infinite-uploads] %s aborted (%s%s): %s', $phase, $klass, '' !== $code ? " code={$code}" : '', $message )
+                : sprintf( '[infinite-uploads] %s aborted for %s (%s%s): %s', $phase, $file, $klass, '' !== $code ? " code={$code}" : '', $message );
+        error_log( $prefix );
+    }
+
     public function ajax_status() {
         // check caps
         if ( ! current_user_can( $this->iup_instance->capability ) ) {
@@ -943,16 +966,23 @@ class InfiniteUploadsAdmin {
             set_transient( 'iup_files_sync_progress', $progress, HOUR_IN_SECONDS );
         }
 
-        // PERFORMANCE: Optimize time limit calculation
-        $max_execution_time   = (int) ini_get( 'max_execution_time' );
-        $this->ajax_timelimit = max( 20, floor( $max_execution_time * 0.6666 ) );
+        // Cap the per-request budget well under common gateway timeouts
+        // (Cloudflare 100s, nginx default 60s, most shared hosts 60-120s).
+        // Prior versions scaled ajax_timelimit to max_execution_time * 0.6666,
+        // but PHP's max_execution_time excludes network I/O on Unix, so it
+        // never actually bounded this request. Requests routinely overshot
+        // the gateway timeout and got silently killed mid-upload with no PHP
+        // error log entry — surfacing to users as "Too many server errors.
+        // Please try again." from the JS retry counter. 60s is safe under
+        // every default gateway; hosts with a higher gateway ceiling can
+        // raise it via the `infinite_uploads_ajax_timelimit` filter.
+        $default_timelimit    = min( 60, max( 20, (int) floor( ini_get( 'max_execution_time' ) * 0.6666 ) ) );
+        $this->ajax_timelimit = (int) apply_filters( 'infinite_uploads_ajax_timelimit', $default_timelimit );
         $this->sync_debug_log( "Ajax time limit: {$this->ajax_timelimit}" );
 
         // Initialize counters
         $uploaded = 0;
         $errors   = [];
-        $break    = false;
-        $is_done  = false;
 
         // SECURITY: Validate and sanitize paths
         $path = $this->iup_instance->get_original_upload_dir_root();
@@ -962,133 +992,24 @@ class InfiniteUploadsAdmin {
 
         $s3 = $this->iup_instance->s3();
 
-        while ( ! $break ) {
-            // PERFORMANCE: Use prepared statement with proper escaping
-            $to_sync = $wpdb->get_results(
-                    $wpdb->prepare(
-                            "SELECT file, size FROM `{$wpdb->base_prefix}infinite_uploads_files` 
-                WHERE synced = 0 AND errors < 3 AND transfer_status IS NULL 
-                ORDER BY errors ASC, file ASC LIMIT %d",
-                            INFINITE_UPLOADS_SYNC_PER_LOOP
-                    )
-            );
-
-            if ( $to_sync ) {
-                $this->process_batch_sync( $wpdb, $to_sync, $path, $s3, $uploaded, $errors );
-            } else {
-                // Process multipart uploads
-                $to_sync = $wpdb->get_row(
-                        "SELECT file, size, errors, transfer_status as upload_id 
-                FROM `{$wpdb->base_prefix}infinite_uploads_files` 
-                WHERE synced = 0 AND errors < 3 AND transfer_status IS NOT NULL 
-                ORDER BY errors ASC, file ASC LIMIT 1"
-                );
-
-                if ( $to_sync ) {
-                    $this->process_multipart_sync( $wpdb, $to_sync, $path, $s3, $uploaded, $errors );
-                } else {
-                    $is_done = true;
-                }
-            }
-
-            // Check if we should break the loop
-            if ( $is_done || timer_stop() >= $this->ajax_timelimit ) {
-                $break            = true;
-                $permanent_errors = 0;
-
-                if ( $is_done ) {
-                    // PERFORMANCE: More efficient count query
-                    $permanent_errors = (int) $wpdb->get_var(
-                            "SELECT COUNT(*) FROM `{$wpdb->base_prefix}infinite_uploads_files` 
-                    WHERE synced = 0 AND errors >= 3"
-                    );
-
-                    $progress                  = get_site_option( 'iup_files_scanned', [] );
-                    $progress['sync_finished'] = time();
-                    update_site_option( 'iup_files_scanned', $progress );
-                    delete_transient( 'iup_files_sync_progress' );
-                }
-
-                // SECURITY: Regenerate nonce for next request
-                $nonce = wp_create_nonce( 'iup_sync' );
-
-                wp_send_json_success(
-                        array_merge(
-                                compact( 'uploaded', 'is_done', 'errors', 'permanent_errors', 'nonce' ),
-                                $this->iup_instance->get_sync_stats()
-                        )
-                );
-            }
-        }
-    }
-
-    /**
-     * PERFORMANCE: Extracted batch sync logic into separate method
-     */
-    private function process_batch_sync( $wpdb, $to_sync, $path, $s3, &$uploaded, &$errors ) {
-        $to_sync_full = [];
-        $to_sync_size = 0;
-        $to_sync_sql  = [];
-
-        foreach ( $to_sync as $file ) {
-            $to_sync_size += $file->size;
-
-            // Upload at minimum one file even if it's huge
-            if ( count( $to_sync_full ) && $to_sync_size > INFINITE_UPLOADS_SYNC_MAX_BYTES ) {
-                break;
-            }
-
-            // SECURITY: Validate file path to prevent directory traversal
-            $file_path = $path['basedir'] . $file->file;
-            $real_path = realpath( $file_path );
-
-            if ( $real_path === false || strpos( $real_path, realpath( $path['basedir'] ) ) !== 0 ) {
-                $this->sync_debug_log( "Security: Invalid file path detected: {$file->file}" );
-                continue;
-            }
-
-            $to_sync_full[] = $file_path;
-            $to_sync_sql[]  = $file->file; // Will be escaped in prepare()
-        }
-
-        if ( empty( $to_sync_full ) ) {
-            return;
-        }
-
-        // PERFORMANCE: Use prepared statement for bulk update
-        $placeholders = implode( ',', array_fill( 0, count( $to_sync_sql ), '%s' ) );
-        $wpdb->query(
-                $wpdb->prepare(
-                        "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` 
-            SET errors = (errors + 1) 
-            WHERE file IN ($placeholders)",
-                        ...$to_sync_sql
-                )
-        );
-
-        $this->sync_debug_log( sprintf(
-                "Transfer manager batch size %s, %d files.",
-                size_format( $to_sync_size, 2 ),
-                count( $to_sync_full )
-        ) );
-
-        $concurrency = count( $to_sync_full ) > 1
-                ? INFINITE_UPLOADS_SYNC_CONCURRENCY
-                : INFINITE_UPLOADS_SYNC_MULTIPART_CONCURRENCY;
-
-        $obj  = new \ArrayObject( $to_sync_full );
-        $from = $obj->getIterator();
-
-        $transfer_args = [
-                'concurrency' => $concurrency,
-                'base_dir'    => $path['basedir'],
-                'before'      => $this->create_transfer_middleware( $wpdb, $uploaded, $errors ),
-        ];
+        // Feed the Transfer manager a continuous Generator instead of fixed
+        // ~12MB batches so its concurrency pool stays saturated end-to-end —
+        // the next file starts the moment any completes instead of every N
+        // files draining to zero at the batch barrier while everyone waits
+        // on the p99 straggler. The Generator also checks the deadline
+        // before each yield, so budget expiry interrupts cleanly at a file
+        // boundary (never mid-multipart, which used to overshoot by 30+s).
+        $iterator = $this->build_sync_upload_iterator( $wpdb, $path, $this->ajax_timelimit );
 
         try {
-            $manager = new Transfer(
+            $transfer_args = [
+                    'concurrency' => INFINITE_UPLOADS_SYNC_CONCURRENCY,
+                    'base_dir'    => $path['basedir'],
+                    'before'      => $this->create_transfer_middleware( $wpdb, $uploaded, $errors ),
+            ];
+            $manager       = new Transfer(
                     $s3,
-                    $from,
+                    $iterator,
                     's3://' . $this->iup_instance->bucket . '/',
                     $transfer_args
             );
@@ -1096,20 +1017,169 @@ class InfiniteUploadsAdmin {
         } catch ( \Exception $e ) {
             $this->handle_transfer_exception( $wpdb, $e, $errors );
         }
+
+        // Drain any leftover multipart continuations (files whose
+        // CreateMultipartUpload initiated in Phase 1 or a previous request
+        // but never completed). One at a time; if a single multipart eats
+        // the remaining budget, the outer wp-cron/JS retry loop picks up
+        // where we left off next request.
+        while ( timer_stop() < $this->ajax_timelimit ) {
+            $pending = $wpdb->get_row(
+                    "SELECT file, size, errors, transfer_status AS upload_id
+                       FROM `{$wpdb->base_prefix}infinite_uploads_files`
+                      WHERE synced = 0 AND errors < 3 AND transfer_status IS NOT NULL
+                      ORDER BY errors ASC, file ASC
+                      LIMIT 1"
+            );
+            if ( ! $pending ) {
+                break;
+            }
+            $this->process_multipart_sync( $wpdb, $pending, $path, $s3, $uploaded, $errors );
+        }
+
+        // Determine whether the whole queue drained.
+        $remaining = (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM `{$wpdb->base_prefix}infinite_uploads_files`
+                  WHERE synced = 0 AND errors < 3"
+        );
+        $is_done          = ( 0 === $remaining );
+        $permanent_errors = 0;
+
+        if ( $is_done ) {
+            $permanent_errors = (int) $wpdb->get_var(
+                    "SELECT COUNT(*) FROM `{$wpdb->base_prefix}infinite_uploads_files`
+                      WHERE synced = 0 AND errors >= 3"
+            );
+
+            $progress                  = get_site_option( 'iup_files_scanned', [] );
+            $progress['sync_finished'] = time();
+            update_site_option( 'iup_files_scanned', $progress );
+            delete_transient( 'iup_files_sync_progress' );
+        }
+
+        // SECURITY: Regenerate nonce for next request
+        $nonce = wp_create_nonce( 'iup_sync' );
+
+        wp_send_json_success(
+                array_merge(
+                        compact( 'uploaded', 'is_done', 'errors', 'permanent_errors', 'nonce' ),
+                        $this->iup_instance->get_sync_stats()
+                )
+        );
     }
 
     /**
-     * PERFORMANCE: Extracted multipart sync logic
+     * Continuous Generator that feeds the Transfer manager one file at a
+     * time, drawn from the DB on demand. Replaces the pre-batching
+     * ArrayObject in the old flow, which caused the concurrency pool to
+     * drain to zero between batches. Pre-increments errors per file (so
+     * an interrupted request penalises only files that were actually
+     * attempted, unlike the old bulk `errors + 1` on the whole batch);
+     * middleware clears errors back to 0 on success. Yields absolute
+     * local file paths; halts when the deadline elapses or the eligible
+     * queue is empty.
+     *
+     * @param  \wpdb  $wpdb
+     * @param  array  $path      From get_original_upload_dir_root().
+     * @param  int    $deadline  Seconds budget (compared against timer_stop()).
+     *
+     * @return \Generator<string>
+     */
+    private function build_sync_upload_iterator( $wpdb, $path, $deadline ) {
+        $base_real = realpath( $path['basedir'] );
+        if ( false === $base_real ) {
+            return;
+        }
+        $yielded_in_request = [];
+
+        while ( true ) {
+            if ( timer_stop() >= $deadline ) {
+                return;
+            }
+
+            $exclude_sql = '';
+            $prepare_args = [];
+
+            if ( ! empty( $yielded_in_request ) ) {
+                $placeholders  = implode( ',', array_fill( 0, count( $yielded_in_request ), '%s' ) );
+                $exclude_sql   = "AND file NOT IN ($placeholders)";
+                $prepare_args  = array_values( $yielded_in_request );
+            }
+            $prepare_args[] = INFINITE_UPLOADS_SYNC_ITERATOR_PAGE_SIZE;
+
+            $rows = $wpdb->get_results(
+                    $wpdb->prepare(
+                            "SELECT file, size FROM `{$wpdb->base_prefix}infinite_uploads_files`
+                              WHERE synced = 0 AND errors < 3 AND transfer_status IS NULL $exclude_sql
+                              ORDER BY errors ASC, file ASC
+                              LIMIT %d",
+                            ...$prepare_args
+                    )
+            );
+
+            if ( empty( $rows ) ) {
+                return;
+            }
+
+            foreach ( $rows as $row ) {
+                if ( timer_stop() >= $deadline ) {
+                    return;
+                }
+
+                // SECURITY: Validate file path to prevent directory traversal.
+                $file_path = $path['basedir'] . $row->file;
+                $real_path = realpath( $file_path );
+                if ( false === $real_path || 0 !== strpos( $real_path, $base_real ) ) {
+                    $this->sync_debug_log( "Security: Invalid file path detected: {$row->file}" );
+                    // Mark it seen so we don't loop forever.
+                    $yielded_in_request[] = $row->file;
+                    continue;
+                }
+
+                // Pre-increment error count so an interrupted upload counts
+                // toward retry-retirement; middleware resets to 0 on success.
+                $wpdb->query(
+                        $wpdb->prepare(
+                                "UPDATE `{$wpdb->base_prefix}infinite_uploads_files`
+                                    SET errors = ( errors + 1 )
+                                  WHERE file = %s",
+                                $row->file
+                        )
+                );
+
+                $yielded_in_request[] = $row->file;
+                yield $file_path;
+            }
+        }
+    }
+
+    /**
+     * PERFORMANCE: Extracted batch sync logic into separate method
+     */
+    /**
+     * Continue a previously-initiated multipart upload that was interrupted
+     * (either mid-flight in an earlier request that hit its deadline, or
+     * because the CreateMultipartUpload middleware ran but the completing
+     * UploadPart / CompleteMultipartUpload commands didn't).
+     *
+     * The historical implementation of this method here delegated to two
+     * helpers (create_multipart_middleware, execute_multipart_upload) that
+     * were never defined — so any request that fell into this branch hit a
+     * fatal "Call to undefined method" and surfaced to the user as "Too
+     * many server errors. Please try again." from the JS retry counter,
+     * with nothing in debug.log. This body is the working equivalent from
+     * do_sync(), inlined so it actually runs.
      */
     private function process_multipart_sync( $wpdb, $to_sync, $path, $s3, &$uploaded, &$errors ) {
         $this->sync_debug_log( "Continuing multipart upload: {$to_sync->file}" );
 
-        // Preset error count
+        // Preset the error count in case the request times out mid-flight.
+        // Successful upload clears it back to 0 via the middleware below.
         $wpdb->query(
                 $wpdb->prepare(
-                        "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` 
-            SET errors = (errors + 1) 
-            WHERE file = %s",
+                        "UPDATE `{$wpdb->base_prefix}infinite_uploads_files`
+                            SET errors = ( errors + 1 )
+                          WHERE file = %s",
                         $to_sync->file
                 )
         );
@@ -1118,8 +1188,9 @@ class InfiniteUploadsAdmin {
         // SECURITY: Validate file path
         $source      = $path['basedir'] . $to_sync->file;
         $real_source = realpath( $source );
+        $base_real   = realpath( $path['basedir'] );
 
-        if ( $real_source === false || strpos( $real_source, realpath( $path['basedir'] ) ) !== 0 ) {
+        if ( false === $real_source || false === $base_real || 0 !== strpos( $real_source, $base_real ) ) {
             $this->sync_debug_log( "Security: Invalid multipart file path: {$to_sync->file}" );
             $errors[] = sprintf(
                     esc_html__( 'Security error for file %s.', 'infinite-uploads' ),
@@ -1135,7 +1206,9 @@ class InfiniteUploadsAdmin {
             $upload_state   = $this->iup_instance->get_multipart_upload_state( $key, $to_sync->upload_id );
             $uploaded_parts = count( $upload_state->getUploadedParts() );
             $part_size      = $upload_state->getPartSize();
-            $progress       = round( ( ( $uploaded_parts * $part_size ) / $to_sync->size ) * 100 );
+            $progress       = $to_sync->size > 0
+                    ? round( ( ( $uploaded_parts * $part_size ) / $to_sync->size ) * 100 )
+                    : 0;
 
             $this->sync_debug_log( sprintf(
                     'Uploaded %s%% of file (%d parts, %s each)',
@@ -1144,7 +1217,6 @@ class InfiniteUploadsAdmin {
                     size_format( $part_size )
             ) );
 
-            // PERFORMANCE: Single update query
             $wpdb->update(
                     "{$wpdb->base_prefix}infinite_uploads_files",
                     [ 'transferred' => $uploaded_parts * $part_size ],
@@ -1156,15 +1228,104 @@ class InfiniteUploadsAdmin {
             $uploader = new MultipartUploader( $s3, $source, [
                     'concurrency'   => INFINITE_UPLOADS_SYNC_MULTIPART_CONCURRENCY,
                     'state'         => $upload_state,
-                    'before_upload' => $this->create_multipart_middleware( $wpdb ),
+                    'before_upload' => $this->build_multipart_before_upload( $wpdb ),
             ] );
 
-            // Handle multipart upload with retry logic
-            $result = $this->execute_multipart_upload( $wpdb, $uploader, $s3, $source, $to_sync, $uploaded, $errors );
+            // Attempt the multipart. On a first MultipartUploadException we
+            // rebuild the uploader from the exception's state (which
+            // includes the parts that DID complete) and retry once. If
+            // the retry also fails, we abort the multipart and either
+            // report the error or retire the file per its retry count.
+            try {
+                $result = $uploader->upload();
+            } catch ( MultipartUploadException $e ) {
+                $this->sync_debug_log( "Multipart retry after: " . $e->getMessage() );
+                $uploader = new MultipartUploader( $s3, $source, [
+                        'state'         => $e->getState(),
+                        'before_upload' => $this->build_multipart_before_upload( $wpdb ),
+                ] );
+
+                try {
+                    $result = $uploader->upload();
+                } catch ( MultipartUploadException $retry_e ) {
+                    // Both attempts failed — abort the multipart so a fresh
+                    // one can be initiated next request (a stale UploadId
+                    // would keep failing indefinitely otherwise).
+                    $s3->abortMultipartUpload( $retry_e->getState()->getId() );
+                    $wpdb->update(
+                            "{$wpdb->base_prefix}infinite_uploads_files",
+                            [
+                                    'transferred'     => 0,
+                                    'synced'          => 0,
+                                    'transfer_status' => null,
+                            ],
+                            [ 'file' => $to_sync->file ],
+                            [ '%d', '%d', null ],
+                            [ '%s' ]
+                    );
+                    $this->sync_debug_log( "Multipart abort after retry: " . $retry_e->__toString() );
+
+                    $errors[] = ( $to_sync->errors >= 3 )
+                            ? sprintf( esc_html__( 'Error uploading %s. Retries exceeded.', 'infinite-uploads' ), esc_html( $to_sync->file ) )
+                            : sprintf( esc_html__( 'Error uploading %s. Queued for retry.', 'infinite-uploads' ), esc_html( $to_sync->file ) );
+
+                    return;
+                }
+            }
+
+            $this->sync_debug_log( "Finished multipart file upload: " . $to_sync->file );
+            $uploaded ++;
+            $wpdb->update(
+                    "{$wpdb->base_prefix}infinite_uploads_files",
+                    [
+                            'transferred'     => $to_sync->size,
+                            'synced'          => 1,
+                            'errors'          => 0,
+                            'transfer_status' => null,
+                    ],
+                    [ 'file' => $to_sync->file ],
+                    [ '%d', '%d', '%d', null ],
+                    [ '%s' ]
+            );
 
         } catch ( \Exception $e ) {
+            // Route through the shared handler for permanent-failure retire
+            // (NoSuchKey / AccessDenied bump the file's errors to 3 so
+            // subsequent multipart passes don't re-attempt a doomed key).
             $this->handle_multipart_exception( $wpdb, $to_sync, $e, $errors );
         }
+    }
+
+    /**
+     * Build the `before_upload` closure used by the MultipartUploader for
+     * both the initial attempt and the retry attempt. Logs each part and
+     * increments the row's `transferred` counter as parts complete.
+     */
+    private function build_multipart_before_upload( $wpdb ) {
+        return function ( Command $command ) use ( $wpdb ) {
+            $this->sync_debug_log( "Uploading key {$command['Key']} part {$command['PartNumber']}" );
+
+            $command->getHandlerList()->appendSign(
+                    Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, $command ) {
+                        $this->sync_debug_log( "Finished Uploading key {$command['Key']} part {$command['PartNumber']}" );
+
+                        $file = $this->iup_instance->get_file_from_result( $result );
+                        $wpdb->query(
+                                $wpdb->prepare(
+                                        "UPDATE `{$wpdb->base_prefix}infinite_uploads_files`
+                                            SET transferred = ( transferred + %d ),
+                                                synced = 0,
+                                                errors = 0
+                                          WHERE file = %s",
+                                        $command['ContentLength'],
+                                        $file
+                                )
+                        );
+
+                        return $result;
+                    } )
+            );
+        };
     }
 
     /**
@@ -1273,6 +1434,11 @@ class InfiniteUploadsAdmin {
      */
     private function handle_transfer_exception( $wpdb, \Exception $e, &$errors ) {
         $this->sync_debug_log( "Transfer sync exception: " . $e->getMessage() );
+        // Also emit to the standard PHP error log unconditionally — the
+        // sync_debug_log call above is a no-op unless INFINITE_UPLOADS_API_DEBUG
+        // is defined, so on production sites there was no diagnosable trail
+        // when a transfer aborted (users just saw "Too many server errors").
+        $this->log_transfer_failure( 'Transfer', $e );
 
         if ( method_exists( $e, 'getRequest' ) ) {
             $file = str_replace(
@@ -1320,6 +1486,7 @@ class InfiniteUploadsAdmin {
      */
     private function handle_multipart_exception( $wpdb, $to_sync, \Exception $e, &$errors ) {
         $this->sync_debug_log( "Multipart upload exception: " . $e->getMessage() );
+        $this->log_transfer_failure( 'Multipart', $e, isset( $to_sync->file ) ? $to_sync->file : null );
 
         if ( InfiniteUploadsHelper::is_permanent_aws_failure( $e ) ) {
             $wpdb->update(
@@ -1783,183 +1950,174 @@ class InfiniteUploadsAdmin {
             );
         }
 
-        // PERFORMANCE: Set time limit if not already set
+        // Cap the per-request budget under common gateway timeouts — see
+        // ajax_sync() for the full rationale. Same 60s ceiling, same filter
+        // override.
         if ( ! isset( $this->ajax_timelimit ) ) {
-            $max_execution_time   = (int) ini_get( 'max_execution_time' );
-            $this->ajax_timelimit = max( 20, floor( $max_execution_time * 0.6666 ) );
+            $default_timelimit    = min( 60, max( 20, (int) floor( ini_get( 'max_execution_time' ) * 0.6666 ) ) );
+            $this->ajax_timelimit = (int) apply_filters( 'infinite_uploads_ajax_timelimit', $default_timelimit );
         }
-
         $this->sync_debug_log( "Ajax download time limit: {$this->ajax_timelimit}" );
 
         $downloaded = 0;
         $errors     = [];
-        $break      = false;
         $s3         = $this->iup_instance->s3();
 
-        while ( ! $break ) {
-            // PERFORMANCE: Optimized query with proper preparation
-            $to_sync = $wpdb->get_results(
-                    $wpdb->prepare(
-                            "SELECT file, size FROM `{$wpdb->base_prefix}infinite_uploads_files` 
-                WHERE synced = 1 AND deleted = 1 AND errors < 3 
-                ORDER BY errors ASC, file ASC 
-                LIMIT %d",
-                            INFINITE_UPLOADS_SYNC_PER_LOOP
-                    )
+        $bucket = $this->iup_instance->bucket;
+        if ( empty( $bucket ) ) {
+            wp_send_json_error(
+                    esc_html__( 'Error: Invalid S3 bucket configuration.', 'infinite-uploads' ),
+                    500
             );
+        }
 
-            if ( ! empty( $to_sync ) ) {
-                $this->process_download_batch( $wpdb, $to_sync, $path, $s3, $downloaded, $errors );
-            }
+        // Continuous Generator, mirroring ajax_sync's upload path — the
+        // Transfer manager pulls new files as soon as any completes, so the
+        // concurrency pool never drains to zero at a batch barrier.
+        $iterator = $this->build_download_iterator( $wpdb, $bucket, $path, $this->ajax_timelimit, $errors );
 
-            // PERFORMANCE: More efficient count check
-            $remaining = (int) $wpdb->get_var(
-                    "SELECT COUNT(*) FROM `{$wpdb->base_prefix}infinite_uploads_files` 
-            WHERE synced = 1 AND deleted = 1 AND errors < 3"
-            );
+        try {
+            $transfer_args = [
+                    'concurrency' => INFINITE_UPLOADS_SYNC_CONCURRENCY,
+                    'base_dir'    => 's3://' . $bucket,
+                    'before'      => $this->create_download_middleware( $wpdb, $downloaded ),
+            ];
+            $manager       = new Transfer( $s3, $iterator, $path['basedir'], $transfer_args );
+            $manager->transfer();
+        } catch ( \Exception $e ) {
+            $this->handle_download_exception( $wpdb, $e, $path, $bucket, $errors );
+        }
 
-            $is_done = ( $remaining === 0 );
+        // Determine whether the whole queue drained.
+        $remaining = (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM `{$wpdb->base_prefix}infinite_uploads_files`
+                  WHERE synced = 1 AND deleted = 1 AND errors < 3"
+        );
+        $is_done = ( 0 === $remaining );
 
-            if ( $is_done || timer_stop() >= $this->ajax_timelimit ) {
-                $break = true;
+        if ( $is_done ) {
+            $progress                      = get_site_option( 'iup_files_scanned', [] );
+            $progress['download_finished'] = time();
+            update_site_option( 'iup_files_scanned', $progress );
+            delete_transient( 'iup_files_download_progress' );
 
-                if ( $is_done ) {
-                    $progress                      = get_site_option( 'iup_files_scanned', [] );
-                    $progress['download_finished'] = time();
-                    update_site_option( 'iup_files_scanned', $progress );
-                    delete_transient( 'iup_files_download_progress' );
-
-                    // PERFORMANCE: Only disconnect if API is set
-                    if ( isset( $this->api ) && is_object( $this->api ) ) {
-                        $this->api->disconnect();
-                    }
-                }
-
-                // SECURITY: Regenerate nonce for next request
-                $nonce = wp_create_nonce( 'iup_download' );
-
-                wp_send_json_success(
-                        array_merge(
-                                compact( 'downloaded', 'is_done', 'errors', 'nonce' ),
-                                $this->iup_instance->get_sync_stats()
-                        )
-                );
+            if ( isset( $this->api ) && is_object( $this->api ) ) {
+                $this->api->disconnect();
             }
         }
+
+        // SECURITY: Regenerate nonce for next request
+        $nonce = wp_create_nonce( 'iup_download' );
+
+        wp_send_json_success(
+                array_merge(
+                        compact( 'downloaded', 'is_done', 'errors', 'nonce' ),
+                        $this->iup_instance->get_sync_stats()
+                )
+        );
     }
 
     /**
-     * PERFORMANCE & SECURITY: Process file downloads in batches
+     * Continuous Generator that feeds the Transfer manager one s3:// URI at
+     * a time, drawn from the DB on demand. Handles path validation and
+     * parent-directory creation before each yield. Halts when the deadline
+     * elapses or the eligible queue is empty. See build_sync_upload_iterator
+     * for the mirror-image upload version — the two share a shape but not
+     * a signature (URI form, WHERE clause, and pre-increment target differ).
      *
-     * @param  wpdb    $wpdb        WordPress database object
-     * @param  array   $files       Array of files to download
-     * @param  array   $path        Upload directory path info
-     * @param  object  $s3          S3 client instance
-     * @param  int    &$downloaded  Counter for downloaded files (by reference)
-     * @param  array  &$errors      Array of error messages (by reference)
+     * @param  \wpdb   $wpdb
+     * @param  string  $bucket
+     * @param  array   $path      From get_original_upload_dir_root().
+     * @param  int     $deadline  Seconds budget (compared against timer_stop()).
+     * @param  array  &$errors    Accumulator for per-file security/dir errors.
+     *
+     * @return \Generator<string>
      */
-    private function process_download_batch( $wpdb, $files, $path, $s3, &$downloaded, &$errors ) {
-        $to_sync_full = [];
-        $to_sync_size = 0;
-        $to_sync_sql  = [];
-
-        // SECURITY: Validate bucket name
-        $bucket = $this->iup_instance->bucket;
-        if ( empty( $bucket ) ) {
-            $errors[] = esc_html__( 'Error: Invalid S3 bucket configuration.', 'infinite-uploads' );
-
-            return;
-        }
-
-        $base_dir = realpath( $path['basedir'] );
-        if ( $base_dir === false ) {
+    private function build_download_iterator( $wpdb, $bucket, $path, $deadline, &$errors ) {
+        $base_real = realpath( $path['basedir'] );
+        if ( false === $base_real ) {
             $errors[] = esc_html__( 'Error: Unable to resolve base directory.', 'infinite-uploads' );
 
             return;
         }
+        $bucket_naked        = untrailingslashit( $bucket );
+        $yielded_in_request  = [];
 
-        // Build full paths and validate
-        foreach ( $files as $file ) {
-            $to_sync_size += $file->size;
-
-            // Download at minimum one file even if it's huge
-            if ( count( $to_sync_full ) && $to_sync_size > INFINITE_UPLOADS_SYNC_MAX_BYTES ) {
-                break;
+        while ( true ) {
+            if ( timer_stop() >= $deadline ) {
+                return;
             }
 
-            // SECURITY: Validate file path to prevent directory traversal
-            $destination_path = $path['basedir'] . $file->file;
-            $real_destination = realpath( dirname( $destination_path ) );
+            $exclude_sql  = '';
+            $prepare_args = [];
 
-            // Check if parent directory exists or can be created
-            if ( $real_destination === false ) {
-                // Try to create parent directories
-                $parent_dir = dirname( $destination_path );
-                if ( ! $this->create_directory_recursive( $parent_dir, $base_dir ) ) {
-                    $this->sync_debug_log( "Failed to create directory for: {$file->file}" );
-                    $errors[] = sprintf(
+            if ( ! empty( $yielded_in_request ) ) {
+                $placeholders = implode( ',', array_fill( 0, count( $yielded_in_request ), '%s' ) );
+                $exclude_sql  = "AND file NOT IN ($placeholders)";
+                $prepare_args = array_values( $yielded_in_request );
+            }
+            $prepare_args[] = INFINITE_UPLOADS_SYNC_ITERATOR_PAGE_SIZE;
+
+            $rows = $wpdb->get_results(
+                    $wpdb->prepare(
+                            "SELECT file, size FROM `{$wpdb->base_prefix}infinite_uploads_files`
+                              WHERE synced = 1 AND deleted = 1 AND errors < 3 $exclude_sql
+                              ORDER BY errors ASC, file ASC
+                              LIMIT %d",
+                            ...$prepare_args
+                    )
+            );
+
+            if ( empty( $rows ) ) {
+                return;
+            }
+
+            foreach ( $rows as $row ) {
+                if ( timer_stop() >= $deadline ) {
+                    return;
+                }
+
+                // Ensure parent directory exists (Transfer manager writes
+                // into path['basedir'] . $row->file, so its parent must be
+                // present or writable).
+                $destination = $path['basedir'] . $row->file;
+                $parent      = dirname( $destination );
+                if ( ! $this->create_directory_recursive( $parent, $base_real ) ) {
+                    $this->sync_debug_log( "Failed to create directory for: {$row->file}" );
+                    $errors[]             = sprintf(
                             esc_html__( 'Error: Cannot create directory for %s', 'infinite-uploads' ),
-                            esc_html( $file->file )
+                            esc_html( $row->file )
                     );
+                    $yielded_in_request[] = $row->file;
                     continue;
                 }
-                $real_destination = realpath( dirname( $destination_path ) );
-            }
 
-            // SECURITY: Ensure destination is within base directory
-            if ( $real_destination === false || strpos( $real_destination, $base_dir ) !== 0 ) {
-                $this->sync_debug_log( "Security: Invalid destination path for file: {$file->file}" );
-                $errors[] = sprintf(
-                        esc_html__( 'Security: Invalid file path: %s', 'infinite-uploads' ),
-                        esc_html( $file->file )
+                // SECURITY: Ensure resolved parent is under base.
+                $real_parent = realpath( $parent );
+                if ( false === $real_parent || 0 !== strpos( $real_parent, $base_real ) ) {
+                    $this->sync_debug_log( "Security: Invalid destination for file: {$row->file}" );
+                    $errors[]             = sprintf(
+                            esc_html__( 'Security: Invalid file path: %s', 'infinite-uploads' ),
+                            esc_html( $row->file )
+                    );
+                    $yielded_in_request[] = $row->file;
+                    continue;
+                }
+
+                // Pre-increment the error count so an interrupted download
+                // counts toward retry-retirement. Middleware clears on success.
+                $wpdb->query(
+                        $wpdb->prepare(
+                                "UPDATE `{$wpdb->base_prefix}infinite_uploads_files`
+                                    SET errors = ( errors + 1 )
+                                  WHERE file = %s",
+                                $row->file
+                        )
                 );
-                continue;
+
+                $yielded_in_request[] = $row->file;
+                yield 's3://' . $bucket_naked . $row->file;
             }
-
-            // SECURITY: Sanitize S3 path
-            $s3_path        = 's3://' . untrailingslashit( $bucket ) . $file->file;
-            $to_sync_full[] = $s3_path;
-            $to_sync_sql[]  = $file->file; // Will be escaped in prepare()
-        }
-
-        if ( empty( $to_sync_full ) ) {
-            $this->sync_debug_log( "No valid files to download in this batch" );
-
-            return;
-        }
-
-        // PERFORMANCE: Preset error count using prepared statement
-        $placeholders = implode( ',', array_fill( 0, count( $to_sync_sql ), '%s' ) );
-        $wpdb->query(
-                $wpdb->prepare(
-                        "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` 
-            SET errors = (errors + 1) 
-            WHERE file IN ($placeholders)",
-                        ...$to_sync_sql
-                )
-        );
-
-        $this->sync_debug_log( sprintf(
-                "Download batch size %s, %d files.",
-                size_format( $to_sync_size, 2 ),
-                count( $to_sync_full )
-        ) );
-
-        $obj  = new \ArrayObject( $to_sync_full );
-        $from = $obj->getIterator();
-
-        $transfer_args = [
-                'concurrency' => INFINITE_UPLOADS_SYNC_CONCURRENCY,
-                'base_dir'    => 's3://' . $bucket,
-                'before'      => $this->create_download_middleware( $wpdb, $downloaded ),
-        ];
-
-        try {
-            $manager = new Transfer( $s3, $from, $path['basedir'], $transfer_args );
-            $manager->transfer();
-        } catch ( \Exception $e ) {
-            error_log( "Error Downloading Files From IU Server: " . $e->getMessage() );
-            $this->handle_download_exception( $wpdb, $e, $path, $bucket, $errors );
         }
     }
 
@@ -2048,6 +2206,7 @@ class InfiniteUploadsAdmin {
      */
     private function handle_download_exception( $wpdb, \Exception $e, $path, $bucket, &$errors ) {
         $this->sync_debug_log( "Download exception: " . $e->getMessage() );
+        $this->log_transfer_failure( 'Download', $e );
 
         if ( method_exists( $e, 'getRequest' ) ) {
             // Extract file path from request
@@ -3138,88 +3297,45 @@ class InfiniteUploadsAdmin {
 
         $downloaded = 0;
         $errors     = [];
-        $break      = false;
         $path       = $this->iup_instance->get_original_upload_dir_root();
         $s3         = $this->iup_instance->s3();
-        $is_done    = false;
-        $timelimit  = max( 20, floor( ini_get( 'max_execution_time' ) * .6666 ) );
-        while ( ! $break ) {
-            // Insert/Update query to add files to be downloaded. set deleted = 1 for these files.
+        $bucket     = $this->iup_instance->bucket;
 
-            $to_sync = $wpdb->get_results( $wpdb->prepare( "SELECT file, size FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 1 AND errors < 3 ORDER BY errors ASC, file ASC LIMIT %d", INFINITE_UPLOADS_SYNC_PER_LOOP ) );
+        if ( empty( $bucket ) ) {
+            return;
+        }
 
-            //build full paths
-            $to_sync_full = [];
-            $to_sync_size = 0;
-            $to_sync_sql  = [];
-            foreach ( $to_sync as $file ) {
-                $to_sync_size += $file->size;
-                if ( count( $to_sync_full ) && $to_sync_size > INFINITE_UPLOADS_SYNC_MAX_BYTES ) { //upload at minimum one file even if it's huuuge
-                    break;
-                }
-                $to_sync_full[] = 's3://' . untrailingslashit( $this->iup_instance->bucket ) . $file->file;
-                $to_sync_sql[]  = esc_sql( $file->file );
-            }
+        // Cap the per-request budget under common gateway timeouts — see
+        // ajax_sync() for the full rationale.
+        $default_timelimit    = min( 60, max( 20, (int) floor( ini_get( 'max_execution_time' ) * 0.6666 ) ) );
+        $this->ajax_timelimit = (int) apply_filters( 'infinite_uploads_ajax_timelimit', $default_timelimit );
+        $this->sync_debug_log( "Do-download time limit: {$this->ajax_timelimit}" );
 
-            //preset the error count in case request times out. Successful sync will clear error count.
-            $wpdb->query( "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` SET errors = ( errors + 1 ) WHERE file IN ('" . implode( "','", $to_sync_sql ) . "')" );
+        $iterator = $this->build_download_iterator( $wpdb, $bucket, $path, $this->ajax_timelimit, $errors );
 
-            $obj  = new \ArrayObject( $to_sync_full );
-            $from = $obj->getIterator();
-
+        try {
             $transfer_args = [
                     'concurrency' => INFINITE_UPLOADS_SYNC_CONCURRENCY,
-                    'base_dir'    => 's3://' . $this->iup_instance->bucket,
-                    'before'      => function ( \Command $command ) use ( $wpdb, &$downloaded ) {//add middleware to intercept result of each file upload
-                        if ( in_array( $command->getName(), [ 'GetObject' ], true ) ) {
-                            $command->getHandlerList()->appendSign(
-                                    Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, &$downloaded ) {
-                                        $downloaded ++;
-                                        $file = $this->iup_instance->get_file_from_result( $result );
-                                        $wpdb->update( "{$wpdb->base_prefix}infinite_uploads_files", [
-                                                'deleted' => 0,
-                                                'errors'  => 0,
-                                        ], [ 'file' => $file ] );
-
-                                        return $result;
-                                    } )
-                            );
-                        }
-                    },
+                    'base_dir'    => 's3://' . $bucket,
+                    'before'      => $this->create_download_middleware( $wpdb, $downloaded ),
             ];
-
-            try {
-                $manager = new Transfer( $s3, $from, $path['basedir'], $transfer_args );
-                $manager->transfer();
-            } catch ( \Exception $e ) {
-                if ( method_exists( $e, 'getRequest' ) ) {
-                    $file = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
-                    // TODO: Remove file from the download list if 404.
-                    $error_count = $wpdb->get_var( $wpdb->prepare( "SELECT errors FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s", $file ) );
-                    if ( $error_count >= 3 ) {
-                        $errors[] = sprintf( esc_html__( 'Error downloading %s. Retries exceeded.', 'infinite-uploads' ), $file );
-                    } else {
-                        $errors[] = sprintf( esc_html__( 'Error downloading %s. Queued for retry.', 'infinite-uploads' ), $file );
-                    }
-                } else {
-                    $errors[] = esc_html__( 'Error downloading file. Queued for retry.', 'infinite-uploads' );
-                }
-            }
-
-            $is_done = ! (bool) $wpdb->get_var( "SELECT count(*) FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 1 AND errors < 3" );
-
-            if ( $is_done ) {
-                $break = true;
-            }
-
-            if ( timer_stop() >= $timelimit ) {
-                as_schedule_single_action( time(), 'infinite-uploads-do-download' );
-                $break = true;
-            }
+            $manager       = new Transfer( $s3, $iterator, $path['basedir'], $transfer_args );
+            $manager->transfer();
+        } catch ( \Exception $e ) {
+            $this->handle_download_exception( $wpdb, $e, $path, $bucket, $errors );
         }
+
+        $remaining = (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM `{$wpdb->base_prefix}infinite_uploads_files`
+                  WHERE synced = 1 AND deleted = 1 AND errors < 3"
+        );
+        $is_done   = ( 0 === $remaining );
 
         if ( $is_done ) {
             update_site_option( 'iup_do_download_complete', 'yes', true );
+        } else {
+            // Still more to do — reschedule for the next cron tick.
+            as_schedule_single_action( time(), 'infinite-uploads-do-download' );
         }
     }
 
@@ -3237,238 +3353,65 @@ class InfiniteUploadsAdmin {
             return;
         }
 
-        //this loop has a parallel status check, so we make the timeout 2/3 of max execution time.
-        $timelimit = max( 20, floor( ini_get( 'max_execution_time' ) * .6666 ) );
-        $this->sync_debug_log( "Ajax time limit: " . $timelimit );
+        // Cap the per-request budget under common gateway timeouts — see
+        // ajax_sync() for the full rationale. Same 60s ceiling and filter.
+        $default_timelimit    = min( 60, max( 20, (int) floor( ini_get( 'max_execution_time' ) * 0.6666 ) ) );
+        $this->ajax_timelimit = (int) apply_filters( 'infinite_uploads_ajax_timelimit', $default_timelimit );
+        $this->sync_debug_log( "Do-sync time limit: {$this->ajax_timelimit}" );
+
         $uploaded = 0;
         $errors   = [];
-        $break    = false;
-        $is_done  = false;
         $path     = $this->iup_instance->get_original_upload_dir_root();
         $s3       = $this->iup_instance->s3();
-        while ( ! $break ) {
-            $to_sync = $wpdb->get_results( $wpdb->prepare( "SELECT file, size FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 0 AND errors < 3 AND transfer_status IS NULL ORDER BY errors ASC, file ASC LIMIT %d", INFINITE_UPLOADS_SYNC_PER_LOOP ) );
-            if ( $to_sync ) {
-                //build full paths
-                $to_sync_full = [];
-                $to_sync_size = 0;
-                $to_sync_sql  = [];
-                foreach ( $to_sync as $file ) {
-                    $to_sync_size += $file->size;
-                    if ( count( $to_sync_full ) && $to_sync_size > INFINITE_UPLOADS_SYNC_MAX_BYTES ) { //upload at minimum one file even if it's huuuge
-                        break;
-                    }
-                    $to_sync_full[] = $path['basedir'] . $file->file;
-                    $to_sync_sql[]  = esc_sql( $file->file );
-                }
-                //preset the error count in case request times out. Successful sync will clear error count.
-                $wpdb->query( "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` SET errors = ( errors + 1 ) WHERE file IN ('" . implode( "','", $to_sync_sql ) . "')" );
 
-                $this->sync_debug_log( "Transfer manager batch size " . size_format( $to_sync_size, 2 ) . ", " . count( $to_sync_full ) . " files." );
-                $concurrency = count( $to_sync_full ) > 1 ? INFINITE_UPLOADS_SYNC_CONCURRENCY : INFINITE_UPLOADS_SYNC_MULTIPART_CONCURRENCY;
-                $obj         = new \ArrayObject( $to_sync_full );
-                $from        = $obj->getIterator();
+        // Phase 1: continuous upload via the shared Generator (mirrors ajax_sync).
+        $iterator = $this->build_sync_upload_iterator( $wpdb, $path, $this->ajax_timelimit );
 
-                $transfer_args = [
-                        'concurrency' => $concurrency,
-                        'base_dir'    => $path['basedir'],
-                        'before'      => function ( \Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
-                            //add middleware to modify object headers
-                            if ( in_array( $command->getName(), [ 'PutObject', 'CreateMultipartUpload' ], true ) ) {
-                                /// Expires:
-                                if ( defined( 'INFINITE_UPLOADS_HTTP_EXPIRES' ) ) {
-                                    $command['Expires'] = INFINITE_UPLOADS_HTTP_EXPIRES;
-                                }
-                                // Cache-Control:
-                                if ( defined( 'INFINITE_UPLOADS_HTTP_CACHE_CONTROL' ) ) {
-                                    if ( is_numeric( INFINITE_UPLOADS_HTTP_CACHE_CONTROL ) ) {
-                                        $command['CacheControl'] = 'max-age=' . INFINITE_UPLOADS_HTTP_CACHE_CONTROL;
-                                    } else {
-                                        $command['CacheControl'] = INFINITE_UPLOADS_HTTP_CACHE_CONTROL;
-                                    }
-                                }
-                            }
-
-                            if ( in_array( $command->getName(), [ 'PutObject' ], true ) ) {
-                                $this->sync_debug_log( "Uploading key {$command['Key']}" );
-                            }
-
-                            //add middleware to intercept result of each file upload
-                            if ( in_array( $command->getName(), [ 'PutObject', 'CompleteMultipartUpload' ], true ) ) {
-                                $command->getHandlerList()->appendSign(
-                                        Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, &$uploaded, $command ) {
-                                            $this->sync_debug_log( "Finished uploading file: " . $command['Key'] );
-                                            $uploaded ++;
-                                            $file = $this->iup_instance->get_file_from_result( $result );
-                                            $wpdb->query( $wpdb->prepare( "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` SET transferred = size, synced = 1, errors = 0, transfer_status = null WHERE file = %s", $file ) );
-
-                                            return $result;
-                                        } )
-                                );
-                            }
-
-                            //add middleware to intercept result and record the uploadId for resuming later
-                            if ( in_array( $command->getName(), [ 'CreateMultipartUpload' ], true ) ) {
-                                $this->sync_debug_log( "Starting multipart upload for key {$command['Key']}" );
-                                $command->getHandlerList()->appendSign(
-                                        Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb ) {
-                                            $file = $this->iup_instance->get_file_from_result( $result );
-                                            $wpdb->update( "{$wpdb->base_prefix}infinite_uploads_files", [
-                                                    'synced'          => 0,
-                                                    'transfer_status' => $result['UploadId'],
-                                            ], [ 'file' => $file ], [ '%d', '%s' ] );
-
-                                            return $result;
-                                        } )
-                                );
-                            }
-
-                            //add middleware to check if we should bail before each new upload part
-                            if ( in_array( $command->getName(), [ 'UploadPart' ], true ) ) {
-                                $this->sync_debug_log( "Uploading key {$command['Key']} part {$command['PartNumber']}" );
-                                $command->getHandlerList()->appendSign(
-                                        Middleware::mapResult( function ( ResultInterface $result ) use ( $command ) {
-                                            global $wpdb;
-                                            $this->sync_debug_log( "Finished Uploading key {$command['Key']} part {$command['PartNumber']}" );
-
-                                            $file = $this->iup_instance->get_file_from_result( $result );
-                                            $wpdb->query( $wpdb->prepare( "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` SET transferred = ( transferred + %d ), synced = 0, errors = 0 WHERE file = %s", $command['ContentLength'], $file ) );
-
-                                            return $result;
-                                        } )
-                                );
-                            }
-                        },
-                ];
-                try {
-                    $manager = new Transfer( $s3, $from, 's3://' . $this->iup_instance->bucket . '/', $transfer_args );
-                    $manager->transfer();
-                } catch ( \Exception $e ) {
-                    // Route through the shared handler so this catch benefits
-                    // from the permanent-failure retire logic (bumps errors to
-                    // 3 on NoSuchKey / AccessDenied / etc. so one bad key
-                    // doesn't keep aborting batches of healthy files).
-                    $this->handle_transfer_exception( $wpdb, $e, $errors );
-                }
-
-            } else { // we are done with transfer manager, continue any unfinished multipart uploads one by one
-
-                $to_sync = $wpdb->get_row( "SELECT file, size, errors, transfer_status as upload_id FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 0 AND errors < 3 AND transfer_status IS NOT NULL ORDER BY errors ASC, file ASC LIMIT 1" );
-                if ( $to_sync ) {
-                    $this->sync_debug_log( "Continuing multipart upload: " . $to_sync->file );
-
-                    //preset the error count in case request times out. Successful sync will clear error count.
-                    $wpdb->query( $wpdb->prepare( "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` SET errors = ( errors + 1 ) WHERE file = %s", $to_sync->file ) );
-                    $to_sync->errors ++; //increment error result so it's accurate
-
-                    $key = $this->iup_instance->get_s3_prefix() . $to_sync->file;
-                    try {
-                        $upload_state = $this->iup_instance->get_multipart_upload_state( $key, $to_sync->upload_id );
-                        $progress     = round( ( ( count( $upload_state->getUploadedParts() ) * $upload_state->getPartSize() ) / $to_sync->size ) * 100 );
-                        $this->sync_debug_log( sprintf( 'Uploaded %s%% of file (%d, %s parts)', $progress, count( $upload_state->getUploadedParts() ), size_format( $upload_state->getPartSize() ) ) );
-                        $wpdb->update( "{$wpdb->base_prefix}infinite_uploads_files", [ 'transferred' => ( count( $upload_state->getUploadedParts() ) * $upload_state->getPartSize() ) ], [ 'file' => $to_sync->file ], [ '%d' ] );
-
-                        $parts_started = [];
-                        $source        = $path['basedir'] . $to_sync->file;
-                        $uploader      = new MultipartUploader( $s3, $source, [
-                                'concurrency'   => INFINITE_UPLOADS_SYNC_MULTIPART_CONCURRENCY,
-                                'state'         => $upload_state,
-                                'before_upload' => function ( \Command $command ) use ( &$parts_started, $uploaded, $errors ) {
-                                    $this->sync_debug_log( "Uploading key {$command['Key']} part {$command['PartNumber']}" );
-
-                                    $command->getHandlerList()->appendSign(
-                                            Middleware::mapResult( function ( ResultInterface $result ) use ( $command, &$parts_started, $uploaded, $errors ) {
-                                                global $wpdb;
-                                                $this->sync_debug_log( "Finished Uploading key {$command['Key']} part {$command['PartNumber']}" );
-
-                                                $file = $this->iup_instance->get_file_from_result( $result );
-                                                $wpdb->query( $wpdb->prepare( "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` SET transferred = ( transferred + %d ), synced = 0, errors = 0 WHERE file = %s", $command['ContentLength'], $file ) );
-
-                                                return $result;
-                                            } )
-                                    );
-                                },
-                        ] );
-
-                        //Recover from errors
-                        do {
-                            try {
-                                $result = $uploader->upload();
-                            } catch ( MultipartUploadException $e ) {
-                                $uploader = new MultipartUploader( $s3, $source, [
-                                        'state'         => $e->getState(),
-                                        'before_upload' => function ( \Command $command ) use ( $wpdb ) {
-                                            $this->sync_debug_log( "Uploading key {$command['Key']} part {$command['PartNumber']}" );
-                                            $command->getHandlerList()->appendSign(
-                                                    Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, $command ) {
-                                                        global $wpdb;
-                                                        $this->sync_debug_log( "Finished Uploading key {$command['Key']} part {$command['PartNumber']}" );
-
-                                                        $file = $this->iup_instance->get_file_from_result( $result );
-                                                        $wpdb->query( $wpdb->prepare( "UPDATE `{$wpdb->base_prefix}infinite_uploads_files` SET transferred = ( transferred + %d ), synced = 0, errors = 0 WHERE file = %s", $command['ContentLength'], $file ) );
-
-                                                        return $result;
-                                                    } )
-                                            );
-                                        },
-                                ] );
-                            }
-                        } while ( ! isset( $result ) );
-
-                        //Abort a multipart upload if failed a second time
-                        try {
-                            $result = $uploader->upload();
-                            $this->sync_debug_log( "Finished multipart file upload: " . $to_sync->file );
-                            $uploaded ++;
-                            $wpdb->update( "{$wpdb->base_prefix}infinite_uploads_files", [
-                                    'transferred'     => $to_sync->size,
-                                    'synced'          => 1,
-                                    'errors'          => 0,
-                                    'transfer_status' => null,
-                            ], [ 'file' => $to_sync->file ], [ '%d', '%d', '%d', null ] );
-                        } catch ( MultipartUploadException $e ) {
-                            $params = $e->getState()->getId();
-                            $result = $s3->abortMultipartUpload( $params );
-                            //restart the multipart
-                            $wpdb->update( "{$wpdb->base_prefix}infinite_uploads_files", [
-                                    'transferred'     => 0,
-                                    'synced'          => 0,
-                                    'transfer_status' => null,
-                            ], [ 'file' => $to_sync->file ], [ '%d', null ] );
-                            $this->sync_debug_log( "Get multipart retry UploadState exception: " . $e->__toString() );
-                            if ( ( $to_sync->errors ) >= 3 ) {
-                                $errors[] = sprintf( esc_html__( 'Error uploading %s. Retries exceeded.', 'infinite-uploads' ), $to_sync->file );
-                            } else {
-                                $errors[] = sprintf( esc_html__( 'Error uploading %s. Queued for retry.', 'infinite-uploads' ), $to_sync->file );
-                            }
-                        }
-
-                    } catch ( \Exception $e ) {
-                        // Route through the shared handler for permanent-
-                        // failure retire (NoSuchKey / AccessDenied bump the
-                        // file's errors to 3 immediately, freeing subsequent
-                        // multipart passes from re-attempting a doomed key).
-                        $this->handle_multipart_exception( $wpdb, $to_sync, $e, $errors );
-                    }
-
-                } else {
-                    $is_done = true;
-                }
-            }
-
-            if ( $is_done ) {
-                $break = true;
-            } elseif ( timer_stop() >= $timelimit ) {
-                // Still more to do, but out of time
-                $this->sync_debug_log( "Sync time limit reached, exiting and rescheduling." );
-                wp_clear_scheduled_hook( 'infinite-uploads-do-sync' );
-                as_schedule_single_action( time() + 5, 'infinite-uploads-do-sync' );
-                $break = true;
-            }
+        try {
+            $transfer_args = [
+                    'concurrency' => INFINITE_UPLOADS_SYNC_CONCURRENCY,
+                    'base_dir'    => $path['basedir'],
+                    'before'      => $this->create_transfer_middleware( $wpdb, $uploaded, $errors ),
+            ];
+            $manager       = new Transfer(
+                    $s3,
+                    $iterator,
+                    's3://' . $this->iup_instance->bucket . '/',
+                    $transfer_args
+            );
+            $manager->transfer();
+        } catch ( \Exception $e ) {
+            $this->handle_transfer_exception( $wpdb, $e, $errors );
         }
+
+        // Phase 2: drain unfinished multiparts one at a time.
+        while ( timer_stop() < $this->ajax_timelimit ) {
+            $pending = $wpdb->get_row(
+                    "SELECT file, size, errors, transfer_status AS upload_id
+                       FROM `{$wpdb->base_prefix}infinite_uploads_files`
+                      WHERE synced = 0 AND errors < 3 AND transfer_status IS NOT NULL
+                      ORDER BY errors ASC, file ASC
+                      LIMIT 1"
+            );
+            if ( ! $pending ) {
+                break;
+            }
+            $this->process_multipart_sync( $wpdb, $pending, $path, $s3, $uploaded, $errors );
+        }
+
+        $remaining = (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM `{$wpdb->base_prefix}infinite_uploads_files`
+                  WHERE synced = 0 AND errors < 3"
+        );
+        $is_done   = ( 0 === $remaining );
 
         if ( $is_done ) {
             update_site_option( 'iup_do_sync_complete', 'yes', true );
+        } else {
+            // Still more to do — reschedule the cron for the next tick.
+            $this->sync_debug_log( "Sync time limit reached, rescheduling." );
+            wp_clear_scheduled_hook( 'infinite-uploads-do-sync' );
+            as_schedule_single_action( time() + 5, 'infinite-uploads-do-sync' );
         }
     }
 
