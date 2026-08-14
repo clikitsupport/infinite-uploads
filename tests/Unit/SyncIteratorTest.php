@@ -55,6 +55,9 @@ class SyncIteratorTest extends TestCase {
 		if ( ! defined( 'INFINITE_UPLOADS_SYNC_ITERATOR_PAGE_SIZE' ) ) {
 			define( 'INFINITE_UPLOADS_SYNC_ITERATOR_PAGE_SIZE', 200 );
 		}
+		if ( ! defined( 'INFINITE_UPLOADS_SYNC_ITERATOR_INFLIGHT_WINDOW' ) ) {
+			define( 'INFINITE_UPLOADS_SYNC_ITERATOR_INFLIGHT_WINDOW', 100 );
+		}
 
 		$this->reflection = new ReflectionClass( InfiniteUploadsAdmin::class );
 		$this->admin      = $this->reflection->newInstanceWithoutConstructor();
@@ -214,6 +217,25 @@ class SyncIteratorTest extends TestCase {
 		// sees 999s and bails.
 		$this->assertLessThan( 3, count( $yielded ) );
 		$this->assertGreaterThanOrEqual( 1, count( $yielded ) );
+	}
+
+	public function test_upload_iterator_bounds_inflight_window_to_configured_limit(): void {
+		// Redefine the window to a small size we can exercise cheaply with
+		// a handful of files. Runkit isn't available so we exercise the
+		// helper directly via reflection to prove the trim keeps the tail.
+		$method = $this->reflection->getMethod( 'push_inflight_window' );
+		$method->setAccessible( true );
+
+		$window = [];
+		// Push 200 entries — the constant defaults to 100 so the last 100
+		// should survive and the first 100 should have been trimmed.
+		for ( $i = 0; $i < 200; $i ++ ) {
+			$method->invokeArgs( $this->admin, [ &$window, "/f{$i}.jpg" ] );
+		}
+
+		$this->assertCount( 100, $window, 'Window must not exceed configured limit' );
+		$this->assertSame( '/f100.jpg', $window[0], 'Oldest surviving entry is index 100' );
+		$this->assertSame( '/f199.jpg', $window[99], 'Newest entry is the last pushed' );
 	}
 
 	// ---------------------------------------------------------------------

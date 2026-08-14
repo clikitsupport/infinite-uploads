@@ -972,11 +972,15 @@ class InfiniteUploadsAdmin {
         // but PHP's max_execution_time excludes network I/O on Unix, so it
         // never actually bounded this request. Requests routinely overshot
         // the gateway timeout and got silently killed mid-upload with no PHP
-        // error log entry — surfacing to users as "Too many server errors.
-        // Please try again." from the JS retry counter. 60s is safe under
-        // every default gateway; hosts with a higher gateway ceiling can
-        // raise it via the `infinite_uploads_ajax_timelimit` filter.
-        $default_timelimit    = min( 60, max( 20, (int) floor( ini_get( 'max_execution_time' ) * 0.6666 ) ) );
+        // error log entry — surfacing to users as "Too many server errors."
+        //
+        // 45s (not 60s) because when the Generator returns at the deadline,
+        // Transfer::transfer() still waits for its in-flight pool to drain
+        // — measured p99 file duration is 8-13s, so a request that hits
+        // the deadline mid-flight typically returns 8-13s later. 45s + a
+        // 15s drain reservation lands comfortably under nginx's 60s. Sites
+        // with a higher gateway ceiling can raise via the filter.
+        $default_timelimit    = min( 45, max( 20, (int) floor( ini_get( 'max_execution_time' ) * 0.6666 ) ) );
         $this->ajax_timelimit = (int) apply_filters( 'infinite_uploads_ajax_timelimit', $default_timelimit );
         $this->sync_debug_log( "Ajax time limit: {$this->ajax_timelimit}" );
 
@@ -1023,7 +1027,12 @@ class InfiniteUploadsAdmin {
         // but never completed). One at a time; if a single multipart eats
         // the remaining budget, the outer wp-cron/JS retry loop picks up
         // where we left off next request.
-        while ( timer_stop() < $this->ajax_timelimit ) {
+        //
+        // Require ≥5s of remaining budget before starting a fresh multipart
+        // continuation — a multipart cannot be interrupted mid-flight, and
+        // starting one with 1-2s left routinely overshoots the deadline
+        // (and, cascading, the gateway timeout).
+        while ( timer_stop() + 5 < $this->ajax_timelimit ) {
             $pending = $wpdb->get_row(
                     "SELECT file, size, errors, transfer_status AS upload_id
                        FROM `{$wpdb->base_prefix}infinite_uploads_files`
@@ -1090,20 +1099,25 @@ class InfiniteUploadsAdmin {
         if ( false === $base_real ) {
             return;
         }
-        $yielded_in_request = [];
+        // Rolling window of recently-yielded file names, carried as a
+        // NOT IN clause on the next page refresh so a still-in-flight
+        // file can't be re-yielded when the fresh (errors=0) pool nears
+        // exhaustion. Bounded so the placeholder list can't blow up on
+        // large syncs — see INFINITE_UPLOADS_SYNC_ITERATOR_INFLIGHT_WINDOW.
+        $inflight_window = [];
 
         while ( true ) {
             if ( timer_stop() >= $deadline ) {
                 return;
             }
 
-            $exclude_sql = '';
+            $exclude_sql  = '';
             $prepare_args = [];
 
-            if ( ! empty( $yielded_in_request ) ) {
-                $placeholders  = implode( ',', array_fill( 0, count( $yielded_in_request ), '%s' ) );
-                $exclude_sql   = "AND file NOT IN ($placeholders)";
-                $prepare_args  = array_values( $yielded_in_request );
+            if ( ! empty( $inflight_window ) ) {
+                $placeholders = implode( ',', array_fill( 0, count( $inflight_window ), '%s' ) );
+                $exclude_sql  = "AND file NOT IN ($placeholders)";
+                $prepare_args = array_values( $inflight_window );
             }
             $prepare_args[] = INFINITE_UPLOADS_SYNC_ITERATOR_PAGE_SIZE;
 
@@ -1131,8 +1145,9 @@ class InfiniteUploadsAdmin {
                 $real_path = realpath( $file_path );
                 if ( false === $real_path || 0 !== strpos( $real_path, $base_real ) ) {
                     $this->sync_debug_log( "Security: Invalid file path detected: {$row->file}" );
-                    // Mark it seen so we don't loop forever.
-                    $yielded_in_request[] = $row->file;
+                    // Track it in the window so the next refresh doesn't
+                    // return the same invalid row and re-invoke this branch.
+                    $this->push_inflight_window( $inflight_window, $row->file );
                     continue;
                 }
 
@@ -1147,9 +1162,30 @@ class InfiniteUploadsAdmin {
                         )
                 );
 
-                $yielded_in_request[] = $row->file;
+                $this->push_inflight_window( $inflight_window, $row->file );
                 yield $file_path;
             }
+        }
+    }
+
+    /**
+     * Append a file name to the rolling in-flight window and drop the
+     * oldest entries once the window exceeds
+     * INFINITE_UPLOADS_SYNC_ITERATOR_INFLIGHT_WINDOW. The window only
+     * needs to be large enough to cover files still in the Transfer
+     * manager's concurrency pool at any moment — older entries either
+     * completed (excluded by SELECT `synced = 0`) or failed (sit behind
+     * fresh files in the ORDER BY tail).
+     *
+     * @param  array  &$window
+     * @param  string  $file
+     */
+    private function push_inflight_window( &$window, $file ) {
+        $window[] = $file;
+        $limit    = (int) INFINITE_UPLOADS_SYNC_ITERATOR_INFLIGHT_WINDOW;
+        $overflow = count( $window ) - $limit;
+        if ( $overflow > 0 ) {
+            $window = array_slice( $window, $overflow );
         }
     }
 
@@ -1951,10 +1987,10 @@ class InfiniteUploadsAdmin {
         }
 
         // Cap the per-request budget under common gateway timeouts — see
-        // ajax_sync() for the full rationale. Same 60s ceiling, same filter
-        // override.
+        // ajax_sync() for the full rationale. Same 45s ceiling, same
+        // filter override.
         if ( ! isset( $this->ajax_timelimit ) ) {
-            $default_timelimit    = min( 60, max( 20, (int) floor( ini_get( 'max_execution_time' ) * 0.6666 ) ) );
+            $default_timelimit    = min( 45, max( 20, (int) floor( ini_get( 'max_execution_time' ) * 0.6666 ) ) );
             $this->ajax_timelimit = (int) apply_filters( 'infinite_uploads_ajax_timelimit', $default_timelimit );
         }
         $this->sync_debug_log( "Ajax download time limit: {$this->ajax_timelimit}" );
@@ -2040,8 +2076,10 @@ class InfiniteUploadsAdmin {
 
             return;
         }
-        $bucket_naked        = untrailingslashit( $bucket );
-        $yielded_in_request  = [];
+        $bucket_naked    = untrailingslashit( $bucket );
+        // Bounded rolling window — see build_sync_upload_iterator() for the
+        // rationale. Same shape as the upload path.
+        $inflight_window = [];
 
         while ( true ) {
             if ( timer_stop() >= $deadline ) {
@@ -2051,10 +2089,10 @@ class InfiniteUploadsAdmin {
             $exclude_sql  = '';
             $prepare_args = [];
 
-            if ( ! empty( $yielded_in_request ) ) {
-                $placeholders = implode( ',', array_fill( 0, count( $yielded_in_request ), '%s' ) );
+            if ( ! empty( $inflight_window ) ) {
+                $placeholders = implode( ',', array_fill( 0, count( $inflight_window ), '%s' ) );
                 $exclude_sql  = "AND file NOT IN ($placeholders)";
-                $prepare_args = array_values( $yielded_in_request );
+                $prepare_args = array_values( $inflight_window );
             }
             $prepare_args[] = INFINITE_UPLOADS_SYNC_ITERATOR_PAGE_SIZE;
 
@@ -2084,11 +2122,11 @@ class InfiniteUploadsAdmin {
                 $parent      = dirname( $destination );
                 if ( ! $this->create_directory_recursive( $parent, $base_real ) ) {
                     $this->sync_debug_log( "Failed to create directory for: {$row->file}" );
-                    $errors[]             = sprintf(
+                    $errors[] = sprintf(
                             esc_html__( 'Error: Cannot create directory for %s', 'infinite-uploads' ),
                             esc_html( $row->file )
                     );
-                    $yielded_in_request[] = $row->file;
+                    $this->push_inflight_window( $inflight_window, $row->file );
                     continue;
                 }
 
@@ -2096,11 +2134,11 @@ class InfiniteUploadsAdmin {
                 $real_parent = realpath( $parent );
                 if ( false === $real_parent || 0 !== strpos( $real_parent, $base_real ) ) {
                     $this->sync_debug_log( "Security: Invalid destination for file: {$row->file}" );
-                    $errors[]             = sprintf(
+                    $errors[] = sprintf(
                             esc_html__( 'Security: Invalid file path: %s', 'infinite-uploads' ),
                             esc_html( $row->file )
                     );
-                    $yielded_in_request[] = $row->file;
+                    $this->push_inflight_window( $inflight_window, $row->file );
                     continue;
                 }
 
@@ -2115,7 +2153,7 @@ class InfiniteUploadsAdmin {
                         )
                 );
 
-                $yielded_in_request[] = $row->file;
+                $this->push_inflight_window( $inflight_window, $row->file );
                 yield 's3://' . $bucket_naked . $row->file;
             }
         }
@@ -3307,7 +3345,7 @@ class InfiniteUploadsAdmin {
 
         // Cap the per-request budget under common gateway timeouts — see
         // ajax_sync() for the full rationale.
-        $default_timelimit    = min( 60, max( 20, (int) floor( ini_get( 'max_execution_time' ) * 0.6666 ) ) );
+        $default_timelimit    = min( 45, max( 20, (int) floor( ini_get( 'max_execution_time' ) * 0.6666 ) ) );
         $this->ajax_timelimit = (int) apply_filters( 'infinite_uploads_ajax_timelimit', $default_timelimit );
         $this->sync_debug_log( "Do-download time limit: {$this->ajax_timelimit}" );
 
@@ -3354,8 +3392,8 @@ class InfiniteUploadsAdmin {
         }
 
         // Cap the per-request budget under common gateway timeouts — see
-        // ajax_sync() for the full rationale. Same 60s ceiling and filter.
-        $default_timelimit    = min( 60, max( 20, (int) floor( ini_get( 'max_execution_time' ) * 0.6666 ) ) );
+        // ajax_sync() for the full rationale. Same 45s ceiling and filter.
+        $default_timelimit    = min( 45, max( 20, (int) floor( ini_get( 'max_execution_time' ) * 0.6666 ) ) );
         $this->ajax_timelimit = (int) apply_filters( 'infinite_uploads_ajax_timelimit', $default_timelimit );
         $this->sync_debug_log( "Do-sync time limit: {$this->ajax_timelimit}" );
 

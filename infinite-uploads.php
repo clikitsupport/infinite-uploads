@@ -72,14 +72,23 @@ function infinite_uploads_init() {
 	if ( ! defined( 'INFINITE_UPLOADS_SYNC_PER_LOOP' ) ) {
 		define( 'INFINITE_UPLOADS_SYNC_PER_LOOP', 1000 );
 	}
-	// Page size for the continuous-iterator sync/download Generators. The
-	// generator refreshes from the DB when the current page exhausts, and
-	// each refresh's NOT IN clause carries the file names yielded so far
-	// (to avoid re-yielding a still-in-flight file). Keeping the page
-	// modest keeps that NOT IN list bounded and the prepared statement
-	// snappy on shared MySQL.
+	// Page size for the continuous-iterator sync/download Generators —
+	// how many rows each DB refresh pulls when the current page exhausts.
 	if ( ! defined( 'INFINITE_UPLOADS_SYNC_ITERATOR_PAGE_SIZE' ) ) {
 		define( 'INFINITE_UPLOADS_SYNC_ITERATOR_PAGE_SIZE', 200 );
+	}
+	// Rolling window of recently-yielded file names carried as a NOT IN
+	// clause on each page refresh, to keep a still-in-flight file from
+	// being re-yielded when the fresh (errors=0) pool starts running out.
+	// The Transfer manager holds at most INFINITE_UPLOADS_SYNC_CONCURRENCY
+	// (default 15) files in-flight, so 100 is roughly 6x headroom. A
+	// yielded file older than the window that (a) succeeded is already
+	// excluded by the SELECT's `synced = 0` predicate, or (b) failed
+	// sits behind errors=0 rows in the ORDER BY tail and only reappears
+	// after the fresh pool drains below the page size — same
+	// intra-request retry semantics as the pre-refactor code.
+	if ( ! defined( 'INFINITE_UPLOADS_SYNC_ITERATOR_INFLIGHT_WINDOW' ) ) {
+		define( 'INFINITE_UPLOADS_SYNC_ITERATOR_INFLIGHT_WINDOW', 100 );
 	}
 	if ( ! defined( 'INFINITE_UPLOADS_HTTP_CACHE_CONTROL' ) ) {
 		define( 'INFINITE_UPLOADS_HTTP_CACHE_CONTROL', YEAR_IN_SECONDS );
