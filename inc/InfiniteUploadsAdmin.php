@@ -91,8 +91,9 @@ class InfiniteUploadsAdmin {
                 wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'infinite_uploads_reconcile_files' );
             }
             add_action( 'infinite_uploads_reconcile_files', [ $this, 'do_reconcile_files' ] );
-            // Also runnable via Action Scheduler for the one-shot on-upgrade
-            // trigger (see InfiniteUploads::maybe_schedule_upgrade_heal()).
+            // Also runnable via Action Scheduler under a dashed hook name,
+            // which do_reconcile_files() uses to reschedule itself when the
+            // pass hits its time budget mid-walk.
             add_action( 'infinite-uploads-reconcile-files', [ $this, 'do_reconcile_files' ] );
 
             // This is to handle file exclusions.
@@ -3532,6 +3533,14 @@ class InfiniteUploadsAdmin {
             delete_site_option( 'iup_reconcile_paths_left' );
             update_site_option( 'iup_reconcile_last_completed', time() );
             $this->sync_debug_log( "Reconcile pass complete." );
+
+            // Kick a sync tick immediately. Reconcile INSERTs rows with
+            // synced=0, and without this hand-off they'd sit until the
+            // next daily do_sync — up to ~23h of continued 404s for a
+            // site that's already broken. do_sync() self-guards against
+            // no-work-to-do and against unconnected sites (see the
+            // has_token/get_site_data check at the top of do_sync).
+            as_schedule_single_action( time(), 'infinite-uploads-do-sync' );
         } else {
             update_site_option( 'iup_reconcile_paths_left', $filelist->paths_left );
             $this->sync_debug_log( "Reconcile timed out, rescheduling." );

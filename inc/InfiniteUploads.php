@@ -162,13 +162,6 @@ class InfiniteUploads {
         add_action( 'add_attachment', [ $this, 'register_attachment_for_sync' ] );
         add_filter( 'wp_generate_attachment_metadata', [ $this, 'register_attachment_metadata_for_sync' ], 10, 2 );
 
-        // One-shot heal on plugin upgrade — schedules a background reconcile
-        // pass the first time we run under a new version. Existing customers
-        // upgrading to this release will have their sync table topped up
-        // with any missing files without needing to disconnect / rescan
-        // manually (which was the workaround that resolved ticket #11637).
-        $this->maybe_schedule_upgrade_heal();
-
         // don't register all this until we've enabled rewriting.
         if ( ! infinite_uploads_enabled() ) {
             return false;
@@ -836,45 +829,6 @@ class InfiniteUploads {
 
         //purge these from CDN cache
         $this->api->purge( $to_purge );
-    }
-
-    /**
-     * Detect a version bump on this request and schedule a one-shot
-     * reconcile pass to heal any sync-table gaps from prior versions.
-     *
-     * The reconcile handler itself will bail if the initial scan has
-     * never completed — no risk of interfering with a first-time setup.
-     * On steady state (version matches the stored value) this is a
-     * single get_site_option call — negligible per-request cost.
-     */
-    protected function maybe_schedule_upgrade_heal() {
-        if ( ! defined( 'INFINITE_UPLOADS_VERSION' ) ) {
-            return;
-        }
-        $current  = (string) INFINITE_UPLOADS_VERSION;
-        $recorded = (string) get_site_option( 'iup_installed_version', '' );
-        if ( $current === $recorded ) {
-            return;
-        }
-
-        // Record the new version first so a slow Action Scheduler call in
-        // the same request doesn't cause a re-schedule loop.
-        update_site_option( 'iup_installed_version', $current );
-
-        // A fresh install with no prior version has nothing to reconcile.
-        // The heal is only meaningful when there's an existing sync table
-        // populated by a prior version that might be missing rows.
-        if ( '' === $recorded ) {
-            return;
-        }
-
-        // Action Scheduler may not be loaded yet on this request; check
-        // before calling to avoid a fatal on very early bootstrap.
-        if ( function_exists( 'as_schedule_single_action' ) && function_exists( 'as_next_scheduled_action' ) ) {
-            if ( false === as_next_scheduled_action( 'infinite-uploads-reconcile-files' ) ) {
-                as_schedule_single_action( time() + MINUTE_IN_SECONDS, 'infinite-uploads-reconcile-files' );
-            }
-        }
     }
 
     /**
