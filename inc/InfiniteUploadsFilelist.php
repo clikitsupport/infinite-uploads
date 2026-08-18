@@ -39,17 +39,37 @@ class InfiniteUploadsFilelist {
 	protected $insert_rows = 500;
 
 	/**
+	 * Mode: full scan — wipes the sync table on start, resets iup_files_scanned.
+	 * Used by the manual "Scan" button and the initial-scan flow.
+	 */
+	const MODE_SCAN = 'scan';
+
+	/**
+	 * Mode: reconcile — INSERT-only pass over local uploads that leaves the
+	 * sync table (and progress bookkeeping) intact. Used by the periodic
+	 * cron that heals stragglers written outside our attachment hooks
+	 * (page builders, direct disk writes) without destroying sync state.
+	 * The existing `ON DUPLICATE KEY UPDATE` in flush_to_db() makes the
+	 * pass idempotent.
+	 */
+	const MODE_RECONCILE = 'reconcile';
+
+	protected $mode;
+
+	/**
 	 * InfiniteUploadsFilelist constructor.
 	 *
 	 * @param  string  $root_path   The full path of the directory to iterate.
 	 * @param  float   $timeout     Timeout in seconds.
 	 * @param  array   $paths_left  Provide as returned if continuing the filelist after a timeout.
+	 * @param  string  $mode        MODE_SCAN (default) or MODE_RECONCILE.
 	 */
-	public function __construct( $root_path, $timeout = 25.0, $paths_left = [] ) {
+	public function __construct( $root_path, $timeout = 25.0, $paths_left = [], $mode = self::MODE_SCAN ) {
 		$this->root_path  = rtrim( $root_path, '/' ); //expected no trailing slash.
 		$this->timeout    = $timeout;
 		$this->paths_left = $paths_left;
 		$this->instance   = InfiniteUploads::get_instance();
+		$this->mode       = ( self::MODE_RECONCILE === $mode ) ? self::MODE_RECONCILE : self::MODE_SCAN;
 	}
 
 	/**
@@ -61,8 +81,10 @@ class InfiniteUploadsFilelist {
 		$this->file_count = 0;
 		$this->file_list  = [];
 
-		// If just starting reset the local DB list storage
-		if ( empty( $this->paths_left ) ) {
+		// If just starting reset the local DB list storage — SCAN mode only.
+		// Reconcile mode must never truncate: it runs periodically as a
+		// self-healing cron and would otherwise destroy sync progress.
+		if ( empty( $this->paths_left ) && self::MODE_SCAN === $this->mode ) {
 			//TRUNCATE is fastest, try it first
 			$result = $wpdb->query( "TRUNCATE TABLE {$wpdb->base_prefix}infinite_uploads_files" );
 			//Sometimes hosts don't give the DB user TRUNCATE permissions, so DELETE all if we have to.
@@ -90,9 +112,13 @@ class InfiniteUploadsFilelist {
 			// So we are done. Say so.
 			$this->is_done = true;
 
-			$progress                   = get_site_option( 'iup_files_scanned' );
-			$progress['files_finished'] = time();
-			update_site_option( 'iup_files_scanned', $progress );
+			// Only touch iup_files_scanned in SCAN mode — reconcile is a
+			// background heal, not a user-visible scan pass.
+			if ( self::MODE_SCAN === $this->mode ) {
+				$progress                   = get_site_option( 'iup_files_scanned' );
+				$progress['files_finished'] = time();
+				update_site_option( 'iup_files_scanned', $progress );
+			}
 		}
 	}
 

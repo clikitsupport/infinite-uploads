@@ -150,6 +150,25 @@ class InfiniteUploads {
             return true;
         }
 
+        // Register new attachments into the sync table the moment WordPress
+        // creates them. Runs regardless of whether cloud rewriting is enabled
+        // yet — the entire ticket class this fixes (see support ticket #11637)
+        // is uploads that land locally between "connect" and "enable CDN",
+        // which then never get synced because the sync table was populated
+        // from an earlier scan snapshot and no `add_attachment` hook existed
+        // to add newcomers. Handlers self-guard: if the file doesn't exist
+        // on the ORIGINAL local path (because it was written via the iu://
+        // stream wrapper when enabled), the INSERT is skipped.
+        add_action( 'add_attachment', [ $this, 'register_attachment_for_sync' ] );
+        add_filter( 'wp_generate_attachment_metadata', [ $this, 'register_attachment_metadata_for_sync' ], 10, 2 );
+
+        // One-shot heal on plugin upgrade — schedules a background reconcile
+        // pass the first time we run under a new version. Existing customers
+        // upgrading to this release will have their sync table topped up
+        // with any missing files without needing to disconnect / rescan
+        // manually (which was the workaround that resolved ticket #11637).
+        $this->maybe_schedule_upgrade_heal();
+
         // don't register all this until we've enabled rewriting.
         if ( ! infinite_uploads_enabled() ) {
             return false;
@@ -817,6 +836,190 @@ class InfiniteUploads {
 
         //purge these from CDN cache
         $this->api->purge( $to_purge );
+    }
+
+    /**
+     * Detect a version bump on this request and schedule a one-shot
+     * reconcile pass to heal any sync-table gaps from prior versions.
+     *
+     * The reconcile handler itself will bail if the initial scan has
+     * never completed — no risk of interfering with a first-time setup.
+     * On steady state (version matches the stored value) this is a
+     * single get_site_option call — negligible per-request cost.
+     */
+    protected function maybe_schedule_upgrade_heal() {
+        if ( ! defined( 'INFINITE_UPLOADS_VERSION' ) ) {
+            return;
+        }
+        $current  = (string) INFINITE_UPLOADS_VERSION;
+        $recorded = (string) get_site_option( 'iup_installed_version', '' );
+        if ( $current === $recorded ) {
+            return;
+        }
+
+        // Record the new version first so a slow Action Scheduler call in
+        // the same request doesn't cause a re-schedule loop.
+        update_site_option( 'iup_installed_version', $current );
+
+        // A fresh install with no prior version has nothing to reconcile.
+        // The heal is only meaningful when there's an existing sync table
+        // populated by a prior version that might be missing rows.
+        if ( '' === $recorded ) {
+            return;
+        }
+
+        // Action Scheduler may not be loaded yet on this request; check
+        // before calling to avoid a fatal on very early bootstrap.
+        if ( function_exists( 'as_schedule_single_action' ) && function_exists( 'as_next_scheduled_action' ) ) {
+            if ( false === as_next_scheduled_action( 'infinite-uploads-reconcile-files' ) ) {
+                as_schedule_single_action( time() + MINUTE_IN_SECONDS, 'infinite-uploads-reconcile-files' );
+            }
+        }
+    }
+
+    /**
+     * Register a newly-created attachment's main file in the sync table.
+     *
+     * Fires on `add_attachment`, before image sub-sizes have been generated.
+     * Sub-sizes are picked up by `register_attachment_metadata_for_sync()`
+     * below, which fires from `wp_generate_attachment_metadata` a moment
+     * later — the two together cover every file WordPress creates for an
+     * attachment.
+     *
+     * Idempotent: uses INSERT … ON DUPLICATE KEY UPDATE so re-firing is
+     * harmless (rescanning uses the same insert path — see
+     * InfiniteUploadsFilelist::flush_to_db()).
+     *
+     * Self-guards on iu://: when cloud mode is fully enabled, uploads go
+     * to the stream wrapper directly and the file does not exist on the
+     * original local path — the file_exists() check in
+     * `sync_register_local_files()` skips the INSERT in that case.
+     *
+     * @param  int  $attachment_id
+     */
+    public function register_attachment_for_sync( $attachment_id ) {
+        // Attempt to resolve directly from the DB rather than through
+        // get_attached_file(), which is filtered to return iu:// paths when
+        // cloud mode is enabled — we specifically want the LOCAL path so
+        // we can tell whether the file needs syncing.
+        $meta_file = get_post_meta( $attachment_id, '_wp_attached_file', true );
+        if ( ! $meta_file ) {
+            return;
+        }
+        $this->sync_register_local_files( [ '/' . ltrim( $meta_file, '/' ) ] );
+    }
+
+    /**
+     * Register an attachment's generated sub-sizes (thumbnail, medium, etc)
+     * in the sync table. Fires from `wp_generate_attachment_metadata`, which
+     * is called once WordPress has produced the intermediate images for an
+     * upload but before the metadata is saved. Every file this filter sees
+     * is a fresh write to disk that our sync table needs to know about.
+     *
+     * Returns the metadata untouched — we're only piggybacking to observe.
+     *
+     * @param  array  $metadata
+     * @param  int    $attachment_id
+     *
+     * @return array
+     */
+    public function register_attachment_metadata_for_sync( $metadata, $attachment_id ) {
+        if ( empty( $metadata ) || ! is_array( $metadata ) ) {
+            return $metadata;
+        }
+
+        $relative_paths = [];
+
+        // Main file path is relative to uploads root, e.g. "2026/07/foo.png".
+        if ( ! empty( $metadata['file'] ) ) {
+            $relative_paths[] = '/' . ltrim( $metadata['file'], '/' );
+        }
+
+        // Sub-size filenames are basename-only, e.g. "foo-150x150.png". They
+        // live in the same directory as the main file — derive that dir
+        // once and prepend it to each size's `file`.
+        if ( ! empty( $metadata['sizes'] ) && is_array( $metadata['sizes'] ) && ! empty( $metadata['file'] ) ) {
+            $dir = trailingslashit( dirname( $metadata['file'] ) );
+            foreach ( $metadata['sizes'] as $size ) {
+                if ( empty( $size['file'] ) ) {
+                    continue;
+                }
+                $relative_paths[] = '/' . ltrim( $dir . $size['file'], '/' );
+            }
+        }
+
+        if ( ! empty( $relative_paths ) ) {
+            $this->sync_register_local_files( $relative_paths );
+        }
+
+        return $metadata;
+    }
+
+    /**
+     * Bulk-INSERT the given uploads-relative file paths into the sync table
+     * with synced=0, so the next sync tick picks them up. Skips paths whose
+     * local file doesn't actually exist (e.g. iu://-served uploads when
+     * cloud mode is enabled, or a size WordPress decided not to generate).
+     *
+     * Uses ON DUPLICATE KEY UPDATE so re-firing over a row that already
+     * exists (whether from a prior scan or a previous hook firing on the
+     * same request) just refreshes size/modified/type and resets errors to
+     * 0 — matching the semantics of `InfiniteUploadsFilelist::flush_to_db()`.
+     * The `synced` column is intentionally untouched: a row that's already
+     * `synced=1` stays that way; a row that's `synced=0` (or a fresh row)
+     * stays eligible for the next sync tick.
+     *
+     * @param  array  $relative_paths  Paths under uploads root, each with leading slash.
+     */
+    protected function sync_register_local_files( array $relative_paths ) {
+        global $wpdb;
+        if ( empty( $relative_paths ) ) {
+            return;
+        }
+
+        $root   = $this->get_original_upload_dir_root();
+        $basedir = isset( $root['basedir'] ) ? untrailingslashit( $root['basedir'] ) : '';
+        if ( '' === $basedir ) {
+            return;
+        }
+
+        $values = [];
+        foreach ( array_unique( $relative_paths ) as $rel ) {
+            $rel = '/' . ltrim( (string) $rel, '/' );
+            $absolute = $basedir . $rel;
+
+            // Skip if the file doesn't exist locally. When cloud mode is
+            // enabled, uploads land via the iu:// stream wrapper and never
+            // touch the local filesystem — nothing to register.
+            if ( ! @is_file( $absolute ) ) {
+                continue;
+            }
+
+            $size  = @filesize( $absolute );
+            $mtime = @filemtime( $absolute );
+            $type  = wp_check_filetype( $absolute );
+            $type  = isset( $type['type'] ) && $type['type'] ? $type['type'] : 'application/octet-stream';
+
+            $values[] = $wpdb->prepare(
+                    '(%s, %d, %d, %s, 0, 0)',
+                    $rel,
+                    (int) $size,
+                    (int) $mtime,
+                    $type
+            );
+        }
+
+        if ( empty( $values ) ) {
+            return;
+        }
+
+        $query = "INSERT INTO {$wpdb->base_prefix}infinite_uploads_files (file, size, modified, type, synced, errors) VALUES ";
+        $query .= implode( ",\n", $values );
+        // Mirror InfiniteUploadsFilelist::flush_to_db()'s ON DUPLICATE clause,
+        // plus we DO NOT touch `synced` — a re-registration for a row that's
+        // already synced=1 must not un-sync it.
+        $query .= " ON DUPLICATE KEY UPDATE size = VALUES(size), modified = VALUES(modified), type = VALUES(type), errors = 0";
+        $wpdb->query( $query );
     }
 
     /**
