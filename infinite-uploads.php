@@ -15,7 +15,7 @@
  *
  * Inspired by AWS PHP SDK stream wrapper code from the S3 Uploads plugin by Human Made https://github.com/humanmade/S3-Uploads.
  *
- * Copyright 2021-2025 ClikIT, LLC
+ * Copyright 2021-2026 ClikIT, LLC
 */
 
 define( 'INFINITE_UPLOADS_VERSION', '3.3.2' );
