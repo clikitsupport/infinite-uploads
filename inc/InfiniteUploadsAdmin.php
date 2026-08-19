@@ -2713,6 +2713,18 @@ class InfiniteUploadsAdmin {
             $rel_prefix = ltrim( substr( $dir, strlen( $root_dir ) ), DIRECTORY_SEPARATOR );
         }
 
+        // Per-level node cap. A single flat folder of 150k files here used
+        // to allocate ~30MB of JSON, then freeze the browser tab for ~20s
+        // trying to render 150k checkboxes. Hard-cap the count and replace
+        // the overflow with a disabled marker node so the user sees why
+        // and can exclude the whole parent instead of every file. Filter
+        // to override on installs that need more.
+        $max_nodes = (int) apply_filters(
+                'infinite_uploads_exclude_tree_max_nodes',
+                (int) INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES
+        );
+        $truncated = false;
+
         // Track existing names at this level to avoid duplicates with virtual paths.
         $existing_names = [];
 
@@ -2725,6 +2737,12 @@ class InfiniteUploadsAdmin {
         }
 
         foreach ( $iterator as $file_info ) {
+            // Break BEFORE allocating another node so a 150k-file folder
+            // doesn't build the whole array before we throw most of it away.
+            if ( count( $result ) >= $max_nodes ) {
+                $truncated = true;
+                break;
+            }
             $path   = $file_info->getPathname();
             $is_dir = $file_info->isDir();
 
@@ -2763,6 +2781,10 @@ class InfiniteUploadsAdmin {
         // Inject virtual directory children at this level.
         $injected_names = [];
         foreach ( $virtual_paths as $virtual ) {
+            if ( count( $result ) >= $max_nodes ) {
+                $truncated = true;
+                break;
+            }
             $virtual = trim( $virtual, DIRECTORY_SEPARATOR );
             if ( $virtual === '' ) {
                 continue;
@@ -2842,6 +2864,29 @@ class InfiniteUploadsAdmin {
             return strnatcasecmp( $a["text"], $b["text"] );
         } );
 
+        // Append a disabled marker AFTER the sort so it always lands at the
+        // end. Signals to the user that the folder was truncated and they
+        // should exclude the parent folder rather than trying to select
+        // individual items.
+        if ( $truncated ) {
+            $result[] = [
+                    "text"     => sprintf(
+                            /* translators: %s: number of items shown before truncation */
+                            esc_html__( 'Folder has more than %s items — showing first %s. To exclude the whole folder, tick its parent instead.', 'infinite-uploads' ),
+                            number_format_i18n( $max_nodes ),
+                            number_format_i18n( $max_nodes )
+                    ),
+                    "icon"     => "jstree-file",
+                    "state"    => [
+                            "opened"   => false,
+                            "selected" => false,
+                            "disabled" => true,
+                    ],
+                    "li_attr"  => [ "class" => "iu-tree-truncated" ],
+                    "children" => false,
+            ];
+        }
+
         return $result;
     }
 
@@ -2850,12 +2895,90 @@ class InfiniteUploadsAdmin {
      *
      * @return array
      */
-    public function get_synced_files() {
+    /**
+     * Return the synced-file paths needed to draw the exclusion tree AT ONE
+     * LEVEL — either the direct children of the root (when $rel_prefix is
+     * null or empty) or the direct children of a sub-directory. Scoping the
+     * query to just what jstree is about to render keeps this from being an
+     * O(library) load on every tree AJAX request; on a 400k-file library
+     * the previous unbounded `SELECT DISTINCT file WHERE synced = 1` was
+     * OOM'ing before the root tree could even be built (see support ticket
+     * #11712).
+     *
+     * Root request: returns one synthetic path per distinct top-level
+     * segment — e.g. a library with files under /2026/07/foo.png yields
+     * "/2026/x". prepare_directory_tree() only inspects the first segment
+     * of each virtual path plus whether there's a deeper segment, so a
+     * two-segment synthetic path correctly signals "2026 is a folder".
+     *
+     * Sub-directory request: returns actual paths under the prefix, capped
+     * at INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES so a single huge folder
+     * doesn't blow memory. The cap matches prepare_directory_tree()'s own
+     * per-level ceiling — pulling more rows than the tree can render is
+     * wasted work.
+     *
+     * @param  string|null  $rel_prefix  Uploads-relative directory (no
+     *                                   leading slash, no trailing slash),
+     *                                   or null/'' for the root request.
+     *
+     * @return array<string>
+     */
+    public function get_synced_files( $rel_prefix = null ) {
         global $wpdb;
+        $table = $wpdb->base_prefix . 'infinite_uploads_files';
 
-        $synced_files = $wpdb->get_col( "SELECT DISTINCT file FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1" );
+        // Cap matches the tree's own per-level rendering ceiling. +1 so
+        // callers can tell "at cap → truncation possible" from "under cap"
+        // (though the tree cap-check is the authoritative UI signal).
+        $cap = (int) INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES + 1;
 
-        return $synced_files;
+        if ( null === $rel_prefix || '' === $rel_prefix ) {
+            // Root request. Distinct top-level segments + whether the segment
+            // has files beneath it. Synthesise the return path so
+            // prepare_directory_tree()'s first-segment inspection continues
+            // to work without a schema change.
+            $rows = $wpdb->get_results(
+                    $wpdb->prepare(
+                            "SELECT
+                                SUBSTRING_INDEX( SUBSTRING( file, 2 ), '/', 1 ) AS seg,
+                                MAX( CASE WHEN LOCATE( '/', SUBSTRING( file, 2 ) ) > 0 THEN 1 ELSE 0 END ) AS is_dir
+                             FROM `{$table}`
+                             WHERE synced = 1
+                             GROUP BY seg
+                             LIMIT %d",
+                            $cap
+                    ),
+                    ARRAY_A
+            );
+            $paths = [];
+            foreach ( (array) $rows as $r ) {
+                $seg = isset( $r['seg'] ) ? (string) $r['seg'] : '';
+                if ( '' === $seg ) {
+                    continue;
+                }
+                // A folder needs at least a second segment; use a
+                // placeholder that will never be treated as a real path
+                // (prepare_directory_tree only looks at segments[0]).
+                $paths[] = ! empty( $r['is_dir'] )
+                        ? '/' . $seg . '/*'
+                        : '/' . $seg;
+            }
+
+            return $paths;
+        }
+
+        // Sub-directory request. Scope to files under this prefix so an
+        // O(library) load becomes O(folder). LIKE with a fixed prefix uses
+        // the `file` column's index efficiently.
+        $like = '/' . trim( $rel_prefix, '/' ) . '/%';
+
+        return $wpdb->get_col(
+                $wpdb->prepare(
+                        "SELECT DISTINCT file FROM `{$table}` WHERE synced = 1 AND file LIKE %s LIMIT %d",
+                        $like,
+                        $cap
+                )
+        );
     }
 
     /**
@@ -2910,8 +3033,21 @@ class InfiniteUploadsAdmin {
         $sub_dir       = $dir['subdir'];
         $virtual_paths = [ $sub_dir ];
 
-        // Get synced files to include as virtual paths.
-        $synced_files = $this->get_synced_files();
+        // Compute the uploads-relative prefix for the level being requested
+        // and hand it to get_synced_files() so its query is scoped to only
+        // the paths jstree is about to render — root request → distinct
+        // top-level segments, sub-directory → files under that sub-directory.
+        // Previously get_synced_files() fetched the entire library on every
+        // AJAX tree request, which OOM'd on large libraries before the tree
+        // could be built (see support ticket #11712).
+        $real_root = realpath( $upload_dir );
+        $real_scan = realpath( $scan_dir );
+        $rel_prefix = null;
+        if ( false !== $real_root && false !== $real_scan && $real_root !== $real_scan
+             && 0 === strpos( $real_scan, $real_root ) ) {
+            $rel_prefix = ltrim( substr( $real_scan, strlen( $real_root ) ), DIRECTORY_SEPARATOR . '/' );
+        }
+        $synced_files = $this->get_synced_files( $rel_prefix );
 
         if ( ! empty( $synced_files ) ) {
             $virtual_paths = array_merge( $virtual_paths, $synced_files );

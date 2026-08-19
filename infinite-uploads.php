@@ -90,6 +90,19 @@ function infinite_uploads_init() {
 	if ( ! defined( 'INFINITE_UPLOADS_SYNC_ITERATOR_INFLIGHT_WINDOW' ) ) {
 		define( 'INFINITE_UPLOADS_SYNC_ITERATOR_INFLIGHT_WINDOW', 100 );
 	}
+	// Per-level node cap on the exclusion tree (Settings → Files to exclude).
+	// Applies to BOTH the FilesystemIterator pass and the virtual-paths pass
+	// in prepare_directory_tree(). Without this, a single flat folder of
+	// 150k files produces ~30MB of JSON and a 5s response, then freezes the
+	// browser tab for another 20s trying to render 150k checkboxes. When a
+	// folder exceeds the cap, a disabled "N+ items — showing first N"
+	// marker node replaces the overflow so the user sees why and can
+	// exclude the parent folder instead. Sites with legitimately huge
+	// folders can raise via the `infinite_uploads_exclude_tree_max_nodes`
+	// filter (see prepare_directory_tree).
+	if ( ! defined( 'INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES' ) ) {
+		define( 'INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES', 2000 );
+	}
 	if ( ! defined( 'INFINITE_UPLOADS_HTTP_CACHE_CONTROL' ) ) {
 		define( 'INFINITE_UPLOADS_HTTP_CACHE_CONTROL', YEAR_IN_SECONDS );
 	}
