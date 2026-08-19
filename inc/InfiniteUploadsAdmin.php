@@ -77,6 +77,25 @@ class InfiniteUploadsAdmin {
 
             add_action( 'infinite_uploads_do_sync', [ $this, 'do_sync' ] );
 
+            // Daily reconciliation pass — walks local uploads/ and INSERTs
+            // any file that isn't in the sync table yet (with synced=0), so
+            // the next sync tick picks it up. Catches files that skipped the
+            // add_attachment / wp_generate_attachment_metadata hooks (page
+            // builders that write directly to disk, files copied by other
+            // plugins, etc), plus un-retires errors=3 files that still exist
+            // locally by resetting errors to 0 via the ON DUPLICATE KEY
+            // UPDATE clause in InfiniteUploadsFilelist::flush_to_db(). See
+            // support ticket #11637 for the class of failure this heals.
+            if ( ! wp_next_scheduled( 'infinite_uploads_reconcile_files' ) ) {
+                // Offset by an hour so it doesn't stampede alongside do_sync.
+                wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'infinite_uploads_reconcile_files' );
+            }
+            add_action( 'infinite_uploads_reconcile_files', [ $this, 'do_reconcile_files' ] );
+            // Also runnable via Action Scheduler under a dashed hook name,
+            // which do_reconcile_files() uses to reschedule itself when the
+            // pass hits its time budget mid-walk.
+            add_action( 'infinite-uploads-reconcile-files', [ $this, 'do_reconcile_files' ] );
+
             // This is to handle file exclusions.
             if ( InfiniteUploadsHelper::is_file_exclusion_enabled() ) {
                 add_filter( 'wp_get_attachment_url', [ $this, 'filter_attachment_url' ], 10, 2 );
@@ -3450,6 +3469,82 @@ class InfiniteUploadsAdmin {
             $this->sync_debug_log( "Sync time limit reached, rescheduling." );
             wp_clear_scheduled_hook( 'infinite-uploads-do-sync' );
             as_schedule_single_action( time() + 5, 'infinite-uploads-do-sync' );
+        }
+    }
+
+    /**
+     * Periodic self-heal: walk the local uploads directory in reconcile
+     * mode (see InfiniteUploadsFilelist::MODE_RECONCILE) and INSERT any
+     * files present locally but not tracked in the sync table with
+     * synced=0, so the next sync tick picks them up.
+     *
+     * Unlike a full scan, this pass:
+     *   - Does NOT truncate the sync table (progress is preserved).
+     *   - Does NOT reset iup_files_scanned progress bookkeeping.
+     *   - Un-retires files with errors=3 that still exist locally, via
+     *     flush_to_db()'s ON DUPLICATE KEY UPDATE clause (which sets
+     *     errors=0). Un-syncing an already-synced=1 row is not possible
+     *     because that clause never touches the `synced` column.
+     *
+     * Bails out early when:
+     *   - The plugin doesn't have a token or isn't connected — nothing to
+     *     reconcile against.
+     *   - An initial scan has never completed — the manual scan flow owns
+     *     truncate/populate, and running reconcile before it would confuse
+     *     the state model.
+     *
+     * Runs across multiple ticks using the same paths_left pattern as
+     * ajax_scan (see line ~566): stash remaining dirs in a site option,
+     * reschedule via Action Scheduler when the timelimit trips.
+     */
+    public function do_reconcile_files() {
+        // Bail if we can't (or shouldn't) touch the sync table.
+        if ( ! $this->api->has_token() || ! $this->api->get_site_data() ) {
+            return;
+        }
+        $progress = (array) get_site_option( 'iup_files_scanned', [] );
+        if ( empty( $progress['files_finished'] ) ) {
+            // Initial scan hasn't run yet — reconcile has nothing to add on
+            // top of. Wait for the user to run the scan first.
+            return;
+        }
+
+        $path = $this->iup_instance->get_original_upload_dir_root();
+        if ( empty( $path['basedir'] ) || ! is_dir( $path['basedir'] ) ) {
+            return;
+        }
+
+        // Match the same 45s-with-drain-headroom budget used by ajax_sync
+        // (see ajax_sync() for the full rationale on the gateway-timeout cap).
+        $default_timelimit    = min( 45, max( 20, (int) floor( ini_get( 'max_execution_time' ) * 0.6666 ) ) );
+        $this->ajax_timelimit = (int) apply_filters( 'infinite_uploads_ajax_timelimit', $default_timelimit );
+
+        $remaining = (array) get_site_option( 'iup_reconcile_paths_left', [] );
+
+        $filelist = new InfiniteUploadsFilelist(
+                $path['basedir'],
+                $this->ajax_timelimit,
+                $remaining,
+                InfiniteUploadsFilelist::MODE_RECONCILE
+        );
+        $filelist->start();
+
+        if ( $filelist->is_done ) {
+            delete_site_option( 'iup_reconcile_paths_left' );
+            update_site_option( 'iup_reconcile_last_completed', time() );
+            $this->sync_debug_log( "Reconcile pass complete." );
+
+            // Kick a sync tick immediately. Reconcile INSERTs rows with
+            // synced=0, and without this hand-off they'd sit until the
+            // next daily do_sync — up to ~23h of continued 404s for a
+            // site that's already broken. do_sync() self-guards against
+            // no-work-to-do and against unconnected sites (see the
+            // has_token/get_site_data check at the top of do_sync).
+            as_schedule_single_action( time(), 'infinite-uploads-do-sync' );
+        } else {
+            update_site_option( 'iup_reconcile_paths_left', $filelist->paths_left );
+            $this->sync_debug_log( "Reconcile timed out, rescheduling." );
+            as_schedule_single_action( time() + 5, 'infinite-uploads-reconcile-files' );
         }
     }
 
