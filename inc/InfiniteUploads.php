@@ -68,11 +68,9 @@ class InfiniteUploads {
     public function get_multipart_upload_state( $key, $upload_id ) {
         $state = new UploadState( [ 'Bucket' => $this->get_s3_bucket(), 'Key' => $key, 'UploadId' => $upload_id ] );
         foreach ( $this->s3()->getPaginator( 'ListParts', $state->getId() ) as $result ) {
-            // Get the part size from the first part in the first result.
             if ( ! $state->getPartSize() ) {
                 $state->setPartSize( $result->search( 'Parts[0].Size' ) );
             }
-            // Mark all the parts returned by ListParts as uploaded.
             foreach ( $result['Parts'] as $part ) {
                 $state->markPartAsUploaded( $part['PartNumber'], [
                         'PartNumber' => $part['PartNumber'],
@@ -104,12 +102,12 @@ class InfiniteUploads {
         $this->api    = InfiniteUploadsApiHandler::get_instance();
         $this->stream = InfiniteUploadsVideo::get_instance();
 
-        // Initialize media folders (works independently of cloud sync).
+        // Media Folders is independent of cloud sync — runs regardless of connection state.
         if ( InfiniteUploadsHelper::is_media_folders_enabled() ) {
             MediaFolders::get_instance();
             MediaFoldersGallery::get_instance();
         }
-        //Add cloud permissions if present
+
         $api_data = $this->api->get_site_data();
         if ( $api_data && isset( $api_data->site ) && ! empty( $api_data->site->upload_key ) && ! empty( $api_data->site->upload_secret ) ) {
             $this->bucket     = $api_data->site->upload_bucket;
@@ -121,14 +119,11 @@ class InfiniteUploads {
                 $params['endpoint']                    = $api_data->site->upload_endpoint;
                 $params['use_path_style_endpoint']     = true;
                 $params['use_aws_shared_config_files'] = false;
-                //$params['debug'] = [
-                //	'logfn'        => 'error_log',
-                //	'stream_size'  => 0,
-                //];
                 return $params;
             } );
-        } else { //if we don't have cloud data we have to disable everything to avoid errors
-            //turn off enabled flag
+        } else {
+            // No cloud data — force cloud mode off so downstream code
+            // can rely on infinite_uploads_enabled() reflecting real capability.
             if ( infinite_uploads_enabled() ) {
                 $this->toggle_cloud( false );
             }
@@ -278,7 +273,6 @@ class InfiniteUploads {
             update_option( 'iup_enabled', $enabled, true );
         }
         if ( $enabled ) {
-            //ping the API to let them know we've enabled the site
             $this->api->call( "site/" . $this->api->get_site_id() . "/enable", [], 'POST', [
                     'timeout'  => 0.01,
                     'blocking' => false,
@@ -808,7 +802,6 @@ class InfiniteUploads {
         if ( ! empty( $meta['sizes'] ) ) {
             foreach ( $meta['sizes'] as $sizeinfo ) {
                 $intermediate_file = str_replace( basename( $file ), $sizeinfo['file'], $file );
-                //wp_delete_file( $intermediate_file );
                 $to_purge[] = $intermediate_file;
             }
         }
@@ -826,8 +819,6 @@ class InfiniteUploads {
         }
 
         $to_purge = array_values( array_unique( $to_purge ) );
-
-        //purge these from CDN cache
         $this->api->purge( $to_purge );
     }
 
@@ -1062,7 +1053,6 @@ class InfiniteUploads {
      * @return mixed|WP_Error
      */
     function block_rest_upload( $result, $server, $request ) {
-        //if route matches media edit return error
         if ( preg_match( '%/wp/v2/media/\d+/edit%', $request->get_route() ) ) {
             $result = new WP_Error(
                     'rest_cant_upload',

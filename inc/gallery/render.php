@@ -42,8 +42,7 @@ function iu_render_gallery( array $args ): string {
 
 	$folder_id = (int) $args['folderId'];
 
-	// Retrieve attachment IDs for the folder.
-	$media_folders = MediaFolders::get_instance();
+	$media_folders  = MediaFolders::get_instance();
 	$attachment_ids = $media_folders->get_attachment_ids_for_folder( $folder_id > 0 ? $folder_id : null );
 
 	if ( empty( $attachment_ids ) ) {
@@ -69,7 +68,6 @@ function iu_render_gallery( array $args ): string {
 		return '<p class="iu-gallery-empty">' . esc_html__( 'No images found in this folder.', 'infinite-uploads' ) . '</p>';
 	}
 
-	// Enqueue PhotoSwipe if lightbox is enabled.
 	if ( $args['lightbox'] ) {
 		iu_enqueue_photoswipe();
 	}

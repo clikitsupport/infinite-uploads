@@ -27,7 +27,6 @@ class InfiniteUploadsAdmin {
         $this->video        = InfiniteUploadsVideo::get_instance();
 
         if ( is_multisite() ) {
-            //multisite
             add_action( 'network_admin_menu', [ &$this, 'admin_menu' ] );
             add_filter( 'network_admin_plugin_action_links_infinite-uploads/infinite-uploads.php', [
                     &$this,
@@ -35,7 +34,6 @@ class InfiniteUploadsAdmin {
             ] );
             add_action( 'load-toplevel_page_infinite_uploads', [ &$this, 'intercept_auth' ] );
         } else {
-            //single site
             add_action( 'admin_menu', [ &$this, 'admin_menu' ] );
             add_action( 'load-toplevel_page_infinite_uploads', [ &$this, 'intercept_auth' ] );
             add_filter( 'plugin_action_links_infinite-uploads/infinite-uploads.php', [ &$this, 'plugins_list_links' ] );
@@ -49,8 +47,6 @@ class InfiniteUploadsAdmin {
         add_action( 'wp_ajax_save_iu_media_folders_setting', [ $this, 'save_media_folders_setting' ] );
         add_action( 'wp_ajax_save_iu_image_optimization', [ $this, 'save_image_optimization_setting' ] );
         add_action( 'wp_ajax_iu_purge_cdn_cache', [ $this, 'purge_cdn_cache' ] );
-
-        // Handle it via Action Schedular.
         add_action( 'infinite-uploads-do-sync', [ $this, 'do_sync' ] );
         add_action( 'infinite-uploads-add-files-to-download', [ $this, 'add_files_to_download' ] );
         add_action( 'infinite-uploads-fetch-s3-files-from-directory-to-download', [
@@ -95,8 +91,6 @@ class InfiniteUploadsAdmin {
             // which do_reconcile_files() uses to reschedule itself when the
             // pass hits its time budget mid-walk.
             add_action( 'infinite-uploads-reconcile-files', [ $this, 'do_reconcile_files' ] );
-
-            // This is to handle file exclusions.
             if ( InfiniteUploadsHelper::is_file_exclusion_enabled() ) {
                 add_filter( 'wp_get_attachment_url', [ $this, 'filter_attachment_url' ], 10, 2 );
                 add_filter( 'wp_calculate_image_srcset', [ $this, 'calculate_image_srcset' ], 10, 5 );
@@ -188,8 +182,6 @@ class InfiniteUploadsAdmin {
 
             return $url;
         }
-
-        // Cloud URL path
         $relative_path = str_replace( $cloud_url, '', $url );
 
         if ( self::cloud_file_exists( $relative_path ) ) {
@@ -350,7 +342,6 @@ class InfiniteUploadsAdmin {
     }
 
     public function ajax_status() {
-        // check caps
         if ( ! current_user_can( $this->iup_instance->capability ) ) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
@@ -377,8 +368,6 @@ class InfiniteUploadsAdmin {
         $break      = false;
         $path       = $this->iup_instance->get_original_upload_dir_root();
         $s3         = $this->iup_instance->s3();
-
-        //build full paths
         $to_sync_full = [];
         $to_sync_size = 0;
         $to_sync_sql  = [];
@@ -413,7 +402,6 @@ class InfiniteUploadsAdmin {
             $manager = new Transfer( $s3, $from, $path['basedir'], $transfer_args );
             $manager->transfer();
         } catch ( \Exception $e ) {
-            //echo $e->__toString();
             if ( method_exists( $e, 'getRequest' ) ) {
                 $file        = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
             } else {
@@ -440,7 +428,6 @@ class InfiniteUploadsAdmin {
         ];
 
         if ( $to_sync ) {
-            //build full paths
             $to_sync_full = [];
             $to_sync_size = 0;
             $to_sync_sql  = [];
@@ -460,7 +447,6 @@ class InfiniteUploadsAdmin {
                     'concurrency' => $concurrency,
                     'base_dir'    => $path['basedir'],
                     'before'      => function ( Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
-                        //add middleware to modify object headers
                         if ( in_array( $command->getName(), [ 'PutObject', 'CreateMultipartUpload' ], true ) ) {
                             /// Expires:
                             if ( defined( 'INFINITE_UPLOADS_HTTP_EXPIRES' ) ) {
@@ -487,7 +473,6 @@ class InfiniteUploadsAdmin {
                 $manager->transfer();
             } catch ( \Exception $e ) {
                 $this->sync_debug_log( "Transfer sync exception: " . $e->__toString() );
-                //echo $e->__toString();
                 if ( method_exists( $e, 'getRequest' ) ) {
                     $file        = str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() );
                 } else { //I don't know which error case trigger this but it's common
@@ -500,8 +485,6 @@ class InfiniteUploadsAdmin {
 
     public function ajax_sync_errors() {
         global $wpdb;
-
-        // check caps
         if ( ! current_user_can( $this->iup_instance->capability ) ) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
@@ -521,8 +504,6 @@ class InfiniteUploadsAdmin {
      */
     public function ajax_reset_errors() {
         global $wpdb;
-
-        // check caps
         if ( ! current_user_can( $this->iup_instance->capability ) ) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
@@ -539,8 +520,6 @@ class InfiniteUploadsAdmin {
      */
     public function ajax_filelist() {
         global $wpdb;
-
-        // check caps
         if ( ! current_user_can( $this->iup_instance->capability ) || ! wp_verify_nonce( $_POST['nonce'], 'iup_scan' ) ) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
@@ -566,7 +545,6 @@ class InfiniteUploadsAdmin {
                 $commands = [];
                 foreach ( $to_abort as $file ) {
                     $key = $prefix . $file->file;
-                    // Abort the multipart upload.
                     $commands[] = $s3->getCommand( 'abortMultipartUpload', [
                             'Bucket'   => $bucket,
                             'Key'      => $key,
@@ -574,10 +552,7 @@ class InfiniteUploadsAdmin {
                     ] );
                     $this->sync_debug_log( "Aborting multipart upload for {$file->file} UploadId {$file->upload_id}" );
                 }
-                // Create a command pool
                 $pool = new CommandPool( $s3, $commands );
-
-                // Begin asynchronous execution of the commands
                 $promise = $pool->promise();
             }
         }
@@ -612,8 +587,6 @@ class InfiniteUploadsAdmin {
 
     public function ajax_remote_filelist() {
         global $wpdb;
-
-        // check caps
         if ( ! current_user_can( $this->iup_instance->capability ) || ! wp_verify_nonce( $_POST['nonce'], 'iup_scan' ) ) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
@@ -733,7 +706,6 @@ class InfiniteUploadsAdmin {
         while ( ! $break ) {
             $to_sync = $wpdb->get_results( $wpdb->prepare( "SELECT file, size FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 0 AND errors < 3 AND transfer_status IS NULL ORDER BY errors ASC, file ASC LIMIT %d", INFINITE_UPLOADS_SYNC_PER_LOOP ) );
             if ( $to_sync ) {
-                //build full paths
                 $to_sync_full = [];
                 $to_sync_size = 0;
                 $to_sync_sql  = [];
@@ -757,7 +729,6 @@ class InfiniteUploadsAdmin {
                         'concurrency' => $concurrency,
                         'base_dir'    => $path['basedir'],
                         'before'      => function ( Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
-                            //add middleware to modify object headers
                             if ( in_array( $command->getName(), [ 'PutObject', 'CreateMultipartUpload' ], true ) ) {
                                 /// Expires:
                                 if ( defined( 'INFINITE_UPLOADS_HTTP_EXPIRES' ) ) {
@@ -776,8 +747,6 @@ class InfiniteUploadsAdmin {
                             if ( in_array( $command->getName(), [ 'PutObject' ], true ) ) {
                                 $this->sync_debug_log( "Uploading key {$command['Key']}" );
                             }
-
-                            //add middleware to intercept result of each file upload
                             if ( in_array( $command->getName(), [ 'PutObject', 'CompleteMultipartUpload' ], true ) ) {
                                 $command->getHandlerList()->appendSign(
                                         Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, &$uploaded, $command ) {
@@ -790,8 +759,6 @@ class InfiniteUploadsAdmin {
                                         } )
                                 );
                             }
-
-                            //add middleware to intercept result and record the uploadId for resuming later
                             if ( in_array( $command->getName(), [ 'CreateMultipartUpload' ], true ) ) {
                                 $this->sync_debug_log( "Starting multipart upload for key {$command['Key']}" );
                                 $command->getHandlerList()->appendSign(
@@ -806,8 +773,6 @@ class InfiniteUploadsAdmin {
                                         } )
                                 );
                             }
-
-                            //add middleware to check if we should bail before each new upload part
                             if ( in_array( $command->getName(), [ 'UploadPart' ], true ) ) {
                                 $this->sync_debug_log( "Uploading key {$command['Key']} part {$command['PartNumber']}" );
                                 $command->getHandlerList()->appendSign(
@@ -1882,7 +1847,6 @@ class InfiniteUploadsAdmin {
 
         while ( ! $break ) {
             $to_sync = $wpdb->get_results( $wpdb->prepare( "SELECT file, size FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 1 AND errors < 3 ORDER BY errors ASC, file ASC LIMIT %d", INFINITE_UPLOADS_SYNC_PER_LOOP ) );
-            //build full paths
             $to_sync_full = [];
             $to_sync_size = 0;
             $to_sync_sql  = [];

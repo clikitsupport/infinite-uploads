@@ -17,22 +17,19 @@ class MediaFoldersGallery {
 		return self::$instance;
 	}
 
+	/**
+	 * Wire up the four entry points: Gutenberg block, REST API, shortcode,
+	 * and page-builder integrations. The `plugins_loaded` priority 20 for
+	 * init_integrations() defers until after builders have declared their
+	 * base classes/constants.
+	 */
 	public function __construct() {
 		require_once __DIR__ . '/gallery/render.php';
 
-		// Gutenberg block.
 		add_action( 'init', [ $this, 'register_block' ] );
-
-		// REST API endpoints.
 		add_action( 'rest_api_init', [ $this, 'register_rest_routes' ] );
-
-		// Shortcode.
 		add_shortcode( 'iu_gallery', [ $this, 'shortcode_handler' ] );
-
-		// Page builder integrations (deferred so builder classes are loaded).
 		add_action( 'plugins_loaded', [ $this, 'init_integrations' ], 20 );
-
-		// PhotoSwipe footer HTML (printed once when needed).
 		add_action( 'wp_footer', [ $this, 'print_photoswipe_html' ] );
 	}
 
@@ -258,41 +255,39 @@ class MediaFoldersGallery {
 	// Page builder integrations
 	// -------------------------------------------------------------------------
 
+	/**
+	 * Load a builder-specific integration file only when that builder is
+	 * actually active. Elementor gets a deeper hook (widgets/register)
+	 * because Widget_Base isn't available at plugins_loaded time.
+	 */
 	public function init_integrations() {
 		$integrations_dir = __DIR__ . '/gallery/integrations/';
 
-		// Elementor — load inside elementor/widgets/register so Widget_Base is available.
 		add_action( 'elementor/widgets/register', function( $widgets_manager ) use ( $integrations_dir ) {
 			require_once $integrations_dir . 'Elementor.php';
 			$widgets_manager->register( new IU_Gallery_Elementor_Widget() );
 		} );
 
-		// Divi
 		if ( class_exists( 'ET_Builder_Element' ) ) {
 			require_once $integrations_dir . 'DiviModule.php';
 		}
 
-		// Beaver Builder
 		if ( class_exists( 'FLBuilderLoader' ) ) {
 			require_once $integrations_dir . 'BeaverModule.php';
 		}
 
-		// Bricks
 		if ( defined( 'BRICKS_VERSION' ) ) {
 			require_once $integrations_dir . 'BricksElement.php';
 		}
 
-		// Oxygen
 		if ( defined( 'CT_VERSION' ) ) {
 			require_once $integrations_dir . 'OxygenElement.php';
 		}
 
-		// Avada
 		if ( class_exists( 'FusionBuilder' ) || defined( 'AVADA_VERSION' ) ) {
 			require_once $integrations_dir . 'AvadaElement.php';
 		}
 
-		// WooCommerce
 		if ( class_exists( 'WooCommerce' ) || defined( 'WC_VERSION' ) ) {
 			require_once $integrations_dir . 'WooCommerce.php';
 		}

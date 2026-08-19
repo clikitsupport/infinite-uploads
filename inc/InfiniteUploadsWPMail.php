@@ -1,5 +1,14 @@
 <?php
-
+/**
+ * Drop-in replacement for WordPress core's wp_mail() plus a PHPMailer
+ * subclass that permits URL/phar paths (needed so PHPMailer can attach
+ * files that live under the iu:// stream wrapper).
+ *
+ * The wp_mail() body below is a near-verbatim copy of the version shipped
+ * in wp-includes/pluggable.php. Keep it in sync with upstream on WordPress
+ * upgrades — the inline comments and phpdoc blocks are preserved
+ * intentionally so a future diff against WP core stays legible.
+ */
 
 if ( ! function_exists( 'wp_mail' ) ) :
 	/**

@@ -1,5 +1,9 @@
 <?php
-// Beaver Builder frontend template for IU Gallery module.
+/**
+ * Beaver Builder frontend template for the IU Gallery module. Included
+ * by BeaverModule.php via the module's `frontend_file` declaration.
+ * $module is provided by Beaver Builder's include context.
+ */
 namespace ClikIT\InfiniteUploads;
 
 echo iu_render_gallery( [
