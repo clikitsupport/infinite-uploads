@@ -2,7 +2,7 @@
 
 Requires at least: 6.0
 Tested up to: 7.0
-Stable tag: 3.3.1
+Stable tag: 3.3.2
 Requires PHP: 8.0
 Contributors: bww
 Tags: media library, image optimization, uploads, cloud storage, cdn
@@ -173,6 +173,15 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 == Upgrade Notice ==
 
+3.3.2
+-------------
+
+* Improvement: Large sync jobs are now significantly faster and no longer time out under common host gateway limits.
+* Fixed: Missing media after initial setup.
+* Fixed: A hidden crash that could surface as "Too many server errors" during sync retries.
+* Fixed: Koko Analytics now works alongside Infinite Uploads out of the box.
+* Fixed: Elementor Website Templates now install cleanly with Infinite Uploads enabled.
+
 3.3.1
 -------------
 
@@ -203,6 +212,18 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * Update: Added support to get the IU CDN url and prefix for the EWWW Image Optimizer so JS WebP and Picture WebP rewriting work automatically.
 
 == Changelog ==
+
+3.3.2
+----------------------------------------------------------------------
+
+* Fixed: Missing media after initial setup. Images uploaded between the plugin's initial scan and its sync running could previously be missed entirely, later appearing as broken links on the front-end. New uploads are now registered and synced automatically the moment WordPress creates them.
+* New: A daily background pass now walks your uploads folder and picks up any files that never made it to the cloud — including files created by page builders that write directly to disk, and files that had previously failed to sync repeatedly and were retired. When it finds new work, it kicks off a sync immediately instead of waiting for the next scheduled run.
+* Improvement: Large sync jobs are now significantly faster. Files stream continuously through the upload pipeline, so a single slow file no longer stalls an entire batch of fast files.
+* Fixed: Sync requests now stay well under common host gateway timeouts (Cloudflare, nginx). Requests that used to get silently cut off mid-transfer — surfacing to users as "Too many server errors. Please try again." with nothing in the logs — now finish cleanly.
+* Fixed: A hidden crash when resuming an interrupted multipart upload. This was another cause behind repeated "Too many server errors" reports.
+* Improvement: Sync failures are now written to the standard PHP error log automatically. A failing sync leaves a diagnosable trail without needing to turn on the plugin's debug mode first.
+* Fixed: Koko Analytics compatibility — Koko now works alongside Infinite Uploads out of the box. Previously, Koko couldn't locate its stats endpoint when Infinite Uploads was enabled.
+* Fixed: Elementor Website Templates now install cleanly with Infinite Uploads enabled. Previously template imports could fail with an "Unable to download the Website Template" error.
 
 3.3.1
 ----------------------------------------------------------------------
