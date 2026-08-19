@@ -89,7 +89,7 @@ jobs:
             -o -name "phpunit.xml.dist" -o -name "package.json" -o -name "package-lock.json" \
             -o -name "readme.md" -o -name "gulpfile.js" -o -name "build-aws3.sh" \
             -o -name "AGENTS.md" -o -name "CLAUDE.md" \
-            -o -name "AGENTS.md" -o -name "travis.yml" -o -name ".phpcsignore" \
+            -o -name "AGENTS.md" -o -name "travis.yml" -o -name ".phpcsignore" -o -name ".wp-env.json" \
             -o -name "webpack.config.js" -o -name "playwright.config.js" \
           \) -delete
           find . -type d \( -name "tests" -o -name "bin" \) -exec rm -rf {} +

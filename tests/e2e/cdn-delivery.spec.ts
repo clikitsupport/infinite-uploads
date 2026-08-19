@@ -107,15 +107,31 @@ test.describe( 'CDN delivery on the live site', () => {
 		// Regression-guard: if disconnect didn't clear iup_enabled, all the
 		// other tests above would still pass spuriously.
 		//
+		// The proof is: uploads created WHILE the plugin is disconnected
+		// must yield a local wp_get_attachment_url — the rewriter is not
+		// registered when the token is missing, so any new attachment's
+		// URL comes straight from WordPress core with no rewrite. (The
+		// rewriter is a local→CDN pass; it cannot rewrite CDN→local, so
+		// URLs stored *while connected* remain CDN in post content even
+		// after disconnect — that's expected behavior, not a bug.)
+		//
 		// SKIPPED in real-connection mode — we won't (and can't) disconnect a
 		// user's real IU account during a test run.
 		const state = await iuApi.getState();
 		test.skip( state.is_real, 'Skip disconnected-baseline test when a real IU connection is in place.' );
 
 		const cdnHost = state.cdn_host!;
-		const upload  = await iuApi.uploadFixture( FIXTURE_FILENAME );
 
+		// Disconnect FIRST, then upload — with the token cleared, the
+		// upload helper's wp_get_attachment_url() returns the raw local URL.
 		await iuApi.disconnect();
+
+		const upload = await iuApi.uploadFixture( FIXTURE_FILENAME );
+
+		// Sanity: the freshly-returned URL should already be local, since
+		// the rewriter that would otherwise turn it into a CDN URL is off.
+		expect( upload.source_url ).not.toContain( cdnHost );
+		expect( upload.source_url ).toContain( '/wp-content/uploads' );
 
 		const post = await iuApi.createPost(
 			'CDN Delivery — disconnected baseline',

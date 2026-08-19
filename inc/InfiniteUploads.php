@@ -744,9 +744,18 @@ class InfiniteUploads {
      * @return array
      */
     public function get_files_for_unique_filename_file_list( $files, $dir, $filename ) {
+        // The iu:// streamwrapper supports listing by partial prefixes with
+        // wildcards (e.g. scandir( iu://bucket/2019/06/my-image* )), which
+        // saves ListObjectsV2 round-trips vs scanning the whole directory.
+        // Native scandir() doesn't understand globs, so if $dir isn't an
+        // iu:// stream URI the wildcard makes scandir() fail with a
+        // "no such file or directory" warning and return false. Fall
+        // through to WordPress's default filelist for local paths.
+        if ( 0 !== strpos( (string) $dir, 'iu://' ) ) {
+            return $files;
+        }
+
         $name = pathinfo( $filename, PATHINFO_FILENAME );
-        // The iu:// streamwrapper support listing by partial prefixes with wildcards.
-        // For example, scandir( iu://bucket/2019/06/my-image* )
         return scandir( trailingslashit( $dir ) . $name . '*' );
     }
 
