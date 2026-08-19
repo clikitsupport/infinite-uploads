@@ -2688,7 +2688,19 @@ class InfiniteUploadsAdmin {
     }
 
     /**
-     * Prepares a directory tree for jstree from a given directory.
+     * Prepare one level of the exclusion-tree jstree data — the direct
+     * children of $dir, sorted directories-first alphabetically. Blends
+     * real filesystem entries (via FilesystemIterator, single level, no
+     * recursion) with "virtual" paths injected from the synced filelist
+     * so cloud-only files that no longer exist locally still appear.
+     *
+     * Bounded per level by INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES
+     * (default 2000). When a folder exceeds the cap, a disabled marker
+     * node is appended pointing the user to exclude the parent folder
+     * instead — without the cap a 150k-file flat folder produced ~30MB
+     * of JSON and froze the browser tab for 20s+ trying to render the
+     * checkboxes. See support ticket #11712. Override via the
+     * `infinite_uploads_exclude_tree_max_nodes` filter.
      *
      * @param  string  $dir            The directory to scan.
      * @param  array   $preselected    Array of preselected paths.
@@ -2700,45 +2712,33 @@ class InfiniteUploadsAdmin {
     public function prepare_directory_tree( $dir, $preselected = [], $virtual_paths = [], $root_dir = null ) {
         $result = [];
 
-        // Set root dir on first call.
         if ( $root_dir === null ) {
             $root_dir = $dir;
         }
 
         $preselected_map = array_flip( $preselected );
 
-        // Compute relative prefix for this $dir relative to $root_dir.
         $rel_prefix = '';
         if ( $dir !== $root_dir ) {
             $rel_prefix = ltrim( substr( $dir, strlen( $root_dir ) ), DIRECTORY_SEPARATOR );
         }
 
-        // Per-level node cap. A single flat folder of 150k files here used
-        // to allocate ~30MB of JSON, then freeze the browser tab for ~20s
-        // trying to render 150k checkboxes. Hard-cap the count and replace
-        // the overflow with a disabled marker node so the user sees why
-        // and can exclude the whole parent instead of every file. Filter
-        // to override on installs that need more.
         $max_nodes = (int) apply_filters(
                 'infinite_uploads_exclude_tree_max_nodes',
                 (int) INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES
         );
         $truncated = false;
 
-        // Track existing names at this level to avoid duplicates with virtual paths.
         $existing_names = [];
 
-        // Scan real filesystem — single level only (no recursion).
         try {
             $iterator = new \FilesystemIterator( $dir, \FilesystemIterator::SKIP_DOTS );
         } catch ( \UnexpectedValueException $e ) {
-            // Directory doesn't exist (could be a virtual-only path); continue to inject virtuals below.
+            // Virtual-only path (no local dir); fall through to virtual injection.
             $iterator = [];
         }
 
         foreach ( $iterator as $file_info ) {
-            // Break BEFORE allocating another node so a 150k-file folder
-            // doesn't build the whole array before we throw most of it away.
             if ( count( $result ) >= $max_nodes ) {
                 $truncated = true;
                 break;
@@ -2864,10 +2864,7 @@ class InfiniteUploadsAdmin {
             return strnatcasecmp( $a["text"], $b["text"] );
         } );
 
-        // Append a disabled marker AFTER the sort so it always lands at the
-        // end. Signals to the user that the folder was truncated and they
-        // should exclude the parent folder rather than trying to select
-        // individual items.
+        // Marker appended AFTER the sort so it always lands at the end.
         if ( $truncated ) {
             $result[] = [
                     "text"     => sprintf(
@@ -2926,17 +2923,9 @@ class InfiniteUploadsAdmin {
     public function get_synced_files( $rel_prefix = null ) {
         global $wpdb;
         $table = $wpdb->base_prefix . 'infinite_uploads_files';
-
-        // Cap matches the tree's own per-level rendering ceiling. +1 so
-        // callers can tell "at cap → truncation possible" from "under cap"
-        // (though the tree cap-check is the authoritative UI signal).
-        $cap = (int) INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES + 1;
+        $cap   = (int) INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES + 1;
 
         if ( null === $rel_prefix || '' === $rel_prefix ) {
-            // Root request. Distinct top-level segments + whether the segment
-            // has files beneath it. Synthesise the return path so
-            // prepare_directory_tree()'s first-segment inspection continues
-            // to work without a schema change.
             $rows = $wpdb->get_results(
                     $wpdb->prepare(
                             "SELECT
@@ -2956,9 +2945,9 @@ class InfiniteUploadsAdmin {
                 if ( '' === $seg ) {
                     continue;
                 }
-                // A folder needs at least a second segment; use a
-                // placeholder that will never be treated as a real path
-                // (prepare_directory_tree only looks at segments[0]).
+                // Two-segment synthetic path signals "folder" to
+                // prepare_directory_tree, which only inspects segments[0]
+                // plus count(segments) > 1 for the is-dir determination.
                 $paths[] = ! empty( $r['is_dir'] )
                         ? '/' . $seg . '/*'
                         : '/' . $seg;
@@ -2967,9 +2956,6 @@ class InfiniteUploadsAdmin {
             return $paths;
         }
 
-        // Sub-directory request. Scope to files under this prefix so an
-        // O(library) load becomes O(folder). LIKE with a fixed prefix uses
-        // the `file` column's index efficiently.
         $like = '/' . trim( $rel_prefix, '/' ) . '/%';
 
         return $wpdb->get_col(
@@ -2982,7 +2968,15 @@ class InfiniteUploadsAdmin {
     }
 
     /**
-     * AJAX handler to get directory tree
+     * AJAX handler for the exclusion-tree lazy loader. Called by jstree
+     * once per node expansion — root request has no `dir` param, sub-node
+     * requests pass the absolute path of the folder being opened.
+     *
+     * The uploads-relative prefix derived from the requested $scan_dir is
+     * handed to get_synced_files() so its query is scoped to only the
+     * paths this level will render (see support ticket #11712 for why an
+     * unscoped query on large libraries OOM'd before the tree could be
+     * built).
      */
     public function get_direcotry_tree() {
         // Verify nonce.
@@ -3033,15 +3027,8 @@ class InfiniteUploadsAdmin {
         $sub_dir       = $dir['subdir'];
         $virtual_paths = [ $sub_dir ];
 
-        // Compute the uploads-relative prefix for the level being requested
-        // and hand it to get_synced_files() so its query is scoped to only
-        // the paths jstree is about to render — root request → distinct
-        // top-level segments, sub-directory → files under that sub-directory.
-        // Previously get_synced_files() fetched the entire library on every
-        // AJAX tree request, which OOM'd on large libraries before the tree
-        // could be built (see support ticket #11712).
-        $real_root = realpath( $upload_dir );
-        $real_scan = realpath( $scan_dir );
+        $real_root  = realpath( $upload_dir );
+        $real_scan  = realpath( $scan_dir );
         $rel_prefix = null;
         if ( false !== $real_root && false !== $real_scan && $real_root !== $real_scan
              && 0 === strpos( $real_scan, $real_root ) ) {
