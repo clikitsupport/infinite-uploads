@@ -88,10 +88,6 @@ class AbilitiesTest extends TestCase {
 	private function expect_registrations( int $times, ?array &$names ): void {
 		$names = [];
 
-		Functions\expect( 'wp_register_ability_category' )
-			->once()
-			->with( 'infinite-uploads', Mockery::type( 'array' ) );
-
 		Functions\expect( 'wp_register_ability' )
 			->times( $times )
 			->andReturnUsing( function ( $name ) use ( &$names ) {
@@ -109,6 +105,23 @@ class AbilitiesTest extends TestCase {
 		$this->abilities->register_abilities();
 
 		$this->assertFalse( function_exists( 'wp_register_ability' ) );
+	}
+
+	public function test_registers_category_on_categories_hook(): void {
+		$captured = null;
+
+		Functions\expect( 'wp_register_ability_category' )
+			->once()
+			->andReturnUsing( function ( $slug, $args ) use ( &$captured ) {
+				$captured = [ $slug, $args ];
+
+				return true;
+			} );
+
+		$this->abilities->register_category();
+
+		$this->assertSame( 'infinite-uploads', $captured[0] );
+		$this->assertNotEmpty( $captured[1]['label'] );
 	}
 
 	public function test_registers_all_abilities_on_main_site(): void {

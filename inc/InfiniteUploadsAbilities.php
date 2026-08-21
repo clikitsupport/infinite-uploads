@@ -34,6 +34,7 @@ class InfiniteUploadsAbilities {
 		$this->iup_instance = InfiniteUploads::get_instance();
 		$this->api          = InfiniteUploadsApiHandler::get_instance();
 
+		add_action( 'wp_abilities_api_categories_init', [ $this, 'register_category' ] );
 		add_action( 'wp_abilities_api_init', [ $this, 'register_abilities' ] );
 	}
 
@@ -49,7 +50,26 @@ class InfiniteUploadsAbilities {
 	}
 
 	/**
-	 * Register the ability category and all abilities.
+	 * Register the shared ability category.
+	 *
+	 * Core only accepts category registrations on the dedicated
+	 * wp_abilities_api_categories_init action — registering from
+	 * wp_abilities_api_init is rejected with _doing_it_wrong, and every
+	 * ability referencing the missing category then fails silently.
+	 */
+	public function register_category() {
+		if ( ! function_exists( 'wp_register_ability_category' ) ) {
+			return;
+		}
+
+		wp_register_ability_category( 'infinite-uploads', [
+			'label'       => __( 'Infinite Uploads', 'infinite-uploads' ),
+			'description' => __( 'Cloud media offloading, sync, and CDN operations from the Infinite Uploads plugin.', 'infinite-uploads' ),
+		] );
+	}
+
+	/**
+	 * Register all abilities.
 	 *
 	 * Sync-flow abilities (scan/sync/download/toggle) are main-site only,
 	 * mirroring the wp_ajax registrations in InfiniteUploadsAdmin — the sync
@@ -59,13 +79,6 @@ class InfiniteUploadsAbilities {
 	public function register_abilities() {
 		if ( ! function_exists( 'wp_register_ability' ) ) {
 			return;
-		}
-
-		// Categories must exist before any ability that references them.
-		if ( function_exists( 'wp_register_ability_category' ) ) {
-			wp_register_ability_category( 'infinite-uploads', [
-				'label' => __( 'Infinite Uploads', 'infinite-uploads' ),
-			] );
 		}
 
 		$this->register_ability( 'get-status', [
