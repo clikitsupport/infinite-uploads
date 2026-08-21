@@ -178,6 +178,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 
 * Improvement: Large sync jobs are now significantly faster and no longer time out under common host gateway limits.
 * Fixed: Missing media after initial setup.
+* Fixed: Settings → Files to exclude no longer hangs on "Loading…" on large libraries.
 * Fixed: A hidden crash that could surface as "Too many server errors" during sync retries.
 * Fixed: Koko Analytics now works alongside Infinite Uploads out of the box.
 * Fixed: Elementor Website Templates now install cleanly with Infinite Uploads enabled.
@@ -221,6 +222,7 @@ You can report security bugs through the Patchstack Vulnerability Disclosure Pro
 * Improvement: Large sync jobs are now significantly faster. Files stream continuously through the upload pipeline, so a single slow file no longer stalls an entire batch of fast files.
 * Fixed: Sync requests now stay well under common host gateway timeouts (Cloudflare, nginx). Requests that used to get silently cut off mid-transfer — surfacing to users as "Too many server errors. Please try again." with nothing in the logs — now finish cleanly.
 * Fixed: A hidden crash when resuming an interrupted multipart upload. This was another cause behind repeated "Too many server errors" reports.
+* Fixed: Settings → Files to exclude no longer hangs on "Loading…" on large libraries. Previously the tree loaded every synced file into memory on each request — a 400k-file library ran the request out of memory before the tree could be rendered. The tree now only queries the folder being expanded, and caps each folder at 2,000 entries with a marker node prompting the user to exclude the parent folder instead when the cap is reached.
 * Improvement: Sync failures are now written to the standard PHP error log automatically. A failing sync leaves a diagnosable trail without needing to turn on the plugin's debug mode first.
 * Fixed: Koko Analytics compatibility — Koko now works alongside Infinite Uploads out of the box. Previously, Koko couldn't locate its stats endpoint when Infinite Uploads was enabled.
 * Fixed: Elementor Website Templates now install cleanly with Infinite Uploads enabled. Previously template imports could fail with an "Unable to download the Website Template" error.

@@ -18,6 +18,7 @@ declare( strict_types=1 );
 
 namespace ClikIT\InfiniteUploads\Tests\Unit;
 
+use Brain\Monkey\Functions;
 use ClikIT\InfiniteUploads\InfiniteUploadsAdmin;
 use ClikIT\InfiniteUploads\Tests\TestCase;
 use ReflectionClass;
@@ -33,6 +34,17 @@ class ExclusionTreeSortTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		require_once IU_PLUGIN_ROOT . '/inc/InfiniteUploadsAdmin.php';
+
+		// prepare_directory_tree() reads INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES
+		// as its per-level cap. Set it high in tests so the sort-ordering
+		// assertions aren't affected by an unrelated truncation ceiling.
+		if ( ! defined( 'INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES' ) ) {
+			define( 'INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES', 100000 );
+		}
+
+		// prepare_directory_tree() now reads the max-nodes cap through
+		// apply_filters — pass through the default.
+		Functions\when( 'apply_filters' )->returnArg( 2 );
 
 		$ref         = new ReflectionClass( InfiniteUploadsAdmin::class );
 		$this->admin = $ref->newInstanceWithoutConstructor();
@@ -158,5 +170,71 @@ class ExclusionTreeSortTest extends TestCase {
 
 	public function test_empty_directory_returns_empty_array() {
 		$this->assertSame( [], $this->admin->prepare_directory_tree( $this->root ) );
+	}
+
+	// ---------------------------------------------------------------------
+	// Per-level node cap (Cause 2 from support ticket #11712 — a flat
+	// folder of 150k files used to OOM the request at 256M and freeze the
+	// browser tab for 20s+ trying to render the checkboxes).
+	// ---------------------------------------------------------------------
+
+	public function test_it_caps_a_flat_folder_at_the_configured_max() {
+		// Override the filter to a small cap so we can prove truncation
+		// with a manageable number of files.
+		Functions\when( 'apply_filters' )->alias( function ( $hook, $value ) {
+			if ( 'infinite_uploads_exclude_tree_max_nodes' === $hook ) {
+				return 5;
+			}
+			return $value;
+		} );
+
+		for ( $i = 1; $i <= 20; $i ++ ) {
+			touch( $this->root . '/f-' . sprintf( '%03d', $i ) . '.png' );
+		}
+
+		// Rest of the WP i18n helpers reached from the truncation marker.
+		Functions\when( 'esc_html__' )->returnArg( 1 );
+		Functions\when( 'number_format_i18n' )->alias( function ( $n ) {
+			return (string) $n;
+		} );
+
+		$nodes = $this->admin->prepare_directory_tree( $this->root );
+
+		// 5 real entries + 1 disabled truncation marker.
+		$this->assertCount( 6, $nodes );
+		$this->assertSame(
+				'iu-tree-truncated',
+				$nodes[5]['li_attr']['class'],
+				'Truncation marker must be tagged so the front-end can style it.'
+		);
+		$this->assertTrue(
+				$nodes[5]['state']['disabled'],
+				'Truncation marker must be non-selectable.'
+		);
+	}
+
+	public function test_it_caps_virtual_paths_too() {
+		Functions\when( 'apply_filters' )->alias( function ( $hook, $value ) {
+			if ( 'infinite_uploads_exclude_tree_max_nodes' === $hook ) {
+				return 3;
+			}
+			return $value;
+		} );
+		Functions\when( 'esc_html__' )->returnArg( 1 );
+		Functions\when( 'number_format_i18n' )->alias( function ( $n ) {
+			return (string) $n;
+		} );
+
+		// No real files — everything comes from the virtual-paths pass.
+		$virtual = [];
+		for ( $i = 0; $i < 20; $i ++ ) {
+			$virtual[] = '/virt-' . sprintf( '%03d', $i ) . '/x';
+		}
+
+		$nodes = $this->admin->prepare_directory_tree( $this->root, [], $virtual, $this->root );
+
+		// 3 virtual dirs + 1 disabled truncation marker.
+		$this->assertCount( 4, $nodes );
+		$this->assertTrue( $nodes[3]['state']['disabled'] );
 	}
 }

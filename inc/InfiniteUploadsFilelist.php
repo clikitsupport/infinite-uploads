@@ -3,12 +3,19 @@
 namespace ClikIT\InfiniteUploads;
 
 /**
- * Lists files using a Breadth-First search algorithm to allow for time limits and resume across multiple requests.
- */
-
-
-/**
- * InfiniteUploadsFilelist
+ * Breadth-first scanner over the local uploads directory. Iterates within
+ * a per-request time budget and pauses cleanly at a directory boundary
+ * when the budget is exhausted, stashing the remaining paths in
+ * $paths_left so a subsequent request can resume without re-walking.
+ * Flushes discovered files into `{prefix}infinite_uploads_files` in
+ * batches of $insert_rows.
+ *
+ * Two modes (see MODE_SCAN / MODE_RECONCILE):
+ *   - Scan wipes the sync table on start and resets the iup_files_scanned
+ *     progress bookkeeping. Owned by the manual "Scan" button flow.
+ *   - Reconcile leaves both intact — used by the periodic self-heal cron
+ *     that picks up files written outside the plugin's attachment hooks
+ *     (page builders, direct disk writes) without destroying sync state.
  */
 class InfiniteUploadsFilelist {
 
@@ -133,13 +140,12 @@ class InfiniteUploadsFilelist {
 		while ( ! empty( $paths ) ) {
 			$path = array_pop( $paths );
 
-			// Skip ".." items.
 			if ( preg_match( '/\.\.([\/\\\\]|$)/', $path ) ) {
 				continue;
 			}
 
 			if ( 0 !== strpos( $path, $this->root_path ) ) {
-				// Build the absolute path in case it's not the first iteration.
+				// Resume paths_left entries come back as relative — rebuild absolute.
 				$path = rtrim( $this->root_path, '/' ) . $path;
 			}
 
@@ -174,7 +180,6 @@ class InfiniteUploadsFilelist {
 			}
 			$this->paths_left = $paths;
 
-			// If we have exceed the imposed time limit, lets pause the iteration here.
 			if ( $this->has_exceeded_timelimit() ) {
 				break;
 			}
@@ -183,28 +188,29 @@ class InfiniteUploadsFilelist {
 		$this->is_done = false;
 	}
 
+	/**
+	 * Register the files listed in $paths_left as sync candidates.
+	 * Used by the un-exclude flow (see
+	 * process_added_removed_excluded_files) where individual FILE paths
+	 * — not directory paths — are handed in for re-queuing. The glob()
+	 * branch below treats every path as a directory pattern, so files
+	 * are handled up-front before reaching it, otherwise glob() on a
+	 * file returns [] and the entry would be silently dropped.
+	 */
 	public function add_files_to_sync() {
 		$paths = ( empty( $this->paths_left ) ) ? [ $this->root_path ] : $this->paths_left;
 
 		while ( ! empty( $paths ) ) {
 			$path = array_pop( $paths );
 
-			// Skip ".." items.
 			if ( preg_match( '/\.\.([\/\\\\]|$)/', $path ) ) {
 				continue;
 			}
 
 			if ( 0 !== strpos( $path, $this->root_path ) ) {
-				// Build the absolute path in case it's not the first iteration.
 				$path = rtrim( $this->root_path, '/' ) . $path;
 			}
 
-			// Un-exclude flow (process_added_removed_excluded_files → new
-			// InfiniteUploadsFilelist($path, 20, $files_to_resync)) passes
-			// individual FILE paths in $paths_left. The glob() branch below
-			// treats every path as a directory pattern — glob() on a file
-			// returns [], so the file would be silently skipped and never
-			// re-queued for sync. Handle files directly first.
 			if ( is_file( $path ) ) {
 				if ( ! is_link( $path ) ) {
 					if ( is_readable( $path ) ) {
@@ -238,12 +244,10 @@ class InfiniteUploadsFilelist {
 					$file['name'] = $this->relative_path( $item );
 
 					$this->add_file( $file );
-				} elseif ( is_dir( $item ) ) {
-					// Note: No need to sync directory.
-//					if ( ! in_array( $item, $paths, true ) ) {
-//						$paths[] = $this->relative_path( $item );
-//					}
 				}
+				// is_dir branch intentionally omitted here — this method
+				// operates on individual files enumerated up-front, so
+				// re-descending directories would double-queue.
 			}
 
 			$this->paths_left = $paths;
@@ -298,9 +302,8 @@ class InfiniteUploadsFilelist {
 	protected function get_file_info( $item ) {
 		$file          = [];
 		$file['mtime'] = filemtime( $item );
-		//$file['md5']   = md5_file( $item );
-		$file['size'] = filesize( $item );
-		$file['type'] = $this->instance->get_file_type( $item );
+		$file['size']  = filesize( $item );
+		$file['type']  = $this->instance->get_file_type( $item );
 
 		if ( empty( $file['mtime'] ) && empty( $file['size'] ) ) {
 			return false;
@@ -317,7 +320,6 @@ class InfiniteUploadsFilelist {
 	 * @return string
 	 */
 	protected function relative_path( $item ) {
-		// Retrieve the relative to the site root path of the file.
 		$pos = strpos( $item, $this->root_path );
 		if ( 0 === $pos ) {
 			return substr_replace( $item, '', $pos, strlen( $this->root_path ) );

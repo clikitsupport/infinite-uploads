@@ -12,28 +12,15 @@ class InfiniteUploadsVideo {
 
     private const LEGACY_PLAYER_VERSION = 1;
 
+    /**
+     * Wire up video AJAX endpoints, the Gutenberg block, and the
+     * `[infinite-uploads-vid]` shortcode. All write endpoints are routed
+     * server-side via wp-admin AJAX so the write API key never leaves the
+     * backend — only the read key is exposed to the block editor.
+     */
     public function __construct() {
         $this->iup_instance = InfiniteUploads::get_instance();
         $this->api          = InfiniteUploadsApiHandler::get_instance();
-
-        /*
-        //for testing, override values that our API would normally provide TODO remove
-        add_filter( 'infinite_uploads_video_config', function ( $return, $key, $data ) {
-            if ( 'library_id' === $key ) {
-                return 56793;
-            } elseif ( 'url' === $key ) {
-                return 'https://vz-30d13541-113.b-cdn.net';
-            } elseif ( 'key_read' === $key ) {
-                return BUNNY_API_KEY;
-            } elseif ( 'key_write' === $key ) {
-                return BUNNY_API_KEY;
-            } elseif ( 'enabled' === $key ) {
-                return defined( 'BUNNY_API_KEY' );
-            }
-
-            return $return;
-        }, 10, 3 );
-        */
 
         add_action( 'wp_ajax_infinite-uploads-video-activate', [ &$this, 'ajax_activate_video' ] );
 
@@ -41,19 +28,16 @@ class InfiniteUploadsVideo {
             add_action( 'admin_menu', [ &$this, 'admin_menu' ], 20 );
             add_action( 'network_admin_menu', [ &$this, 'admin_menu' ], 20 );
 
-            //all write API calls we make on backend to not expose write API key
             add_action( 'wp_ajax_infinite-uploads-video-library', [ &$this, 'ajax_video_library' ] );
             add_action( 'wp_ajax_infinite-uploads-video-create', [ &$this, 'ajax_create_video' ] );
             add_action( 'wp_ajax_infinite-uploads-video-update', [ &$this, 'ajax_update_video' ] );
             add_action( 'wp_ajax_infinite-uploads-video-delete', [ &$this, 'ajax_delete_video' ] );
             add_action( 'wp_ajax_infinite-uploads-video-settings', [ &$this, 'ajax_update_settings' ] );
 
-            //gutenberg block
             add_action( 'init', [ &$this, 'register_block' ] );
             add_action( 'enqueue_block_editor_assets', [ &$this, 'script_enqueue' ] );
         }
 
-        //shortcode
         add_shortcode( 'infinite-uploads-vid', [ &$this, 'shortcode' ] );
     }
 
@@ -260,12 +244,9 @@ class InfiniteUploadsVideo {
         $data = array(
                 'libraryId'   => $this->get_config( 'library_id' ),
                 'cdnUrl'      => 'https://' . $this->get_config( 'url' ),
-            // This give us the base CDN url for the library for building media links.
                 'apiKey'      => $this->get_config( 'key_write' ),
-            //we only expose the read key to the frontend. The write key is only used via backend ajax wrappers.
                 'settings'    => $this->get_library_settings(),
                 'nonce'       => wp_create_nonce( 'iup_video' ),
-            //used to verify the request is coming from the frontend, CSRF.
                 'assetBase'   => plugins_url( 'assets', __FILE__ ),
                 'settingsUrl' => $this->settings_url(),
                 'libraryUrl'  => $this->library_url(),
@@ -284,17 +265,14 @@ class InfiniteUploadsVideo {
      * @return void
      */
     public function ajax_check_permissions( $nonce = 'iup_video' ) {
-        // check caps
         if ( ! current_user_can( 'upload_files' ) ) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
 
-        //check nonce
         if ( ! check_ajax_referer( $nonce, 'nonce', false ) ) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
 
-        // return error if video is not enabled
         if ( $this->is_video_active() && ! $this->is_video_enabled() ) {
             wp_send_json_error( esc_html__( 'Infinite Uploads Video is disabled due to an issue with your account.', 'infinite-uploads' ) );
         }
@@ -370,15 +348,15 @@ class InfiniteUploadsVideo {
             wp_send_json_error( $result );
         }
 
-        //generate the signature params for a tus upload.
+        // tus upload signature for Bunny CDN — SHA256 of concatenated
+        // (library_id + api_key + expiration_time + video_id). Frontend
+        // uses this to authenticate the direct tus upload against Bunny's
+        // Stream API without touching our write key.
         $expiration = time() + ( 6 * HOUR_IN_SECONDS );
         $response   = [
                 'AuthorizationSignature' => hash( 'sha256', $result->videoLibraryId . $this->get_config( 'key_write' ) . $expiration . $result->guid ),
-            // SHA256 signature (library_id + api_key + expiration_time + video_id)
                 'AuthorizationExpire'    => $expiration,
-            // Expiration time as in the signature,
                 'VideoId'                => $result->guid,
-            // The guid of a previously created video object through the Create Video API call
                 'LibraryId'              => $result->videoLibraryId,
         ];
 
@@ -496,7 +474,6 @@ class InfiniteUploadsVideo {
         add_action( 'admin_print_scripts-' . $page, [ &$this, 'admin_scripts' ] );
         add_action( 'admin_print_styles-' . $page, [ &$this, 'admin_styles' ] );
 
-        //video settings page.
         $page = add_submenu_page(
                 'infinite_uploads',
                 __( 'Infinite Uploads Video', 'infinite-uploads' ),
@@ -592,10 +569,14 @@ class InfiniteUploadsVideo {
     }
 
     /**
-     * Video embed shortcode.
+     * `[infinite-uploads-vid]` shortcode. Renders the video embed iframe
+     * pointing at Bunny's mediadelivery.net player. Silently returns ''
+     * when video isn't active for the library — no editor placeholder.
+     * `preload` and `autoplay` are normalized before the query args are
+     * appended: preload is force-set to "true" and autoplay defaults to
+     * "false" if the attribute is missing.
      */
     function shortcode( $atts ) {
-        //hide shortcode when not logged in.
         if ( ! $this->is_video_active() ) {
             return '';
         }
@@ -612,14 +593,12 @@ class InfiniteUploadsVideo {
                 'infinite-uploads-vid'
         );
 
-        // Force preload to always be "true"
         $atts['preload'] = 'true';
 
         $video_url = esc_url_raw( sprintf( 'https://iframe.mediadelivery.net/embed/%d/%s', $this->get_config( 'library_id' ), $atts['id'] ) );
 
         unset( $atts['id'] );
 
-        // Ensure autoplay is always set to "false" if not explicitly defined
         if ( ! isset( $atts['autoplay'] ) ) {
             $atts['autoplay'] = 'false';
         }
@@ -629,7 +608,6 @@ class InfiniteUploadsVideo {
                 $video_url
         );
 
-        //fully escape now
         $video_url = esc_url( $video_url );
 
         return <<<HTML

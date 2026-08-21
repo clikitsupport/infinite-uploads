@@ -16,6 +16,21 @@
 // into the permission_callback so failures produce a 403 with a specific
 // error code (`iu_test_wrong_env`), giving us diagnostic signal.
 
+// Cap the AWS SDK's connect + request timeouts to 1 second in the test env.
+// The fake s3.iu-tests.local endpoint doesn't resolve — without this cap,
+// every `file_exists('iu://...')` call takes ~12s waiting for the SDK's
+// default retry cycle. Beaver Builder Lite's FLBuilderAdmin::sanity_checks
+// runs on every admin_init and does two such file_exists calls, so a
+// single admin-ajax request (and therefore Playwright's `networkidle`
+// wait) hung for 24s+ before Chrome would consider the page settled.
+add_filter( 'infinite_uploads_s3_client_params', function ( $params ) {
+	$params['http']                        = isset( $params['http'] ) ? $params['http'] : [];
+	$params['http']['connect_timeout']     = 1;
+	$params['http']['timeout']             = 1;
+	$params['retries']                     = 0;
+	return $params;
+} );
+
 add_action( 'rest_api_init', function () {
 	// Diagnostic: a route with NO permission check that just confirms the
 	// plugin file was loaded. Useful when something further down errors.
@@ -290,13 +305,39 @@ function iu_test_reset_state() {
 	$wpdb->query( "DELETE FROM {$wpdb->prefix}infinite_uploads_media_folder_relationships" );
 	$wpdb->query( "DELETE FROM {$wpdb->prefix}infinite_uploads_media_folders" );
 
-	// Clear the per-user "upload to this folder" meta for the default admin.
+	// Purge every attachment left over from prior tests. Without this, each
+	// spec's uploaded fixture accumulates in the Media Library, and when the
+	// next spec navigates to upload.php the grid renders 30+ <img> tags with
+	// rewritten CDN URLs (test-cdn.iu-tests.local — an intentionally
+	// non-resolving fake host). Every one of those returns a network error,
+	// Chrome retries, and `waitForLoadState('networkidle')` never fires
+	// within the test's 30s deadline.
+	//
+	// We nuke via SQL directly rather than wp_delete_attachment() because
+	// the latter fires IU's own `delete_attachment` hook, which unlinks
+	// files through the iu:// stream wrapper → S3 DeleteObject against
+	// the fake s3.iu-tests.local endpoint → 15-18s hang per attachment.
+	// SQL-level clear is instantaneous and complete (attachments are
+	// nothing but wp_posts rows + wp_postmeta + optional files).
+	$attachment_count = (int) $wpdb->get_var(
+		"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type = 'attachment'"
+	);
+	$wpdb->query(
+		"DELETE m FROM {$wpdb->postmeta} m
+		 INNER JOIN {$wpdb->posts} p ON p.ID = m.post_id
+		 WHERE p.post_type = 'attachment'"
+	);
+	$wpdb->query( "DELETE FROM {$wpdb->posts} WHERE post_type = 'attachment'" );
+	$wpdb->query( "DELETE FROM {$wpdb->base_prefix}infinite_uploads_files" );
+
 	delete_user_meta( 1, 'iu_upload_folder' );
 
-	// Invalidate any cached folder dropdown options (BB module).
 	wp_cache_delete( 'iu_bb_folder_options', 'infinite_uploads' );
 
-	return rest_ensure_response( [ 'reset' => true ] );
+	return rest_ensure_response( [
+		'reset'              => true,
+		'attachments_purged' => $attachment_count,
+	] );
 }
 
 /**
@@ -400,7 +441,15 @@ function iu_test_connect( $request ) {
 				'upload_bucket'    => 'iu-test-bucket/999/test',
 				'cdn_url'          => $cdn_host,
 				'cname'            => $cdn_host,
-				'upload_endpoint'  => 'https://s3.iu-tests.local',
+				// Point at a closed local port so the AWS SDK's HeadObject /
+				// PutObject calls fail with "connection refused" in <10ms
+				// instead of hanging for the SDK's DNS + retry window (~24s)
+				// against an unresolvable public host. Every admin-ajax
+				// request calls file_exists() on `iu://.../uploads` via
+				// Beaver Builder Lite's admin_init sanity check — without
+				// this fast-fail, each admin-ajax takes 24s+ and Playwright's
+				// `waitForLoadState('networkidle')` never fires.
+				'upload_endpoint'  => 'http://127.0.0.1:1',
 				'upload_region'    => 'us-east-1',
 				'cdn_enabled'      => true,
 				'upload_writeable' => true,
@@ -441,18 +490,38 @@ function iu_test_mark_synced( $request ) {
 	global $wpdb;
 
 	$attachment_id = (int) $request['attachment_id'];
-	$file_path     = get_attached_file( $attachment_id );
 
-	if ( ! $file_path || ! file_exists( $file_path ) ) {
+	// Resolve to the ORIGINAL LOCAL path, not what get_attached_file() /
+	// wp_upload_dir() would filter to. When IU is connected in the test
+	// env, both return iu:// paths and file_exists('iu://...') triggers
+	// the stream wrapper's S3 HeadObject — which reaches out to
+	// s3.iu-tests.local (an intentionally non-resolving fake host), hangs
+	// for the AWS SDK's full retry window (~15-18s), and blows past
+	// Playwright's request timeout. We only need the LOCAL file to
+	// register a synced row, so bypass the filter entirely.
+	$meta_file = (string) get_post_meta( $attachment_id, '_wp_attached_file', true );
+	if ( '' === $meta_file ) {
 		return new WP_Error(
 			'attachment_not_found',
-			"No file on disk for attachment {$attachment_id}",
+			"No _wp_attached_file meta for attachment {$attachment_id}",
 			[ 'status' => 404 ]
 		);
 	}
 
-	$uploads  = wp_upload_dir();
-	$relative = '/' . ltrim( str_replace( $uploads['basedir'], '', $file_path ), '/' );
+	$original  = class_exists( '\\ClikIT\\InfiniteUploads\\InfiniteUploadsHelper' )
+		? \ClikIT\InfiniteUploads\InfiniteUploadsHelper::get_original_upload_dir_root()
+		: wp_upload_dir();
+	$file_path = trailingslashit( $original['basedir'] ) . ltrim( $meta_file, '/' );
+
+	if ( ! file_exists( $file_path ) ) {
+		return new WP_Error(
+			'attachment_not_found',
+			"No file on disk for attachment {$attachment_id}: {$file_path}",
+			[ 'status' => 404 ]
+		);
+	}
+
+	$relative = '/' . ltrim( $meta_file, '/' );
 	$mime     = get_post_mime_type( $attachment_id ) ?: 'application/octet-stream';
 	$size     = filesize( $file_path );
 

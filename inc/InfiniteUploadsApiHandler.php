@@ -72,7 +72,6 @@ class InfiniteUploadsApiHandler {
 		$this->api_token   = get_site_option( 'iup_apitoken' );
 		$this->api_site_id = get_site_option( 'iup_site_id' );
 
-		// Schedule automatic data update on the main site of the network.
 		if ( is_main_site() ) {
 			if ( ! wp_next_scheduled( 'infinite_uploads_sync' ) ) {
 				wp_schedule_event( time(), 'daily', 'infinite_uploads_sync' );
@@ -232,7 +231,6 @@ class InfiniteUploadsApiHandler {
 			$response        = wp_remote_post( $link, $options );
 		}
 
-		// Add the request-URL to the response data.
 		if ( $response && is_array( $response ) ) {
 			$response['request_url'] = $link;
 		}
@@ -265,7 +263,7 @@ class InfiniteUploadsApiHandler {
 			error_log( $msg );
 		}
 
-		//if there is an auth problem
+		// Auto-logout on API-side auth failures (missing/invalid token, invalid site).
 		if ( $this->has_token() && in_array( wp_remote_retrieve_response_code( $response ), [ 401, 403, 404 ] ) ) {
 			$body = json_decode( wp_remote_retrieve_body( $response ) );
 			if ( isset( $body->code ) && in_array( $body->code, [
@@ -386,7 +384,6 @@ class InfiniteUploadsApiHandler {
 			);
 		}
 
-		// Collect back-trace information for the logfile.
 		$caller_dump = '';
 		if ( defined( 'INFINITE_UPLOADS_API_DEBUG' ) && INFINITE_UPLOADS_API_DEBUG ) {
 			$trace     = debug_backtrace();
@@ -421,7 +418,6 @@ class InfiniteUploadsApiHandler {
 			}
 		}
 
-		// Log the error to PHP error log.
 		error_log(
 			sprintf(
 				'[INFINITE_UPLOADS API Error] %s | %s (%s [%s]) %s',
@@ -456,7 +452,12 @@ class InfiniteUploadsApiHandler {
 	}
 
 	/**
-	 * Get site data from API, normally cached for 12hrs.
+	 * Get site data from the IU API, normally cached in the
+	 * `iup_api_data` site option for 12 hours. On refresh, a short-lived
+	 * transient lock prevents stampede when multiple concurrent requests
+	 * expire the cache at once — losers of the lock race return the stale
+	 * cache. On API failure the stale cache is also returned rather than
+	 * a hard false.
 	 *
 	 * @param  bool  $force_refresh
 	 *
@@ -469,7 +470,6 @@ class InfiniteUploadsApiHandler {
 
 		$data = false;
 
-		// Try cache first.
 		if ( ! $force_refresh ) {
 			$cached = get_site_option( 'iup_api_data' );
 
@@ -482,24 +482,20 @@ class InfiniteUploadsApiHandler {
 					return $cached;
 				}
 
-				$data = $cached; // keep stale as fallback
+				$data = $cached; // stale cache; may be returned below as fallback
 			}
 		}
 
-		// Fetch lock to prevent stampede.
 		$lock_key = 'iup_api_site_fetch_lock_' . $this->get_site_id();
 
 		if ( get_transient( $lock_key ) ) {
-			// Another request is already fetching.
 			return $data ? $data : false;
 		}
 
-		set_transient( $lock_key, 1, 30 ); // 30s lock,
+		set_transient( $lock_key, 1, 30 );
 
-		// Call API.
 		$result = $this->call( "site/" . $this->get_site_id(), [], 'GET' );
 
-		// Release lock ASAP.
 		delete_transient( $lock_key );
 
 		if ( $result ) {
@@ -509,7 +505,6 @@ class InfiniteUploadsApiHandler {
 			return $result;
 		}
 
-		// If API failed, return stale cache.
 		return $data ? $data : false;
 	}
 
@@ -574,18 +569,23 @@ class InfiniteUploadsApiHandler {
 	}
 
 	/**
-	 * Disconnect from API
+	 * Disconnect the site from the IU API.
+	 *
+	 * Fires a non-blocking notice to the API, then rewrites any CDN URLs
+	 * in `wp_posts.post_content` back to local upload URLs (only handles
+	 * post_content — deeper find-replace across meta / other tables
+	 * requires WP-CLI or a dedicated plugin). Backs up and clears folder
+	 * data (media files themselves are untouched), then clears the
+	 * token, disables cloud mode, and resets the sync progress option.
 	 */
 	public function disconnect() {
 		global $wpdb;
 
-		//ping the API to let them know we've disconnected
 		$this->call( "site/" . $this->get_site_id() . "/disconnect", [], 'POST', [
 			'timeout'  => 0.01,
 			'blocking' => false,
 		] );
 
-		//Do a find replace on the posts table. For multisite or other tables would really need a big find-replace plugin or WP CLI.
 		$uploads_url = $this->iup_instance->get_original_upload_dir_root();
 		$api_data    = $this->get_site_data();
 
@@ -599,14 +599,15 @@ class InfiniteUploadsApiHandler {
 				$find = 'https://' . trailingslashit( $api_data->site->cdn_url );
 				$wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->posts} SET `post_content` = replace(`post_content`, %s, %s)", $find, $replace ) );
 			}
-			wp_cache_flush(); //unfortunately no other way to clean every post from cache.
+			// Post-content string-replace bypasses post-level caches; flush
+			// the whole object cache since there's no per-post invalidation
+			// hook we can call.
+			wp_cache_flush();
 		}
 
-		// Backup and remove folder data (media files are untouched).
 		MediaFolders::backup_and_cleanup();
 
-		//logout and disable
-		$this->set_token( '' ); //logout
+		$this->set_token( '' );
 		$this->iup_instance->toggle_cloud( false );
 		delete_site_option( 'iup_files_scanned' );
 	}

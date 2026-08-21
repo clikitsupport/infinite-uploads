@@ -35,8 +35,7 @@ class InfiniteUploadsRewriter {
 
 		$this->cdn_url = $this->protocolize_url( $cdn_url );
 
-		//generate upload url paths that should be excluded from url replacement
-		$filelist   = new InfiniteUploadsFilelist( '/' ); //path doesn't matter
+		$filelist   = new InfiniteUploadsFilelist( '/' ); // path doesn't matter here
 		$exclusions = apply_filters( 'infinite_uploads_sync_exclusions', $filelist->exclusions );
 		foreach ( $exclusions as $exclusion ) {
 			if ( 0 === strpos( $exclusion, '/' ) ) {
@@ -51,7 +50,6 @@ class InfiniteUploadsRewriter {
 		// ours outermost, our rewrite() runs LAST and can repair Smush's output.
 		add_action( 'template_redirect', [ &$this, 'handle_rewrite_hook' ], PHP_INT_MIN );
 
-		// Make sure we replace urls in REST API responses
 		add_filter( 'the_content', [ &$this, 'rewrite_the_content' ], 100 );
 
 		// Build Smush Pro next-gen URL correction pairs.
@@ -190,20 +188,17 @@ class InfiniteUploadsRewriter {
 	 *
 	 */
 	public function rewrite( $html ) {
-		// start regex
 		$regex_rule = '#((?:https?:)?(?:';
 
-		//add all the domains to replace
 		$regex_rule .= implode( '|',
 			array_map( [ $this, 'relative_url' ],
 				array_map( 'quotemeta', $this->replacements )
 			)
 		);
 
-		// check for relative paths
+		// Trailing alternate matches uploads-relative URLs (no host prefix).
 		$regex_rule .= ')|(?<=[(\"\'=\s])' . quotemeta( $this->uploads_path ) . ')([^\#\"\'\s]*)#';
 
-		// call the cdn rewriter callback
 		$cdn_html = preg_replace_callback( $regex_rule, [ $this, 'rewrite_url' ], $html );
 
 		// Fix Smush next-gen (WebP/AVIF) URLs where dirname() stripped the site_id from the CDN path.
@@ -317,9 +312,7 @@ class InfiniteUploadsRewriter {
 			}
 		}
 
-		// Check if file exclusion is enabled and if the path is excluded.
 		if ( InfiniteUploadsHelper::is_file_exclusion_enabled() ) {
-			// If the path is in the exclusion list, return the original match.
 			$path = isset( $matches[2] ) ? $matches[2] : '';
 
 			$original_upload = InfiniteUploadsHelper::get_original_upload_dir_root();

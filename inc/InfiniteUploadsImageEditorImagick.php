@@ -2,6 +2,13 @@
 
 namespace ClikIT\InfiniteUploads;
 
+/**
+ * Imagick image editor wrapper for Infinite Uploads stream paths. Imagick
+ * cannot read from or write to iu:// URLs directly (it wants a real
+ * filesystem path), so load() and _save() bounce through a local temp
+ * file and copy() the bytes across the stream wrapper. Cleaned up in
+ * __destruct. Mirror of {@see InfiniteUploadsImageEditorGD}.
+ */
 class InfiniteUploadsImageEditorImagick extends \WP_Image_Editor_Imagick {
 
 	protected $temp_file_to_cleanup = null;

@@ -90,6 +90,11 @@ function infinite_uploads_init() {
 	if ( ! defined( 'INFINITE_UPLOADS_SYNC_ITERATOR_INFLIGHT_WINDOW' ) ) {
 		define( 'INFINITE_UPLOADS_SYNC_ITERATOR_INFLIGHT_WINDOW', 100 );
 	}
+	// Per-level cap on the exclusion tree. See prepare_directory_tree()
+	// docblock and the `infinite_uploads_exclude_tree_max_nodes` filter.
+	if ( ! defined( 'INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES' ) ) {
+		define( 'INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES', 2000 );
+	}
 	if ( ! defined( 'INFINITE_UPLOADS_HTTP_CACHE_CONTROL' ) ) {
 		define( 'INFINITE_UPLOADS_HTTP_CACHE_CONTROL', YEAR_IN_SECONDS );
 	}

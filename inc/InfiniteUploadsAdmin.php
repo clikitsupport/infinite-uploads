@@ -27,7 +27,6 @@ class InfiniteUploadsAdmin {
         $this->video        = InfiniteUploadsVideo::get_instance();
 
         if ( is_multisite() ) {
-            //multisite
             add_action( 'network_admin_menu', [ &$this, 'admin_menu' ] );
             add_filter( 'network_admin_plugin_action_links_infinite-uploads/infinite-uploads.php', [
                     &$this,
@@ -35,7 +34,6 @@ class InfiniteUploadsAdmin {
             ] );
             add_action( 'load-toplevel_page_infinite_uploads', [ &$this, 'intercept_auth' ] );
         } else {
-            //single site
             add_action( 'admin_menu', [ &$this, 'admin_menu' ] );
             add_action( 'load-toplevel_page_infinite_uploads', [ &$this, 'intercept_auth' ] );
             add_filter( 'plugin_action_links_infinite-uploads/infinite-uploads.php', [ &$this, 'plugins_list_links' ] );
@@ -49,8 +47,6 @@ class InfiniteUploadsAdmin {
         add_action( 'wp_ajax_save_iu_media_folders_setting', [ $this, 'save_media_folders_setting' ] );
         add_action( 'wp_ajax_save_iu_image_optimization', [ $this, 'save_image_optimization_setting' ] );
         add_action( 'wp_ajax_iu_purge_cdn_cache', [ $this, 'purge_cdn_cache' ] );
-
-        // Handle it via Action Schedular.
         add_action( 'infinite-uploads-do-sync', [ $this, 'do_sync' ] );
         add_action( 'infinite-uploads-add-files-to-download', [ $this, 'add_files_to_download' ] );
         add_action( 'infinite-uploads-fetch-s3-files-from-directory-to-download', [
@@ -95,8 +91,6 @@ class InfiniteUploadsAdmin {
             // which do_reconcile_files() uses to reschedule itself when the
             // pass hits its time budget mid-walk.
             add_action( 'infinite-uploads-reconcile-files', [ $this, 'do_reconcile_files' ] );
-
-            // This is to handle file exclusions.
             if ( InfiniteUploadsHelper::is_file_exclusion_enabled() ) {
                 add_filter( 'wp_get_attachment_url', [ $this, 'filter_attachment_url' ], 10, 2 );
                 add_filter( 'wp_calculate_image_srcset', [ $this, 'calculate_image_srcset' ], 10, 5 );
@@ -188,8 +182,6 @@ class InfiniteUploadsAdmin {
 
             return $url;
         }
-
-        // Cloud URL path
         $relative_path = str_replace( $cloud_url, '', $url );
 
         if ( self::cloud_file_exists( $relative_path ) ) {
@@ -206,9 +198,31 @@ class InfiniteUploadsAdmin {
     }
 
     /**
-     * Check whether a given uploads-relative path exists on the IU cloud. Uses the
-     * stream wrapper's per-request stat cache and an additional static memo here so
-     * the same URL checked multiple times on one page costs at most one HeadObject.
+     * Check whether a given uploads-relative path exists on the IU cloud.
+     *
+     * Consulted per-URL by serve_media_url() when file-exclusion mode is
+     * on. On a busy Media Library grid this fires ~4 times per attachment
+     * (main file + sub-sizes) — for 68 attachments that's ~270 calls.
+     * Each S3 HeadObject to the IU cloud costs ~100-500ms on a real
+     * network, so cutting the S3 round-trip out of the common case
+     * turns a 20-second grid load into a sub-second one.
+     *
+     * Resolution order:
+     *   1. Per-request static memo — repeated checks of the same path
+     *      cost nothing.
+     *   2. Sync-table check ({prefix}infinite_uploads_files.synced=1)
+     *      — authoritative once a sync has completed, no network cost.
+     *      Looked up one path at a time against the table's PRIMARY KEY
+     *      rather than loading the table, so cost is independent of
+     *      library size. Loading every synced path into a hashset was
+     *      O(library) in memory: ~116MB at 100k files, ~247MB at 300k,
+     *      and a hard OOM past that on a 256M limit — the same failure
+     *      the exclusion tree was just fixed for. A grid's worth of
+     *      lookups (~270) measures 0.013s / 0MB against a 242k-row
+     *      table, versus 0.200s / 139MB to load it.
+     *   3. HeadObject via the stream wrapper — the fallback for files
+     *      that aren't tracked in the sync table yet (e.g. an attachment
+     *      just uploaded and pending its next sync tick).
      *
      * @param string $relative_path Uploads-relative path, leading slash required (e.g. "/2026/04/file.jpg").
      *
@@ -222,6 +236,19 @@ class InfiniteUploadsAdmin {
         }
         if ( array_key_exists( $relative_path, $cache ) ) {
             return $cache[ $relative_path ];
+        }
+
+        global $wpdb;
+        $is_synced = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT 1 FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s AND synced = 1 LIMIT 1",
+                $relative_path
+            )
+        );
+        if ( $is_synced ) {
+            $cache[ $relative_path ] = true;
+
+            return true;
         }
 
         $cloud_path = InfiniteUploadsHelper::get_cloud_upload_path() . $relative_path;
@@ -350,7 +377,6 @@ class InfiniteUploadsAdmin {
     }
 
     public function ajax_status() {
-        // check caps
         if ( ! current_user_can( $this->iup_instance->capability ) ) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
@@ -377,8 +403,6 @@ class InfiniteUploadsAdmin {
         $break      = false;
         $path       = $this->iup_instance->get_original_upload_dir_root();
         $s3         = $this->iup_instance->s3();
-
-        //build full paths
         $to_sync_full = [];
         $to_sync_size = 0;
         $to_sync_sql  = [];
@@ -413,7 +437,6 @@ class InfiniteUploadsAdmin {
             $manager = new Transfer( $s3, $from, $path['basedir'], $transfer_args );
             $manager->transfer();
         } catch ( \Exception $e ) {
-            //echo $e->__toString();
             if ( method_exists( $e, 'getRequest' ) ) {
                 $file        = str_replace( untrailingslashit( $path['basedir'] ), '', str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() ) );
             } else {
@@ -440,7 +463,6 @@ class InfiniteUploadsAdmin {
         ];
 
         if ( $to_sync ) {
-            //build full paths
             $to_sync_full = [];
             $to_sync_size = 0;
             $to_sync_sql  = [];
@@ -460,7 +482,6 @@ class InfiniteUploadsAdmin {
                     'concurrency' => $concurrency,
                     'base_dir'    => $path['basedir'],
                     'before'      => function ( Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
-                        //add middleware to modify object headers
                         if ( in_array( $command->getName(), [ 'PutObject', 'CreateMultipartUpload' ], true ) ) {
                             /// Expires:
                             if ( defined( 'INFINITE_UPLOADS_HTTP_EXPIRES' ) ) {
@@ -487,7 +508,6 @@ class InfiniteUploadsAdmin {
                 $manager->transfer();
             } catch ( \Exception $e ) {
                 $this->sync_debug_log( "Transfer sync exception: " . $e->__toString() );
-                //echo $e->__toString();
                 if ( method_exists( $e, 'getRequest' ) ) {
                     $file        = str_replace( trailingslashit( $this->iup_instance->bucket ), '', $e->getRequest()->getRequestTarget() );
                 } else { //I don't know which error case trigger this but it's common
@@ -500,8 +520,6 @@ class InfiniteUploadsAdmin {
 
     public function ajax_sync_errors() {
         global $wpdb;
-
-        // check caps
         if ( ! current_user_can( $this->iup_instance->capability ) ) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
@@ -521,8 +539,6 @@ class InfiniteUploadsAdmin {
      */
     public function ajax_reset_errors() {
         global $wpdb;
-
-        // check caps
         if ( ! current_user_can( $this->iup_instance->capability ) ) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
@@ -539,8 +555,6 @@ class InfiniteUploadsAdmin {
      */
     public function ajax_filelist() {
         global $wpdb;
-
-        // check caps
         if ( ! current_user_can( $this->iup_instance->capability ) || ! wp_verify_nonce( $_POST['nonce'], 'iup_scan' ) ) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
@@ -566,7 +580,6 @@ class InfiniteUploadsAdmin {
                 $commands = [];
                 foreach ( $to_abort as $file ) {
                     $key = $prefix . $file->file;
-                    // Abort the multipart upload.
                     $commands[] = $s3->getCommand( 'abortMultipartUpload', [
                             'Bucket'   => $bucket,
                             'Key'      => $key,
@@ -574,10 +587,7 @@ class InfiniteUploadsAdmin {
                     ] );
                     $this->sync_debug_log( "Aborting multipart upload for {$file->file} UploadId {$file->upload_id}" );
                 }
-                // Create a command pool
                 $pool = new CommandPool( $s3, $commands );
-
-                // Begin asynchronous execution of the commands
                 $promise = $pool->promise();
             }
         }
@@ -612,8 +622,6 @@ class InfiniteUploadsAdmin {
 
     public function ajax_remote_filelist() {
         global $wpdb;
-
-        // check caps
         if ( ! current_user_can( $this->iup_instance->capability ) || ! wp_verify_nonce( $_POST['nonce'], 'iup_scan' ) ) {
             wp_send_json_error( esc_html__( 'Permissions Error: Please refresh the page and try again.', 'infinite-uploads' ) );
         }
@@ -733,7 +741,6 @@ class InfiniteUploadsAdmin {
         while ( ! $break ) {
             $to_sync = $wpdb->get_results( $wpdb->prepare( "SELECT file, size FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 0 AND errors < 3 AND transfer_status IS NULL ORDER BY errors ASC, file ASC LIMIT %d", INFINITE_UPLOADS_SYNC_PER_LOOP ) );
             if ( $to_sync ) {
-                //build full paths
                 $to_sync_full = [];
                 $to_sync_size = 0;
                 $to_sync_sql  = [];
@@ -757,7 +764,6 @@ class InfiniteUploadsAdmin {
                         'concurrency' => $concurrency,
                         'base_dir'    => $path['basedir'],
                         'before'      => function ( Command $command ) use ( $wpdb, &$uploaded, &$errors, &$part_sizes ) {
-                            //add middleware to modify object headers
                             if ( in_array( $command->getName(), [ 'PutObject', 'CreateMultipartUpload' ], true ) ) {
                                 /// Expires:
                                 if ( defined( 'INFINITE_UPLOADS_HTTP_EXPIRES' ) ) {
@@ -776,8 +782,6 @@ class InfiniteUploadsAdmin {
                             if ( in_array( $command->getName(), [ 'PutObject' ], true ) ) {
                                 $this->sync_debug_log( "Uploading key {$command['Key']}" );
                             }
-
-                            //add middleware to intercept result of each file upload
                             if ( in_array( $command->getName(), [ 'PutObject', 'CompleteMultipartUpload' ], true ) ) {
                                 $command->getHandlerList()->appendSign(
                                         Middleware::mapResult( function ( ResultInterface $result ) use ( $wpdb, &$uploaded, $command ) {
@@ -790,8 +794,6 @@ class InfiniteUploadsAdmin {
                                         } )
                                 );
                             }
-
-                            //add middleware to intercept result and record the uploadId for resuming later
                             if ( in_array( $command->getName(), [ 'CreateMultipartUpload' ], true ) ) {
                                 $this->sync_debug_log( "Starting multipart upload for key {$command['Key']}" );
                                 $command->getHandlerList()->appendSign(
@@ -806,8 +808,6 @@ class InfiniteUploadsAdmin {
                                         } )
                                 );
                             }
-
-                            //add middleware to check if we should bail before each new upload part
                             if ( in_array( $command->getName(), [ 'UploadPart' ], true ) ) {
                                 $this->sync_debug_log( "Uploading key {$command['Key']} part {$command['PartNumber']}" );
                                 $command->getHandlerList()->appendSign(
@@ -1882,7 +1882,6 @@ class InfiniteUploadsAdmin {
 
         while ( ! $break ) {
             $to_sync = $wpdb->get_results( $wpdb->prepare( "SELECT file, size FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 1 AND errors < 3 ORDER BY errors ASC, file ASC LIMIT %d", INFINITE_UPLOADS_SYNC_PER_LOOP ) );
-            //build full paths
             $to_sync_full = [];
             $to_sync_size = 0;
             $to_sync_sql  = [];
@@ -2688,7 +2687,19 @@ class InfiniteUploadsAdmin {
     }
 
     /**
-     * Prepares a directory tree for jstree from a given directory.
+     * Prepare one level of the exclusion-tree jstree data — the direct
+     * children of $dir, sorted directories-first alphabetically. Blends
+     * real filesystem entries (via FilesystemIterator, single level, no
+     * recursion) with "virtual" paths injected from the synced filelist
+     * so cloud-only files that no longer exist locally still appear.
+     *
+     * Bounded per level by INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES
+     * (default 2000). When a folder exceeds the cap, a disabled marker
+     * node is appended pointing the user to exclude the parent folder
+     * instead — without the cap a 150k-file flat folder produced ~30MB
+     * of JSON and froze the browser tab for 20s+ trying to render the
+     * checkboxes. See support ticket #11712. Override via the
+     * `infinite_uploads_exclude_tree_max_nodes` filter.
      *
      * @param  string  $dir            The directory to scan.
      * @param  array   $preselected    Array of preselected paths.
@@ -2700,31 +2711,37 @@ class InfiniteUploadsAdmin {
     public function prepare_directory_tree( $dir, $preselected = [], $virtual_paths = [], $root_dir = null ) {
         $result = [];
 
-        // Set root dir on first call.
         if ( $root_dir === null ) {
             $root_dir = $dir;
         }
 
         $preselected_map = array_flip( $preselected );
 
-        // Compute relative prefix for this $dir relative to $root_dir.
         $rel_prefix = '';
         if ( $dir !== $root_dir ) {
             $rel_prefix = ltrim( substr( $dir, strlen( $root_dir ) ), DIRECTORY_SEPARATOR );
         }
 
-        // Track existing names at this level to avoid duplicates with virtual paths.
+        $max_nodes = (int) apply_filters(
+                'infinite_uploads_exclude_tree_max_nodes',
+                (int) INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES
+        );
+        $truncated = false;
+
         $existing_names = [];
 
-        // Scan real filesystem — single level only (no recursion).
         try {
             $iterator = new \FilesystemIterator( $dir, \FilesystemIterator::SKIP_DOTS );
         } catch ( \UnexpectedValueException $e ) {
-            // Directory doesn't exist (could be a virtual-only path); continue to inject virtuals below.
+            // Virtual-only path (no local dir); fall through to virtual injection.
             $iterator = [];
         }
 
         foreach ( $iterator as $file_info ) {
+            if ( count( $result ) >= $max_nodes ) {
+                $truncated = true;
+                break;
+            }
             $path   = $file_info->getPathname();
             $is_dir = $file_info->isDir();
 
@@ -2763,6 +2780,10 @@ class InfiniteUploadsAdmin {
         // Inject virtual directory children at this level.
         $injected_names = [];
         foreach ( $virtual_paths as $virtual ) {
+            if ( count( $result ) >= $max_nodes ) {
+                $truncated = true;
+                break;
+            }
             $virtual = trim( $virtual, DIRECTORY_SEPARATOR );
             if ( $virtual === '' ) {
                 continue;
@@ -2842,6 +2863,26 @@ class InfiniteUploadsAdmin {
             return strnatcasecmp( $a["text"], $b["text"] );
         } );
 
+        // Marker appended AFTER the sort so it always lands at the end.
+        if ( $truncated ) {
+            $result[] = [
+                    "text"     => sprintf(
+                            /* translators: %s: number of items shown before truncation */
+                            esc_html__( 'Folder has more than %s items — showing first %s. To exclude the whole folder, tick its parent instead.', 'infinite-uploads' ),
+                            number_format_i18n( $max_nodes ),
+                            number_format_i18n( $max_nodes )
+                    ),
+                    "icon"     => "jstree-file",
+                    "state"    => [
+                            "opened"   => false,
+                            "selected" => false,
+                            "disabled" => true,
+                    ],
+                    "li_attr"  => [ "class" => "iu-tree-truncated" ],
+                    "children" => false,
+            ];
+        }
+
         return $result;
     }
 
@@ -2850,16 +2891,91 @@ class InfiniteUploadsAdmin {
      *
      * @return array
      */
-    public function get_synced_files() {
+    /**
+     * Return the synced-file paths needed to draw the exclusion tree AT ONE
+     * LEVEL — either the direct children of the root (when $rel_prefix is
+     * null or empty) or the direct children of a sub-directory. Scoping the
+     * query to just what jstree is about to render keeps this from being an
+     * O(library) load on every tree AJAX request; on a 400k-file library
+     * the previous unbounded `SELECT DISTINCT file WHERE synced = 1` was
+     * OOM'ing before the root tree could even be built (see support ticket
+     * #11712).
+     *
+     * Root request: returns one synthetic path per distinct top-level
+     * segment — e.g. a library with files under /2026/07/foo.png yields
+     * "/2026/x". prepare_directory_tree() only inspects the first segment
+     * of each virtual path plus whether there's a deeper segment, so a
+     * two-segment synthetic path correctly signals "2026 is a folder".
+     *
+     * Sub-directory request: returns actual paths under the prefix, capped
+     * at INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES so a single huge folder
+     * doesn't blow memory. The cap matches prepare_directory_tree()'s own
+     * per-level ceiling — pulling more rows than the tree can render is
+     * wasted work.
+     *
+     * @param  string|null  $rel_prefix  Uploads-relative directory (no
+     *                                   leading slash, no trailing slash),
+     *                                   or null/'' for the root request.
+     *
+     * @return array<string>
+     */
+    public function get_synced_files( $rel_prefix = null ) {
         global $wpdb;
+        $table = $wpdb->base_prefix . 'infinite_uploads_files';
+        $cap   = (int) INFINITE_UPLOADS_EXCLUDE_TREE_MAX_NODES + 1;
 
-        $synced_files = $wpdb->get_col( "SELECT DISTINCT file FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1" );
+        if ( null === $rel_prefix || '' === $rel_prefix ) {
+            $rows = $wpdb->get_results(
+                    $wpdb->prepare(
+                            "SELECT
+                                SUBSTRING_INDEX( SUBSTRING( file, 2 ), '/', 1 ) AS seg,
+                                MAX( CASE WHEN LOCATE( '/', SUBSTRING( file, 2 ) ) > 0 THEN 1 ELSE 0 END ) AS is_dir
+                             FROM `{$table}`
+                             WHERE synced = 1
+                             GROUP BY seg
+                             LIMIT %d",
+                            $cap
+                    ),
+                    ARRAY_A
+            );
+            $paths = [];
+            foreach ( (array) $rows as $r ) {
+                $seg = isset( $r['seg'] ) ? (string) $r['seg'] : '';
+                if ( '' === $seg ) {
+                    continue;
+                }
+                // Two-segment synthetic path signals "folder" to
+                // prepare_directory_tree, which only inspects segments[0]
+                // plus count(segments) > 1 for the is-dir determination.
+                $paths[] = ! empty( $r['is_dir'] )
+                        ? '/' . $seg . '/*'
+                        : '/' . $seg;
+            }
 
-        return $synced_files;
+            return $paths;
+        }
+
+        $like = '/' . trim( $rel_prefix, '/' ) . '/%';
+
+        return $wpdb->get_col(
+                $wpdb->prepare(
+                        "SELECT DISTINCT file FROM `{$table}` WHERE synced = 1 AND file LIKE %s LIMIT %d",
+                        $like,
+                        $cap
+                )
+        );
     }
 
     /**
-     * AJAX handler to get directory tree
+     * AJAX handler for the exclusion-tree lazy loader. Called by jstree
+     * once per node expansion — root request has no `dir` param, sub-node
+     * requests pass the absolute path of the folder being opened.
+     *
+     * The uploads-relative prefix derived from the requested $scan_dir is
+     * handed to get_synced_files() so its query is scoped to only the
+     * paths this level will render (see support ticket #11712 for why an
+     * unscoped query on large libraries OOM'd before the tree could be
+     * built).
      */
     public function get_direcotry_tree() {
         // Verify nonce.
@@ -2910,8 +3026,14 @@ class InfiniteUploadsAdmin {
         $sub_dir       = $dir['subdir'];
         $virtual_paths = [ $sub_dir ];
 
-        // Get synced files to include as virtual paths.
-        $synced_files = $this->get_synced_files();
+        $real_root  = realpath( $upload_dir );
+        $real_scan  = realpath( $scan_dir );
+        $rel_prefix = null;
+        if ( false !== $real_root && false !== $real_scan && $real_root !== $real_scan
+             && 0 === strpos( $real_scan, $real_root ) ) {
+            $rel_prefix = ltrim( substr( $real_scan, strlen( $real_root ) ), DIRECTORY_SEPARATOR . '/' );
+        }
+        $synced_files = $this->get_synced_files( $rel_prefix );
 
         if ( ! empty( $synced_files ) ) {
             $virtual_paths = array_merge( $virtual_paths, $synced_files );

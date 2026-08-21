@@ -1,6 +1,6 @@
 {
 	"$schema": "https://raw.githubusercontent.com/WordPress/gutenberg/trunk/schemas/json/wp-env.json",
-	"core": "WordPress/WordPress",
+	"core": "https://wordpress.org/wordpress-7.1-RC3.zip",
 	"phpVersion": "8.0",
 	"plugins": [
 		".",

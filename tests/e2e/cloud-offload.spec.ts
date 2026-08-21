@@ -65,14 +65,25 @@ test.describe( 'Cloud offload settings', () => {
 		await expect( connectButton ).toBeVisible( { timeout: 10_000 } );
 	} );
 
-	test( 'file exclusion UI is present on the settings page', async ( { page, adminPage } ) => {
+	test( 'file exclusion UI is present on the settings page', async ( { page, adminPage, iuApi } ) => {
+		// The exclusion UI only renders once the plugin has a token —
+		// without one, the settings screen shows the Connect / welcome
+		// state (the sibling test above asserts that). Seed a fake
+		// connection so this test can reach the section under the
+		// Settings tab. Cleaned up in the shared afterEach below.
+		await iuApi.connect();
+
 		await adminPage.visitIuSettings();
 
-		// The exclusion UI lives within the settings page. It may be hidden
-		// behind a tab; just verify the heading/section is in the DOM.
 		await expect(
 			page.getByText( /File Exclusion|Excluded Files|Exclude.*from sync/i )
 		).toBeVisible();
+	} );
+
+	// Clean the fake-connect state we may have set above so it doesn't
+	// leak into the sibling tests that assume "not connected."
+	test.afterEach( async ( { iuApi } ) => {
+		await iuApi.disconnect();
 	} );
 
 	test( 'plugin info on Plugins page reflects current version', async ( { page, adminPage } ) => {

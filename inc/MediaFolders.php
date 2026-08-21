@@ -2,6 +2,16 @@
 
 namespace ClikIT\InfiniteUploads;
 
+/**
+ * Media Folders feature — sidebar tree, AJAX CRUD for folders,
+ * attachment→folder relationships, and per-builder script enqueue for
+ * Media Library modals that page builders open inside their own iframes.
+ *
+ * Two custom tables back this: `{prefix}_iu_media_folders` (folder rows)
+ * and `{prefix}_iu_media_folder_relationships` (attachment→folder join).
+ * See maybe_migrate_db() for the one-time schema-add path used on
+ * existing installs.
+ */
 class MediaFolders {
 
 	private static $instance;
@@ -26,34 +36,19 @@ class MediaFolders {
 
 		// Brizy runs its editor inside a frontend iframe (URL param `is-editor-iframe`).
 		// It calls wp_enqueue_media() inside that iframe at wp_enqueue_scripts priority 9999,
-		// creating its own wp.media instance in the iframe window.  We must enqueue our
+		// creating its own wp.media instance in the iframe window. We must enqueue our
 		// script inside the same iframe so _extendAttachmentsBrowser patches the right
-		// window context.  PHP_INT_MAX ensures we run after Brizy's wp_enqueue_media() call.
+		// window context. PHP_INT_MAX ensures we run after Brizy's wp_enqueue_media() call.
 		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_for_brizy_iframe' ], PHP_INT_MAX );
 
 		// Beaver Builder fires fl_builder_ui_enqueue_scripts inside its editor iframe
 		// after it has cleared the wp_scripts queue and re-enqueued its own assets
-		// (including wp_enqueue_media()).  The editor also runs on the frontend
+		// (including wp_enqueue_media()). The editor also runs on the frontend
 		// so is_admin() is false and admin_enqueue_scripts never fires there.
 		add_action( 'fl_builder_ui_enqueue_scripts', [ $this, 'enqueue_for_beaver_builder' ] );
 
-
-//		add_action( 'wp_enqueue_scripts', function() {
-//
-//			if ( ! function_exists( 'et_core_is_fb_enabled' ) ) {
-//				return;
-//			}
-//
-//			if ( et_core_is_fb_enabled() ) {
-//				$this->enqueue_for_divi();
-//			}
-//
-//		});
-
-		// One-time DB migration to add the `color` column for existing installs.
 		add_action( 'admin_init', [ $this, 'maybe_migrate_db' ] );
 
-		// AJAX handlers for folder operations.
 		add_action( 'wp_ajax_iu_get_folders', [ $this, 'ajax_get_folders' ] );
 		add_action( 'wp_ajax_iu_create_folder', [ $this, 'ajax_create_folder' ] );
 		add_action( 'wp_ajax_iu_rename_folder', [ $this, 'ajax_rename_folder' ] );
@@ -67,32 +62,16 @@ class MediaFolders {
 		add_action( 'wp_ajax_iu_bulk_move_folders',   [ $this, 'ajax_bulk_move_folders' ] );
 		add_action( 'wp_ajax_iu_set_folder_color',    [ $this, 'ajax_set_folder_color' ] );
 
-		// Assign newly uploaded attachments to the user's selected folder;
-		// also record the file size for sort-by-size support.
 		add_action( 'add_attachment', [ $this, 'on_add_attachment' ] );
-
-		// Update filesize meta when WP generates attachment metadata (covers all upload paths).
 		add_filter( 'wp_update_attachment_metadata', [ $this, 'store_attachment_filesize_from_meta' ], 10, 2 );
-
-		// Background cron job: backfill _iu_filesize for pre-existing attachments.
 		add_action( 'iu_backfill_filesize', [ $this, 'cron_backfill_filesize' ] );
 
-		// Handle custom media orderby (file_size / extension / file_type) via SQL.
 		add_filter( 'posts_clauses', [ $this, 'handle_custom_media_orderby' ], 10, 2 );
-
-		// Apply custom per-field media search (title, filename, alt, description, caption, folders).
 		add_filter( 'posts_where', [ $this, 'handle_custom_media_search' ], 10, 2 );
-
-		// Filter media library queries.
 		add_action( 'pre_get_posts', [ $this, 'filter_media_query' ] );
-
-		// Add folder filter to AJAX queries (grid view).
 		add_filter( 'ajax_query_attachments_args', [ $this, 'filter_ajax_attachments_args' ] );
-
-		// Clean up relationships when an attachment is deleted.
 		add_action( 'delete_attachment', [ $this, 'on_delete_attachment' ] );
 
-		// Folder column in the media list table (list mode).
 		add_filter( 'manage_upload_columns', [ $this, 'add_folder_column' ] );
 		add_action( 'manage_media_custom_column', [ $this, 'render_folder_column' ], 10, 2 );
 	}
@@ -197,8 +176,6 @@ class MediaFolders {
 				false
 			);
 		}
-
-		// Media folders.
 		wp_enqueue_style(
 			'iu-media-folders',
 			$plugin_url . '/inc/assets/css/media-folders.css',
@@ -249,7 +226,6 @@ class MediaFolders {
 			'more'                   => __( 'More', 'infinite-uploads' ),
 			'choose_folder'          => __( 'Upload to folder:', 'infinite-uploads' ),
 			'upload_folder_none'     => __( 'No folder (Uncategorized)', 'infinite-uploads' ),
-			// Media file sort strings.
 			'media_sort_label'       => __( 'Sort:', 'infinite-uploads' ),
 			'media_sort_date'        => __( 'Date Added', 'infinite-uploads' ),
 			'media_sort_modified'    => __( 'Date Modified', 'infinite-uploads' ),
@@ -261,7 +237,6 @@ class MediaFolders {
 			'media_sort_file_size'   => __( 'File Size', 'infinite-uploads' ),
 			'media_sort_asc'         => __( 'Ascending', 'infinite-uploads' ),
 			'media_sort_desc'        => __( 'Descending', 'infinite-uploads' ),
-			// Media search field labels.
 			'search_fields_label'      => __( 'Search in:', 'infinite-uploads' ),
 			'search_field_title'       => __( 'Title', 'infinite-uploads' ),
 			'search_field_filename'    => __( 'Filename', 'infinite-uploads' ),
@@ -382,7 +357,6 @@ class MediaFolders {
 			'media_sort_file_size'   => __( 'File Size', 'infinite-uploads' ),
 			'media_sort_asc'         => __( 'Ascending', 'infinite-uploads' ),
 			'media_sort_desc'        => __( 'Descending', 'infinite-uploads' ),
-			// Media search field labels.
 			'search_fields_label'      => __( 'Search in:', 'infinite-uploads' ),
 			'search_field_title'       => __( 'Title', 'infinite-uploads' ),
 			'search_field_filename'    => __( 'Filename', 'infinite-uploads' ),
@@ -476,7 +450,6 @@ class MediaFolders {
 			'media_sort_file_size'   => __( 'File Size', 'infinite-uploads' ),
 			'media_sort_asc'         => __( 'Ascending', 'infinite-uploads' ),
 			'media_sort_desc'        => __( 'Descending', 'infinite-uploads' ),
-			// Media search field labels.
 			'search_fields_label'      => __( 'Search in:', 'infinite-uploads' ),
 			'search_field_title'       => __( 'Title', 'infinite-uploads' ),
 			'search_field_filename'    => __( 'Filename', 'infinite-uploads' ),
@@ -532,7 +505,6 @@ class MediaFolders {
 				break;
 			case 'size_asc':
 			case 'size_desc':
-				// Fetch unordered; we'll sort in PHP after computing sizes.
 				$order_clause = 'ORDER BY parent_id ASC, sort_order ASC, name ASC';
 				break;
 			default:
@@ -599,8 +571,6 @@ class MediaFolders {
 		}
 
 		global $wpdb;
-
-		// Determine sort order (append to end).
 		$max_order = (int) $wpdb->get_var( $wpdb->prepare(
 			"SELECT MAX(sort_order) FROM {$this->folders_table()} WHERE parent_id = %d",
 			$parent_id
@@ -701,8 +671,6 @@ class MediaFolders {
 		}
 
 		global $wpdb;
-
-		// Get the folder to find its parent.
 		$folder = $wpdb->get_row( $wpdb->prepare(
 			"SELECT * FROM {$this->folders_table()} WHERE id = %d",
 			$folder_id
@@ -715,8 +683,6 @@ class MediaFolders {
 		if ( ! $this->user_can_manage_folder( $folder_id ) ) {
 			wp_send_json_error( __( 'Permission denied.', 'infinite-uploads' ) );
 		}
-
-		// Reassign child folders to this folder's parent.
 		$wpdb->update(
 			$this->folders_table(),
 			[ 'parent_id' => $folder->parent_id ],
@@ -724,15 +690,11 @@ class MediaFolders {
 			[ '%d' ],
 			[ '%d' ]
 		);
-
-		// Remove all media-to-folder relationships for this folder.
 		$wpdb->delete(
 			$this->relationships_table(),
 			[ 'folder_id' => $folder_id ],
 			[ '%d' ]
 		);
-
-		// Delete the folder.
 		$wpdb->delete(
 			$this->folders_table(),
 			[ 'id' => $folder_id ],
@@ -815,8 +777,6 @@ class MediaFolders {
 			if ( ! $this->user_can_manage_folder( $folder_id ) ) {
 				continue;
 			}
-
-			// Reparent direct children to this folder's parent.
 			$wpdb->update(
 				$this->folders_table(),
 				[ 'parent_id' => $folder->parent_id ],
@@ -824,11 +784,7 @@ class MediaFolders {
 				[ '%d' ],
 				[ '%d' ]
 			);
-
-			// Remove media relationships (files become Uncategorized).
 			$wpdb->delete( $this->relationships_table(), [ 'folder_id' => $folder_id ], [ '%d' ] );
-
-			// Delete the folder.
 			$wpdb->delete( $this->folders_table(), [ 'id' => $folder_id ], [ '%d' ] );
 
 			$deleted[] = $folder_id;
@@ -1679,8 +1635,6 @@ class MediaFolders {
 		if ( $folder === '' && $orderby === '' && ( $search === '' || empty( $searchFields ) ) ) {
 			return;
 		}
-
-		// Apply folder filter.
 		if ( $folder !== '' ) {
 			$post_ids = $this->get_attachment_ids_for_folder( $folder );
 
@@ -1729,7 +1683,6 @@ class MediaFolders {
 	 * @return array
 	 */
 	public function filter_ajax_attachments_args( $query ) {
-		// Apply folder filter.
 		$folder = $_REQUEST['iu_folder'] ?? '';
 
 		if ( $folder !== '' ) {

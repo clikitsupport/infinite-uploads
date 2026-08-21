@@ -4,3 +4,4 @@
 /.travis.yml export-ignore
 /phpunit.xml.dist export-ignore
 /playwright.config.js export-ignore
+/.wp-env.json export-ignore

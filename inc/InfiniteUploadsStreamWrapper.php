@@ -861,6 +861,37 @@ class InfiniteUploadsStreamWrapper {
 			];
 		}
 
+		/**
+		 * Short-circuit "plugin probe" file names that other plugins commonly
+		 * check for writeability but that never legitimately land on S3 as
+		 * user-media uploads. Without this, page builders (Beaver Builder's
+		 * FLBuilderAdmin::sanity_checks is a known offender) fire
+		 * file_exists( 'iu://.../.htaccess' ) on every admin_init — each
+		 * call becomes a real S3 HeadObject round-trip (~500ms), and a
+		 * typical admin page ends up with 500ms-2s of invisible latency
+		 * per admin-ajax request just for these probes.
+		 *
+		 * Returning false (not-exists) is factually correct — these files
+		 * are Apache / IIS config or index guards that WordPress never
+		 * writes to the uploads bucket, so no legitimate call path relies
+		 * on them being reported as present on cloud storage. Filter to
+		 * extend if a plugin surfaces another common probe.
+		 *
+		 * @param  array   $probes  Basename list (case-insensitive).
+		 * @param  string  $path    Full iu:// path being stat'd.
+		 */
+		$basename = strtolower( basename( $path ) );
+		$probes   = apply_filters( 'infinite_uploads_stat_probe_shortcut', [
+			'.htaccess',
+			'index.php',
+			'index.html',
+			'index.htm',
+			'web.config',
+		], $path );
+		if ( in_array( $basename, $probes, true ) ) {
+			return false;
+		}
+
 		// Some paths come through as IU:// for some reason.
 		$split = explode( '://', $path );
 		$path  = strtolower( $split[0] ) . '://' . $split[1];

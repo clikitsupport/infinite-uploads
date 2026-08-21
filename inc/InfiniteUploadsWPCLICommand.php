@@ -17,27 +17,18 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 	 * @subcommand verify
 	 */
 	public function verify_api_keys() {
-		// Verify first that we have the necessary access keys to connect to S3.
 		if ( ! $this->verify_s3_access_constants() ) {
 			return;
 		}
-
-		// Get S3 Upload instance.
 		$instance = InfiniteUploads::get_instance();
-
-		// Create a path in the base directory, with a random file name to avoid potentially overwriting existing data.
 		$upload_dir = wp_upload_dir();
 		$s3_path    = $upload_dir['basedir'] . '/' . mt_rand() . '.txt';
-
-		// Attempt to copy the local Canola test file to the generated path on Infinite Uploads cloud.
 		\WP_CLI::print_value( 'Attempting to upload file ' . $s3_path );
 
 		$copy = copy(
 			dirname( dirname( __FILE__ ) ) . '/readme.txt',
 			$s3_path
 		);
-
-		// Check that the copy worked.
 		if ( ! $copy ) {
 			\WP_CLI::error( 'Failed to copy / write to Infinite Uploads cloud - check your policy?' );
 
@@ -45,12 +36,8 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 		}
 
 		\WP_CLI::print_value( 'File uploaded to Infinite Uploads cloud successfully.' );
-
-		// Delete the file off Infinite Uploads cloud.
 		\WP_CLI::print_value( 'Attempting to delete file. ' . $s3_path );
 		$delete = unlink( $s3_path );
-
-		// Check that the delete worked.
 		if ( ! $delete ) {
 			\WP_CLI::error( 'Failed to delete ' . $s3_path );
 
@@ -63,7 +50,10 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 	}
 
 	/**
-	 * Verify that the required constants for the Infinite Uploads cloud connections are set.
+	 * Verify the site is connected to the Infinite Uploads cloud before
+	 * running any command that talks to S3. Every public sub-command
+	 * calls this first — on failure it prints a settings-URL nudge to
+	 * WP_CLI::error and returns false, and the caller returns early.
 	 *
 	 * @return bool true if all constants are set, else false.
 	 */
@@ -83,7 +73,6 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 	 * @synopsis [<path>]
 	 */
 	public function ls( $args ) {
-		// Verify first that we have the necessary access keys to connect to S3.
 		if ( ! $this->verify_s3_access_constants() ) {
 			return;
 		}
@@ -217,8 +206,6 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 		}
 
 		$s3 = $instance->s3();
-
-		//begin transfer
 		$synced       = $wpdb->get_var( "SELECT count(*) AS files FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1" );
 		$unsynced     = $wpdb->get_var( "SELECT count(*) AS files FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 0" );
 		$progress_bar = null;
@@ -239,7 +226,6 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 		$break    = false;
 		while ( ! $break ) {
 			$to_sync = $wpdb->get_col( "SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 0 AND errors < 3 LIMIT 1000" );
-			//build full paths
 			$to_sync_full = [];
 			foreach ( $to_sync as $key => $file ) {
 				$to_sync_full[] = $path['basedir'] . $file;
@@ -266,7 +252,6 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 							}
 						}
 					}
-					//add middleware to intercept result of each file upload
 					if ( in_array( $command->getName(), [ 'PutObject', 'CompleteMultipartUpload' ], true ) ) {
 						$command->getHandlerList()->appendSign(
 							Middleware::mapResult( function ( ResultInterface $result ) use ( $args_assoc, $progress_bar, $command, $wpdb, $unsynced, &$uploaded ) {
@@ -342,8 +327,6 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 
 		$stats = $instance->get_sync_stats();
 		\WP_CLI::line( sprintf( esc_html__( '%s files (%s) found in uploads.', 'infinite-uploads' ), $stats['local_files'], $stats['local_size'] ) );
-
-		//now verify that we are logged into cloud
 		if ( ! $this->verify_s3_access_constants() ) {
 			return false;
 		}
@@ -361,8 +344,6 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 			'Bucket' => strtok( $instance->bucket, '/' ),
 			'Prefix' => $prefix,
 		];
-
-		//set flag
 		$progress                    = get_site_option( 'iup_files_scanned' );
 		$progress['compare_started'] = time();
 		update_site_option( 'iup_files_scanned', $progress );
@@ -388,7 +369,6 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 						}
 					}
 				}
-				//flush new files to db
 				if ( count( $cloud_only_files ) ) {
 					$values = [];
 					foreach ( $cloud_only_files as $file ) {
@@ -401,8 +381,6 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 					$wpdb->query( $query );
 				}
 			}
-
-			//set flag
 			$progress                     = get_site_option( 'iup_files_scanned' );
 			$progress['compare_finished'] = time();
 			update_site_option( 'iup_files_scanned', $progress );
@@ -422,8 +400,6 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 	 */
 	public function delete( $args, $args_assoc ) {
 		global $wpdb;
-
-		// Verify first that we have the necessary access keys to connect to S3.
 		if ( ! $this->verify_s3_access_constants() ) {
 			return;
 		}
@@ -438,8 +414,6 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 			$stats = $instance->get_sync_stats();
 			\WP_CLI::line( sprintf( esc_html__( '%s files (%s) remaining to be synced.', 'infinite-uploads' ), $stats['remaining_files'], $stats['remaining_size'] ) );
 		}
-
-		//begin deleting
 		// Carve-outs: BB cache images (BB regenerates → sync churn) and user-excluded
 		// paths (rewriter serves the LOCAL URL, so deleting the local copy 404s the
 		// media). Filter at SELECT level so the count and progress bar reflect the
@@ -481,8 +455,6 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 	 */
 	public function download( $args, $args_assoc ) {
 		global $wpdb;
-
-		// Verify first that we have the necessary access keys to connect to S3.
 		if ( ! $this->verify_s3_access_constants() ) {
 			return;
 		}
@@ -498,8 +470,6 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 			$unsynced = $wpdb->get_row( "SELECT count(*) AS files, SUM(`size`) as size FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 1" );
 			\WP_CLI::line( sprintf( esc_html__( '%s files (%s) remaining to be downloaded.', 'infinite-uploads' ), $unsynced->files, size_format( $unsynced->size, 2 ) ) );
 		}
-
-		//begin transfer
 		if ( empty( $unsynced ) ) {
 			$unsynced = $wpdb->get_row( "SELECT count(*) AS files, SUM(`size`) as size FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 1" );
 		}
@@ -518,7 +488,6 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 		$break      = false;
 		while ( ! $break ) {
 			$to_sync = $wpdb->get_col( "SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 1 AND errors < 3 LIMIT 1000" );
-			//build full paths
 			$to_sync_full = [];
 			foreach ( $to_sync as $key => $file ) {
 				$to_sync_full[] = 's3://' . untrailingslashit( $instance->bucket ) . $file;
@@ -531,7 +500,6 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 				'concurrency' => $args_assoc['concurrency'],
 				'base_dir'    => 's3://' . $instance->bucket,
 				'before'      => function ( Command $command ) use ( $args_assoc, $progress_bar, $wpdb, $unsynced, &$downloaded ) {
-					//add middleware to intercept result of each file upload
 					if ( in_array( $command->getName(), [ 'GetObject' ], true ) ) {
 						$command->getHandlerList()->appendSign(
 							Middleware::mapResult( function ( ResultInterface $result ) use ( $args_assoc, $progress_bar, $command, $wpdb, $unsynced, &$downloaded ) {
@@ -647,7 +615,6 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 	 * @synopsis <path> [--regex=<regex>]
 	 */
 	public function rm( $args, $args_assoc ) {
-		// Verify first that we have the necessary access keys to connect to S3.
 		if ( ! $this->verify_s3_access_constants() ) {
 			return;
 		}
@@ -693,7 +660,6 @@ class InfiniteUploadsWPCLICommand extends \WP_CLI_Command {
 	 * Enable the auto-rewriting of media links to Infinite Uploads cloud
 	 */
 	public function enable( $args, $assoc_args ) {
-		// Verify first that we have the necessary access keys to connect to S3.
 		if ( ! $this->verify_s3_access_constants() ) {
 			return;
 		}
