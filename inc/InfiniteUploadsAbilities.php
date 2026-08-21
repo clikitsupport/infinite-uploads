@@ -129,6 +129,10 @@ class InfiniteUploadsAbilities {
 		$this->register_ability( 'purge-cache', [
 			'label'         => __( 'Purge CDN Cache', 'infinite-uploads' ),
 			'description'   => __( 'Requests a full-zone CDN cache purge. Requires the Business plan with Image Optimization enabled, and is limited to once per hour. Per-URL purges on media deletion happen automatically on every plan and do not need this ability.', 'infinite-uploads' ),
+			'input_schema'  => [
+				'type'                 => 'object',
+				'additionalProperties' => false,
+			],
 			'output_schema' => [
 				'type'       => 'object',
 				'properties' => [
@@ -178,6 +182,10 @@ class InfiniteUploadsAbilities {
 		$this->register_ability( 'sync', [
 			'label'         => __( 'Sync Files to the Cloud', 'infinite-uploads' ),
 			'description'   => __( 'Starts (or resumes) the background upload of scanned local files to the Infinite Uploads cloud via Action Scheduler. Returns immediately; poll get-status and watch the sync statistics for progress. Requires a connected site and completed scan data.', 'infinite-uploads' ),
+			'input_schema'  => [
+				'type'                 => 'object',
+				'additionalProperties' => false,
+			],
 			'output_schema' => [
 				'type'       => 'object',
 				'properties' => [
@@ -196,6 +204,10 @@ class InfiniteUploadsAbilities {
 		$this->register_ability( 'download', [
 			'label'         => __( 'Download Cloud Files to Local', 'infinite-uploads' ),
 			'description'   => __( 'Starts (or resumes) the background download of cloud-only files back to the local uploads directory via Action Scheduler. Returns immediately; poll get-status for progress. Requires a connected site.', 'infinite-uploads' ),
+			'input_schema'  => [
+				'type'                 => 'object',
+				'additionalProperties' => false,
+			],
 			'output_schema' => [
 				'type'       => 'object',
 				'properties' => [
