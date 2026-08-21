@@ -104,6 +104,11 @@ class InfiniteUploads {
         $this->api    = InfiniteUploadsApiHandler::get_instance();
         $this->stream = InfiniteUploadsVideo::get_instance();
 
+        // Agent-facing Abilities API surface. Must be up before the
+        // no-token bail below so unconnected sites still expose the
+        // status and connect-instructions abilities.
+        InfiniteUploadsAbilities::get_instance();
+
         // Initialize media folders (works independently of cloud sync).
         if ( InfiniteUploadsHelper::is_media_folders_enabled() ) {
             MediaFolders::get_instance();
