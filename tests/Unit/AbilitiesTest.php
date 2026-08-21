@@ -126,7 +126,7 @@ class AbilitiesTest extends TestCase {
 
 	public function test_registers_all_abilities_on_main_site(): void {
 		Functions\when( 'is_main_site' )->justReturn( true );
-		$this->expect_registrations( 7, $names );
+		$this->expect_registrations( 8, $names );
 
 		$this->abilities->register_abilities();
 
@@ -135,10 +135,32 @@ class AbilitiesTest extends TestCase {
 			'infinite-uploads/get-connect-instructions',
 			'infinite-uploads/purge-cache',
 			'infinite-uploads/scan',
+			'infinite-uploads/rescan',
 			'infinite-uploads/sync',
 			'infinite-uploads/download',
 			'infinite-uploads/toggle-cloud',
 		], $names );
+	}
+
+	// The destructive annotation is what approval-gating agent clients key on
+	// before wiping the file table, so it must survive the shared meta merge.
+	public function test_only_rescan_is_annotated_destructive(): void {
+		Functions\when( 'is_main_site' )->justReturn( true );
+		$destructive = [];
+
+		Functions\expect( 'wp_register_ability' )
+			->times( 8 )
+			->andReturnUsing( function ( $name, $args ) use ( &$destructive ) {
+				if ( ! empty( $args['meta']['annotations']['destructive'] ) ) {
+					$destructive[] = $name;
+				}
+
+				return true;
+			} );
+
+		$this->abilities->register_abilities();
+
+		$this->assertSame( [ 'infinite-uploads/rescan' ], $destructive );
 	}
 
 	public function test_registers_site_agnostic_abilities_on_subsite(): void {
@@ -152,6 +174,23 @@ class AbilitiesTest extends TestCase {
 			'infinite-uploads/get-connect-instructions',
 			'infinite-uploads/purge-cache',
 		], $names );
+	}
+
+	// Regression guard: scan used to default to a fresh pass, and a fresh pass
+	// TRUNCATEs the file table (InfiniteUploadsFilelist::start). An agent
+	// looping on scan would have wiped sync state on every call and never
+	// finished a large scan. It must now refuse and point at rescan.
+	public function test_scan_refuses_to_restart_over_existing_data(): void {
+		Functions\expect( 'get_site_option' )
+			->once()
+			->with( 'iup_scan_remaining_dirs', [] )
+			->andReturn( [] );
+		$this->iup->shouldReceive( 'get_sync_stats' )->andReturn( [ 'is_data' => true ] );
+
+		$result = $this->abilities->scan();
+
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'iu_rescan_required', $result->get_error_code() );
 	}
 
 	public function test_sync_requires_connection(): void {
@@ -185,7 +224,7 @@ class AbilitiesTest extends TestCase {
 
 		$result = $this->abilities->start_sync();
 
-		$this->assertTrue( $result['started'] );
+		$this->assertTrue( $result['queued'] );
 		$this->assertFalse( $result['already_queued'] );
 	}
 

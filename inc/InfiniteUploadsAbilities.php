@@ -83,7 +83,7 @@ class InfiniteUploadsAbilities {
 
 		$this->register_ability( 'get-status', [
 			'label'         => __( 'Get Infinite Uploads Status', 'infinite-uploads' ),
-			'description'   => __( 'Returns the connection state, plan, CDN URL, feature flags, and file sync statistics for this site. Call this first to learn what Infinite Uploads can do here.', 'infinite-uploads' ),
+			'description'   => __( 'Returns the connection state, plan, CDN URL, feature flags, file sync statistics, and background job state for this site. Call this first to learn what Infinite Uploads can do here, and poll it to follow the progress of a scan, sync, or download.', 'infinite-uploads' ),
 			'output_schema' => [
 				'type'                 => 'object',
 				'properties'           => [
@@ -95,6 +95,17 @@ class InfiniteUploadsAbilities {
 					'cdn_url'                    => [ 'type' => [ 'string', 'null' ] ],
 					'plugin_version'             => [ 'type' => 'string' ],
 					'sync'                       => [ 'type' => 'object' ],
+					'jobs'                       => [
+						'type'       => 'object',
+						'properties' => [
+							'scan_in_progress'  => [ 'type' => 'boolean' ],
+							'sync_queued'       => [ 'type' => 'boolean' ],
+							'sync_complete'     => [ 'type' => 'boolean' ],
+							'download_queued'   => [ 'type' => 'boolean' ],
+							'download_complete' => [ 'type' => 'boolean' ],
+							'wp_cron_disabled'  => [ 'type' => 'boolean' ],
+						],
+					],
 				],
 				'additionalProperties' => true,
 			],
@@ -153,16 +164,10 @@ class InfiniteUploadsAbilities {
 
 		$this->register_ability( 'scan', [
 			'label'         => __( 'Scan Local Files', 'infinite-uploads' ),
-			'description'   => __( 'Runs one time-boxed pass of the local uploads filesystem scan and records the results in the file table. If the response reports it is not done, call again with continue=true until it is. Works before the site is connected. The remote cloud comparison pass is not included; use the admin UI or WP-CLI for that after reconnecting an existing site.', 'infinite-uploads' ),
+			'description'   => __( 'Runs one time-boxed pass of the local uploads filesystem scan and records the results in the file table. Each pass is bounded by a time limit, so large libraries need many passes: if the response reports done=false, simply call again — the scan resumes automatically where it left off, no arguments needed. Works before the site is connected. Refuses if a previous scan already produced file data and no scan is in progress, because starting over discards that tracking data; use rescan for that deliberately. The remote cloud comparison pass is not included; use the admin UI or WP-CLI for that after reconnecting an existing site.', 'infinite-uploads' ),
 			'input_schema'  => [
-				'type'       => 'object',
-				'properties' => [
-					'continue' => [
-						'type'        => 'boolean',
-						'default'     => false,
-						'description' => __( 'Set true to resume a scan that reported done=false; omit or false to start a fresh scan.', 'infinite-uploads' ),
-					],
-				],
+				'type'                 => 'object',
+				'additionalProperties' => false,
 			],
 			'output_schema' => [
 				'type'       => 'object',
@@ -179,9 +184,9 @@ class InfiniteUploadsAbilities {
 			],
 		] );
 
-		$this->register_ability( 'sync', [
-			'label'         => __( 'Sync Files to the Cloud', 'infinite-uploads' ),
-			'description'   => __( 'Starts (or resumes) the background upload of scanned local files to the Infinite Uploads cloud via Action Scheduler. Returns immediately; poll get-status and watch the sync statistics for progress. Requires a connected site and completed scan data.', 'infinite-uploads' ),
+		$this->register_ability( 'rescan', [
+			'label'         => __( 'Restart the Local File Scan', 'infinite-uploads' ),
+			'description'   => __( 'Discards all local file tracking data and starts the scan over from the beginning, then runs the first time-boxed pass. Continue with the scan ability until it reports done. This is destructive: it empties the file tracking table, which loses the record of which files are already synced, and permanently forgets cloud-only files whose local copies were removed to free up storage — a local scan cannot rediscover those. Only use it when the tracking data is known to be wrong; a normal interrupted scan should be continued with the scan ability instead.', 'infinite-uploads' ),
 			'input_schema'  => [
 				'type'                 => 'object',
 				'additionalProperties' => false,
@@ -189,7 +194,30 @@ class InfiniteUploadsAbilities {
 			'output_schema' => [
 				'type'       => 'object',
 				'properties' => [
-					'started'        => [ 'type' => 'boolean' ],
+					'done'                  => [ 'type' => 'boolean' ],
+					'files_found_this_pass' => [ 'type' => 'integer' ],
+					'sync'                  => [ 'type' => 'object' ],
+				],
+			],
+			'execute_callback' => [ $this, 'rescan' ],
+			'annotations'      => [
+				'readonly'    => false,
+				'destructive' => true,
+				'idempotent'  => false,
+			],
+		] );
+
+		$this->register_ability( 'sync', [
+			'label'         => __( 'Sync Files to the Cloud', 'infinite-uploads' ),
+			'description'   => __( 'Queues the background upload of scanned local files to the Infinite Uploads cloud as an Action Scheduler job. This only schedules the work and returns immediately — it does not transfer anything itself. Poll get-status: the sync statistics show progress, jobs.sync_queued shows the job is still scheduled, and jobs.sync_complete turns true when it finishes. Large libraries can take hours. The job runs on WP-Cron, so if get-status reports jobs.wp_cron_disabled, progress depends entirely on the host firing wp-cron.php from a system cron; when it is not, the sync will not advance. For bulk migrations `wp infinite-uploads sync` transfers everything in a single process and is far faster. Requires a connected site and completed scan data.', 'infinite-uploads' ),
+			'input_schema'  => [
+				'type'                 => 'object',
+				'additionalProperties' => false,
+			],
+			'output_schema' => [
+				'type'       => 'object',
+				'properties' => [
+					'queued'         => [ 'type' => 'boolean' ],
 					'already_queued' => [ 'type' => 'boolean' ],
 					'sync'           => [ 'type' => 'object' ],
 				],
@@ -203,7 +231,7 @@ class InfiniteUploadsAbilities {
 
 		$this->register_ability( 'download', [
 			'label'         => __( 'Download Cloud Files to Local', 'infinite-uploads' ),
-			'description'   => __( 'Starts (or resumes) the background download of cloud-only files back to the local uploads directory via Action Scheduler. Returns immediately; poll get-status for progress. Requires a connected site.', 'infinite-uploads' ),
+			'description'   => __( 'Queues the background download of cloud-only files back to the local uploads directory as an Action Scheduler job. This only schedules the work and returns immediately. Poll get-status: jobs.download_queued shows the job is still scheduled and jobs.download_complete turns true when it finishes. The same WP-Cron caveat as sync applies — check jobs.wp_cron_disabled — and `wp infinite-uploads download` is the faster path for bulk restores. Requires a connected site.', 'infinite-uploads' ),
 			'input_schema'  => [
 				'type'                 => 'object',
 				'additionalProperties' => false,
@@ -211,7 +239,7 @@ class InfiniteUploadsAbilities {
 			'output_schema' => [
 				'type'       => 'object',
 				'properties' => [
-					'started'        => [ 'type' => 'boolean' ],
+					'queued'         => [ 'type' => 'boolean' ],
 					'already_queued' => [ 'type' => 'boolean' ],
 					'sync'           => [ 'type' => 'object' ],
 				],
@@ -289,6 +317,56 @@ class InfiniteUploadsAbilities {
 	}
 
 	/**
+	 * Whether an Action Scheduler action is scheduled for any of the hooks.
+	 *
+	 * @param  string[]  $hooks
+	 *
+	 * @return bool
+	 */
+	private function is_job_queued( array $hooks ) {
+		if ( ! function_exists( 'as_next_scheduled_action' ) ) {
+			return false;
+		}
+
+		foreach ( $hooks as $hook ) {
+			if ( false !== as_next_scheduled_action( $hook ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Background job state, so a polling agent can tell "still working" from
+	 * "stalled".
+	 *
+	 * The sync and download engines run as Action Scheduler jobs, which are
+	 * driven by WP-Cron: Action Scheduler's own async runner only dispatches
+	 * from admin requests (is_admin()), and REST calls are not admin context,
+	 * so nothing an agent does directly advances the queue. Where WP-Cron is
+	 * disabled and the host has no system cron calling wp-cron.php, a queued
+	 * job never runs at all — hence exposing wp_cron_disabled rather than
+	 * leaving the agent to poll unchanging numbers forever.
+	 *
+	 * @return array
+	 */
+	private function get_job_state() {
+		return [
+			'scan_in_progress'  => ! empty( get_site_option( 'iup_scan_remaining_dirs', [] ) ),
+			'sync_queued'       => $this->is_job_queued( [ 'infinite-uploads-do-sync' ] ),
+			'sync_complete'     => 'yes' === get_site_option( 'iup_do_sync_complete', 'no' ),
+			'download_queued'   => $this->is_job_queued( [
+				'infinite-uploads-do-download',
+				'infinite-uploads-add-files-to-download',
+				'infinite-uploads-fetch-s3-files-from-directory-to-download',
+			] ),
+			'download_complete' => 'yes' === get_site_option( 'iup_do_download_complete', 'no' ),
+			'wp_cron_disabled'  => defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON,
+		];
+	}
+
+	/**
 	 * Connection, plan, and sync status.
 	 *
 	 * @return array
@@ -305,6 +383,7 @@ class InfiniteUploadsAbilities {
 			'cdn_url'                    => null,
 			'plugin_version'             => INFINITE_UPLOADS_VERSION,
 			'sync'                       => $this->iup_instance->get_sync_stats(),
+			'jobs'                       => $this->get_job_state(),
 		];
 
 		if ( $connected ) {
@@ -360,19 +439,55 @@ class InfiniteUploadsAbilities {
 	}
 
 	/**
-	 * One time-boxed local filesystem scan pass.
+	 * One time-boxed local filesystem scan pass, resuming automatically.
 	 *
-	 * Mirrors the ajax_filelist loop: resumable via the same
-	 * iup_scan_remaining_dirs option, so a scan started here can even be
-	 * finished from the admin UI and vice versa.
+	 * Resumability rides on the same iup_scan_remaining_dirs option the admin
+	 * UI uses, so a scan started here can be finished from the admin UI and
+	 * vice versa.
 	 *
-	 * @param  array  $input
+	 * Guard: InfiniteUploadsFilelist::start() treats an empty resume list as
+	 * "fresh scan" and TRUNCATEs the file table. That is correct for the admin
+	 * UI, whose JavaScript drives one fresh pass followed by continue passes
+	 * and the remote compare in a single user gesture, but it is a trap for an
+	 * agent calling one stateless ability repeatedly: every call would wipe the
+	 * table, losing which files are already synced, permanently forgetting
+	 * cloud-only files whose local copies were deleted (a local scan cannot
+	 * rediscover those), and restarting the scan forever on a large library.
+	 * So a scan that has nothing to resume is only allowed to run when there is
+	 * no tracked file data to lose; otherwise the caller must choose rescan.
+	 *
+	 * @return array|WP_Error
+	 */
+	public function scan() {
+		if ( empty( get_site_option( 'iup_scan_remaining_dirs', [] ) ) ) {
+			$stats = $this->iup_instance->get_sync_stats();
+			if ( ! empty( $stats['is_data'] ) ) {
+				return new WP_Error( 'iu_rescan_required', __( 'A scan has already been completed and no scan is in progress, so there is nothing to resume. Starting over would discard the existing file tracking data, including the record of cloud-only files. Use the rescan ability if that is genuinely what you want.', 'infinite-uploads' ) );
+			}
+		}
+
+		return $this->run_scan_pass( false );
+	}
+
+	/**
+	 * Discard tracking data and run the first pass of a brand new scan.
 	 *
 	 * @return array
 	 */
-	public function scan( $input ) {
-		$is_continuing  = ! empty( $input['continue'] );
-		$remaining_dirs = $is_continuing ? get_site_option( 'iup_scan_remaining_dirs', [] ) : [];
+	public function rescan() {
+		return $this->run_scan_pass( true );
+	}
+
+	/**
+	 * Shared scan pass.
+	 *
+	 * @param  bool  $restart  True to start fresh (truncates the file table via
+	 *                         InfiniteUploadsFilelist), false to resume.
+	 *
+	 * @return array
+	 */
+	private function run_scan_pass( $restart ) {
+		$remaining_dirs = $restart ? [] : (array) get_site_option( 'iup_scan_remaining_dirs', [] );
 
 		$path = $this->iup_instance->get_original_upload_dir_root();
 
@@ -386,8 +501,11 @@ class InfiniteUploadsAbilities {
 		}
 
 		return [
-			'done'                  => (bool) $filelist->is_done,
-			'files_found_this_pass' => count( $filelist->file_list ),
+			'done' => (bool) $filelist->is_done,
+			// file_count, not count( file_list ): flush_to_db() empties
+			// file_list as it writes each batch, so by the time start()
+			// returns the list holds only what a failed insert left behind.
+			'files_found_this_pass' => (int) $filelist->file_count,
 			'sync'                  => $this->iup_instance->get_sync_stats(),
 		];
 	}
@@ -409,13 +527,15 @@ class InfiniteUploadsAbilities {
 
 		update_site_option( 'iup_do_sync_complete', 'no' );
 
-		$already_queued = false !== as_next_scheduled_action( 'infinite-uploads-do-sync' );
+		$already_queued = $this->is_job_queued( [ 'infinite-uploads-do-sync' ] );
 		if ( ! $already_queued ) {
 			as_schedule_single_action( time(), 'infinite-uploads-do-sync' );
 		}
 
 		return [
-			'started'        => true,
+			// Queued, not started: the transfer runs later, in an Action
+			// Scheduler job driven by WP-Cron. See get_job_state().
+			'queued'         => true,
 			'already_queued' => $already_queued,
 			'sync'           => $stats,
 		];
@@ -433,13 +553,13 @@ class InfiniteUploadsAbilities {
 
 		update_site_option( 'iup_do_download_complete', 'no' );
 
-		$already_queued = false !== as_next_scheduled_action( 'infinite-uploads-do-download' );
+		$already_queued = $this->is_job_queued( [ 'infinite-uploads-do-download' ] );
 		if ( ! $already_queued ) {
 			as_schedule_single_action( time(), 'infinite-uploads-do-download' );
 		}
 
 		return [
-			'started'        => true,
+			'queued'         => true,
 			'already_queued' => $already_queued,
 			'sync'           => $this->iup_instance->get_sync_stats(),
 		];
