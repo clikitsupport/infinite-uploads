@@ -198,22 +198,51 @@ class InfiniteUploadsAdmin {
     }
 
     /**
-     * Check whether a given uploads-relative path exists on the IU cloud. Uses the
-     * stream wrapper's per-request stat cache and an additional static memo here so
-     * the same URL checked multiple times on one page costs at most one HeadObject.
+     * Check whether a given uploads-relative path exists on the IU cloud.
+     *
+     * Consulted per-URL by serve_media_url() when file-exclusion mode is
+     * on. On a busy Media Library grid this fires ~4 times per attachment
+     * (main file + sub-sizes) — for 68 attachments that's ~270 calls.
+     * Each S3 HeadObject to the IU cloud costs ~100-500ms on a real
+     * network, so cutting the S3 round-trip out of the common case
+     * turns a 20-second grid load into a sub-second one.
+     *
+     * Resolution order:
+     *   1. Per-request static memo — repeated checks of the same path
+     *      cost nothing.
+     *   2. Sync-table check ({prefix}infinite_uploads_files.synced=1)
+     *      — authoritative once a sync has completed, no network cost.
+     *      The table is loaded once per request into a hashset the first
+     *      time cloud_file_exists() is called, then all lookups are O(1).
+     *   3. HeadObject via the stream wrapper — the fallback for files
+     *      that aren't tracked in the sync table yet (e.g. an attachment
+     *      just uploaded and pending its next sync tick).
      *
      * @param string $relative_path Uploads-relative path, leading slash required (e.g. "/2026/04/file.jpg").
      *
      * @return bool
      */
     private static function cloud_file_exists( $relative_path ) {
-        static $cache = [];
+        static $cache        = [];
+        static $synced_paths = null;
 
         if ( $relative_path === '' ) {
             return false;
         }
         if ( array_key_exists( $relative_path, $cache ) ) {
             return $cache[ $relative_path ];
+        }
+
+        if ( null === $synced_paths ) {
+            global $wpdb;
+            $rows         = $wpdb->get_col(
+                "SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1"
+            );
+            $synced_paths = $rows ? array_flip( $rows ) : [];
+        }
+        if ( isset( $synced_paths[ $relative_path ] ) ) {
+            $cache[ $relative_path ] = true;
+            return true;
         }
 
         $cloud_path = InfiniteUploadsHelper::get_cloud_upload_path() . $relative_path;
