@@ -212,8 +212,14 @@ class InfiniteUploadsAdmin {
      *      cost nothing.
      *   2. Sync-table check ({prefix}infinite_uploads_files.synced=1)
      *      — authoritative once a sync has completed, no network cost.
-     *      The table is loaded once per request into a hashset the first
-     *      time cloud_file_exists() is called, then all lookups are O(1).
+     *      Looked up one path at a time against the table's PRIMARY KEY
+     *      rather than loading the table, so cost is independent of
+     *      library size. Loading every synced path into a hashset was
+     *      O(library) in memory: ~116MB at 100k files, ~247MB at 300k,
+     *      and a hard OOM past that on a 256M limit — the same failure
+     *      the exclusion tree was just fixed for. A grid's worth of
+     *      lookups (~270) measures 0.013s / 0MB against a 242k-row
+     *      table, versus 0.200s / 139MB to load it.
      *   3. HeadObject via the stream wrapper — the fallback for files
      *      that aren't tracked in the sync table yet (e.g. an attachment
      *      just uploaded and pending its next sync tick).
@@ -223,8 +229,7 @@ class InfiniteUploadsAdmin {
      * @return bool
      */
     private static function cloud_file_exists( $relative_path ) {
-        static $cache        = [];
-        static $synced_paths = null;
+        static $cache = [];
 
         if ( $relative_path === '' ) {
             return false;
@@ -233,15 +238,16 @@ class InfiniteUploadsAdmin {
             return $cache[ $relative_path ];
         }
 
-        if ( null === $synced_paths ) {
-            global $wpdb;
-            $rows         = $wpdb->get_col(
-                "SELECT file FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1"
-            );
-            $synced_paths = $rows ? array_flip( $rows ) : [];
-        }
-        if ( isset( $synced_paths[ $relative_path ] ) ) {
+        global $wpdb;
+        $is_synced = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT 1 FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE file = %s AND synced = 1 LIMIT 1",
+                $relative_path
+            )
+        );
+        if ( $is_synced ) {
             $cache[ $relative_path ] = true;
+
             return true;
         }
 
