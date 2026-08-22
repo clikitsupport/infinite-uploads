@@ -214,6 +214,42 @@ class AbilitiesTest extends TestCase {
 		);
 	}
 
+	/**
+	 * The "enable" wording is the whole safety mechanism for the two-step
+	 * design: it has to name the ability to run and has to say the decision
+	 * is the owner's, or an agent will either miss the step or take it
+	 * unilaterally. Assert on the substance, not the prose.
+	 */
+	public function test_enable_detail_names_the_ability_and_defers_to_the_owner(): void {
+		Functions\when( 'get_site_option' )->justReturn( [] );
+
+		$method = $this->reflection->getMethod( 'get_next_step_detail' );
+		$method->setAccessible( true );
+		$detail = $method->invoke( $this->abilities, 'enable', 0 );
+
+		$this->assertStringContainsString( 'infinite-uploads/toggle-cloud', $detail );
+		$this->assertStringContainsString( 'enabled=true', $detail );
+		$this->assertMatchesRegularExpression( '/\bask\b/i', $detail );
+	}
+
+	/**
+	 * @dataProvider next_step_cases
+	 */
+	public function test_every_state_carries_actionable_detail( bool $connected, bool $has_data, int $remaining, bool $enabled, bool $scanning, string $expected ): void {
+		Functions\when( 'get_site_option' )->justReturn( [] );
+		Functions\when( 'number_format_i18n' )->returnArg();
+
+		$method = $this->reflection->getMethod( 'get_next_step_detail' );
+		$method->setAccessible( true );
+		$detail = $method->invoke( $this->abilities, $expected, $remaining );
+
+		$this->assertNotEmpty( $detail );
+		// Every state except the terminal one should name an ability to run.
+		if ( 'done' !== $expected ) {
+			$this->assertStringContainsString( 'infinite-uploads/', $detail );
+		}
+	}
+
 	public static function next_step_cases(): array {
 		return [
 			// connected, has_data, remaining, enabled, scanning, expected

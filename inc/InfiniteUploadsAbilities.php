@@ -108,6 +108,10 @@ class InfiniteUploadsAbilities {
 							'wp_cron_disabled'   => [ 'type' => 'boolean' ],
 						],
 					],
+					'next_step_detail'           => [
+						'type'        => 'string',
+						'description' => __( 'The same pending action written out for the agent, naming the exact ability to run. Relay it rather than acting past it — when it says to ask the site owner first, ask.', 'infinite-uploads' ),
+					],
 					'next_step'                  => [
 						'type'        => 'string',
 						'enum'        => [ 'connect', 'scan', 'sync', 'enable', 'done' ],
@@ -224,9 +228,10 @@ class InfiniteUploadsAbilities {
 			'output_schema' => [
 				'type'       => 'object',
 				'properties' => [
-					'queued'         => [ 'type' => 'boolean' ],
-					'already_queued' => [ 'type' => 'boolean' ],
-					'sync'           => [ 'type' => 'object' ],
+					'queued'           => [ 'type' => 'boolean' ],
+					'already_queued'   => [ 'type' => 'boolean' ],
+					'sync'             => [ 'type' => 'object' ],
+					'next_step_detail' => [ 'type' => 'string' ],
 				],
 			],
 			'execute_callback' => [ $this, 'start_sync' ],
@@ -246,9 +251,10 @@ class InfiniteUploadsAbilities {
 			'output_schema' => [
 				'type'       => 'object',
 				'properties' => [
-					'queued'         => [ 'type' => 'boolean' ],
-					'already_queued' => [ 'type' => 'boolean' ],
-					'sync'           => [ 'type' => 'object' ],
+					'queued'           => [ 'type' => 'boolean' ],
+					'already_queued'   => [ 'type' => 'boolean' ],
+					'sync'             => [ 'type' => 'object' ],
+					'next_step_detail' => [ 'type' => 'string' ],
 				],
 			],
 			'execute_callback' => [ $this, 'start_download' ],
@@ -434,6 +440,47 @@ class InfiniteUploadsAbilities {
 	}
 
 	/**
+	 * The same instruction in words, carried in the response body.
+	 *
+	 * next_step on its own is a bare enum, and the sentence explaining it
+	 * lives in the output schema — which many MCP clients never surface to
+	 * the model at call time. An agent picking this site up hours later
+	 * would see "enable" and have to infer both what it means and that the
+	 * ability implementing it is called toggle-cloud. Spelling it out here
+	 * removes that inference, and because get-status is what gets polled,
+	 * it re-asserts itself on every check — the equivalent of the plugin's
+	 * own Enable modal, which reappears until someone acts on it.
+	 *
+	 * @param  string  $step
+	 * @param  int     $remaining_sync
+	 *
+	 * @return string
+	 */
+	private function get_next_step_detail( $step, $remaining_sync ) {
+		switch ( $step ) {
+			case 'connect':
+				return __( 'This site is not connected to an Infinite Uploads account yet, and nothing can move to the cloud until it is. Run the infinite-uploads/get-connect-instructions ability and give the person the steps: connecting needs a human in a browser to sign in and approve a plan, and cannot be done for them.', 'infinite-uploads' );
+
+			case 'scan':
+				return __( 'The local media library has not been catalogued yet. Run the infinite-uploads/scan ability repeatedly until it reports done=true — each call resumes where the previous one stopped.', 'infinite-uploads' );
+
+			case 'sync':
+				return sprintf(
+					/* translators: %s: number of files still to upload, already formatted for the locale. */
+					__( '%s files are catalogued but have not been uploaded to the cloud yet. Run the infinite-uploads/sync ability to start the transfer. It runs in the background on the site\'s own server and can take hours on a large library, so tell the person it continues without them waiting, and check back with get-status rather than polling in a loop.', 'infinite-uploads' ),
+					number_format_i18n( $remaining_sync )
+				);
+
+			case 'enable':
+				return __( 'The file transfer has finished, but this site is still serving media from its local disk: switching over is a separate step that has not happened yet. That decision belongs to the site owner, not to you. Ask them whether they want to start serving media from the Infinite Uploads cloud and CDN now, and only if they agree, run the infinite-uploads/toggle-cloud ability with enabled=true.', 'infinite-uploads' );
+
+			case 'done':
+			default:
+				return __( 'Setup is complete: media is stored in the Infinite Uploads cloud and served from the CDN. Nothing further is needed.', 'infinite-uploads' );
+		}
+	}
+
+	/**
 	 * Ask Action Scheduler to start working the queue right now.
 	 *
 	 * Without this, a queued job waits for WP-Cron: Action Scheduler's own
@@ -475,6 +522,7 @@ class InfiniteUploadsAbilities {
 		$stats         = $this->iup_instance->get_sync_stats();
 		$has_data      = ! empty( $stats['is_data'] );
 		$remaining     = $this->get_remaining_counts();
+		$next_step     = $this->get_next_step( $connected, $has_data, $remaining['sync'], $cloud_enabled );
 
 		$status = [
 			'connected'                  => $connected,
@@ -486,7 +534,8 @@ class InfiniteUploadsAbilities {
 			'plugin_version'             => INFINITE_UPLOADS_VERSION,
 			'sync'                       => $stats,
 			'jobs'                       => $this->get_job_state( $remaining, $has_data ),
-			'next_step'                  => $this->get_next_step( $connected, $has_data, $remaining['sync'], $cloud_enabled ),
+			'next_step'                  => $next_step,
+			'next_step_detail'           => $this->get_next_step_detail( $next_step, $remaining['sync'] ),
 		];
 
 		if ( $connected ) {
@@ -640,9 +689,10 @@ class InfiniteUploadsAbilities {
 		return [
 			// Queued, not started: the transfer runs later, in an Action
 			// Scheduler job driven by WP-Cron. See get_job_state().
-			'queued'         => true,
-			'already_queued' => $already_queued,
-			'sync'           => $stats,
+			'queued'           => true,
+			'already_queued'   => $already_queued,
+			'sync'             => $stats,
+			'next_step_detail' => __( 'The transfer is now running in the background on the site\'s own server and continues whether or not this conversation stays open — tell the person that rather than waiting on it. Check progress with infinite-uploads/get-status. When the transfer finishes, that ability reports next_step as "enable": serving media from the cloud is a separate change the site owner has to agree to, so ask them first and only then run infinite-uploads/toggle-cloud.', 'infinite-uploads' ),
 		];
 	}
 
@@ -666,9 +716,10 @@ class InfiniteUploadsAbilities {
 		$this->kick_queue_runner();
 
 		return [
-			'queued'         => true,
-			'already_queued' => $already_queued,
-			'sync'           => $this->iup_instance->get_sync_stats(),
+			'queued'           => true,
+			'already_queued'   => $already_queued,
+			'sync'             => $this->iup_instance->get_sync_stats(),
+			'next_step_detail' => __( 'The download is now running in the background on the site\'s own server and continues whether or not this conversation stays open. Check progress with infinite-uploads/get-status, where jobs.download_remaining counts down to zero.', 'infinite-uploads' ),
 		];
 	}
 
