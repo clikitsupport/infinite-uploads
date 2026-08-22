@@ -104,6 +104,11 @@ class InfiniteUploads {
         $this->api    = InfiniteUploadsApiHandler::get_instance();
         $this->stream = InfiniteUploadsVideo::get_instance();
 
+        // Device-connect verify endpoint. Registered before the no-token bail
+        // below because it is used precisely while the site is not yet
+        // connected. Inert until a connect attempt is begun.
+        InfiniteUploadsDeviceConnect::get_instance();
+
         // Initialize media folders (works independently of cloud sync).
         if ( InfiniteUploadsHelper::is_media_folders_enabled() ) {
             MediaFolders::get_instance();
