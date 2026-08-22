@@ -83,7 +83,7 @@ class InfiniteUploadsAbilities {
 
 		$this->register_ability( 'get-status', [
 			'label'         => __( 'Get Infinite Uploads Status', 'infinite-uploads' ),
-			'description'   => __( 'Returns the connection state, plan, CDN URL, feature flags, file sync statistics, and background job state for this site. Call this first to learn what Infinite Uploads can do here, and poll it to follow the progress of a scan, sync, or download.', 'infinite-uploads' ),
+			'description'   => __( 'Returns the connection state, plan, CDN URL, feature flags, file sync statistics, background job state, and the next action needed to finish setup for this site. Call this first to learn what Infinite Uploads can do here, whenever someone asks how a transfer is going, and any time you pick up a site you have not seen before — next_step tells you exactly where it was left off, including when a finished sync is waiting for someone to approve switching the site over.', 'infinite-uploads' ),
 			'output_schema' => [
 				'type'                 => 'object',
 				'properties'           => [
@@ -98,13 +98,20 @@ class InfiniteUploadsAbilities {
 					'jobs'                       => [
 						'type'       => 'object',
 						'properties' => [
-							'scan_in_progress'  => [ 'type' => 'boolean' ],
-							'sync_queued'       => [ 'type' => 'boolean' ],
-							'sync_complete'     => [ 'type' => 'boolean' ],
-							'download_queued'   => [ 'type' => 'boolean' ],
-							'download_complete' => [ 'type' => 'boolean' ],
-							'wp_cron_disabled'  => [ 'type' => 'boolean' ],
+							'scan_in_progress'   => [ 'type' => 'boolean' ],
+							'sync_queued'        => [ 'type' => 'boolean' ],
+							'sync_complete'      => [ 'type' => 'boolean' ],
+							'sync_remaining'     => [ 'type' => 'integer' ],
+							'download_queued'    => [ 'type' => 'boolean' ],
+							'download_complete'  => [ 'type' => 'boolean' ],
+							'download_remaining' => [ 'type' => 'integer' ],
+							'wp_cron_disabled'   => [ 'type' => 'boolean' ],
 						],
+					],
+					'next_step'                  => [
+						'type'        => 'string',
+						'enum'        => [ 'connect', 'scan', 'sync', 'enable', 'done' ],
+						'description' => __( 'The one action still needed to finish setting this site up: connect the site to an account, scan local files, sync them to the cloud, enable cloud serving, or done. Offloading is deliberately two steps — move the files, then switch the site over — so this reports "enable" once a sync has finished and is waiting on a person to approve the switch.', 'infinite-uploads' ),
 					],
 				],
 				'additionalProperties' => true,
@@ -209,7 +216,7 @@ class InfiniteUploadsAbilities {
 
 		$this->register_ability( 'sync', [
 			'label'         => __( 'Sync Files to the Cloud', 'infinite-uploads' ),
-			'description'   => __( 'Queues the background upload of scanned local files to the Infinite Uploads cloud as an Action Scheduler job. This only schedules the work and returns immediately — it does not transfer anything itself. Poll get-status: the sync statistics show progress, jobs.sync_queued shows the job is still scheduled, and jobs.sync_complete turns true when it finishes. Large libraries can take hours. The job runs on WP-Cron, so if get-status reports jobs.wp_cron_disabled, progress depends entirely on the host firing wp-cron.php from a system cron; when it is not, the sync will not advance. For bulk migrations `wp infinite-uploads sync` transfers everything in a single process and is far faster. Requires a connected site and completed scan data.', 'infinite-uploads' ),
+			'description'   => __( 'Queues the background upload of scanned local files to the Infinite Uploads cloud and starts the queue working. It returns as soon as the job is running — it does not wait for the transfer, which continues on the server whether or not this conversation stays open. Large libraries routinely take hours, so do not sit in a polling loop: tell the person how much there is to move (get-status reports total_size and total_files), that they can close the conversation, and that they can ask for progress whenever they like. Syncing does NOT switch the site over to serving media from the cloud. That stays a separate, deliberate step, exactly as it is on the plugin\'s own screen where an Enable button appears once the transfer finishes: when the sync completes, get-status reports next_step as "enable" — offer it to the person then, and call toggle-cloud only if they agree. If progress stalls and get-status reports jobs.wp_cron_disabled, the host is not running WP-Cron and `wp infinite-uploads sync` is the reliable path; it also transfers everything in one process and is far faster for bulk migrations. Requires a connected site and completed scan data.', 'infinite-uploads' ),
 			'input_schema'  => [
 				'type'                 => 'object',
 				'additionalProperties' => false,
@@ -231,7 +238,7 @@ class InfiniteUploadsAbilities {
 
 		$this->register_ability( 'download', [
 			'label'         => __( 'Download Cloud Files to Local', 'infinite-uploads' ),
-			'description'   => __( 'Queues the background download of cloud-only files back to the local uploads directory as an Action Scheduler job. This only schedules the work and returns immediately. Poll get-status: jobs.download_queued shows the job is still scheduled and jobs.download_complete turns true when it finishes. The same WP-Cron caveat as sync applies — check jobs.wp_cron_disabled — and `wp infinite-uploads download` is the faster path for bulk restores. Requires a connected site.', 'infinite-uploads' ),
+			'description'   => __( 'Queues the background download of cloud-only files back to the local uploads directory and starts the queue working. It returns as soon as the job is running and does not wait for the transfer, which can take hours on a large library — report that to the person rather than polling in a loop, and check back with get-status, where jobs.download_remaining counts down and jobs.download_complete turns true at the end. The same WP-Cron caveat as sync applies (see jobs.wp_cron_disabled), and `wp infinite-uploads download` is the faster path for bulk restores. Requires a connected site.', 'infinite-uploads' ),
 			'input_schema'  => [
 				'type'                 => 'object',
 				'additionalProperties' => false,
@@ -253,7 +260,7 @@ class InfiniteUploadsAbilities {
 
 		$this->register_ability( 'toggle-cloud', [
 			'label'         => __( 'Toggle Cloud Serving', 'infinite-uploads' ),
-			'description'   => __( 'Enables or disables serving media from the Infinite Uploads cloud (URL rewriting plus streaming of new uploads). The CDN itself is provisioned and managed by the platform once a site connects; this only switches whether the site uses it. Enabling requires a connected site, normally after a completed sync.', 'infinite-uploads' ),
+			'description'   => __( 'Enables or disables serving media from the Infinite Uploads cloud (URL rewriting plus streaming of new uploads). The CDN itself is provisioned and managed by the platform once a site connects; this only switches whether the site uses it. This is the deliberate second half of offloading and the counterpart to the Enable button on the plugin\'s own screen: it is never automatic when a sync finishes, and it changes how media URLs are served across the whole site, so confirm with the person before enabling rather than doing it on their behalf. get-status reports next_step as "enable" when a completed sync is waiting for that decision. Enabling requires a connected site and normally a completed sync.', 'infinite-uploads' ),
 			'input_schema'  => [
 				'type'       => 'object',
 				'properties' => [
@@ -351,19 +358,110 @@ class InfiniteUploadsAbilities {
 	 *
 	 * @return array
 	 */
-	private function get_job_state() {
+	private function get_job_state( array $remaining, $has_data ) {
 		return [
-			'scan_in_progress'  => ! empty( get_site_option( 'iup_scan_remaining_dirs', [] ) ),
+			'scan_in_progress'  => $this->is_scan_in_progress(),
 			'sync_queued'       => $this->is_job_queued( [ 'infinite-uploads-do-sync' ] ),
-			'sync_complete'     => 'yes' === get_site_option( 'iup_do_sync_complete', 'no' ),
+			'sync_complete'     => $has_data && 0 === $remaining['sync'],
+			'sync_remaining'    => $remaining['sync'],
 			'download_queued'   => $this->is_job_queued( [
 				'infinite-uploads-do-download',
 				'infinite-uploads-add-files-to-download',
 				'infinite-uploads-fetch-s3-files-from-directory-to-download',
 			] ),
-			'download_complete' => 'yes' === get_site_option( 'iup_do_download_complete', 'no' ),
-			'wp_cron_disabled'  => defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON,
+			'download_complete'  => $has_data && 0 === $remaining['download'],
+			'download_remaining' => $remaining['download'],
+			'wp_cron_disabled'   => defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON,
 		];
+	}
+
+	/**
+	 * @return bool
+	 */
+	private function is_scan_in_progress() {
+		return ! empty( get_site_option( 'iup_scan_remaining_dirs', [] ) );
+	}
+
+	/**
+	 * Files still eligible for transfer, mirroring the queries the sync and
+	 * download engines themselves use to decide they are finished (files
+	 * retired at errors >= 3 are excluded, exactly as in do_sync/do_download).
+	 *
+	 * Derived from the file table rather than the iup_do_*_complete options
+	 * because those are an acknowledgement flag the admin UI consumes and
+	 * resets once a browser has seen the completion
+	 * (InfiniteUploads::check_sync_status), so they read "no" again afterwards
+	 * — useless to an agent asking hours later whether the transfer finished.
+	 *
+	 * @return array
+	 */
+	private function get_remaining_counts() {
+		global $wpdb;
+
+		return [
+			'sync'     => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 0 AND errors < 3" ),
+			'download' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->base_prefix}infinite_uploads_files` WHERE synced = 1 AND deleted = 1 AND errors < 3" ),
+		];
+	}
+
+	/**
+	 * The one thing a person needs to do next to finish setting this site up.
+	 *
+	 * Offloading is deliberately a two-step job — transfer the files, then
+	 * switch the site over to serving them — and the second step stays a
+	 * human decision, mirroring the plugin's own screen where an Enable
+	 * button appears once the sync finishes. In the admin UI that button is
+	 * the affordance; an agent has no screen, so this field is the
+	 * equivalent: whenever anyone asks about the site, in this conversation
+	 * or a different one days later, the pending step is unmistakable.
+	 *
+	 * @return string One of connect, scan, sync, enable, done.
+	 */
+	private function get_next_step( $connected, $has_data, $remaining_sync, $cloud_enabled ) {
+		if ( ! $connected ) {
+			return 'connect';
+		}
+
+		if ( ! $has_data || $this->is_scan_in_progress() ) {
+			return 'scan';
+		}
+
+		if ( $remaining_sync > 0 ) {
+			return 'sync';
+		}
+
+		return $cloud_enabled ? 'done' : 'enable';
+	}
+
+	/**
+	 * Ask Action Scheduler to start working the queue right now.
+	 *
+	 * Without this, a queued job waits for WP-Cron: Action Scheduler's own
+	 * async runner is dispatched from the shutdown hook only when
+	 * is_admin() is true (ActionScheduler_QueueRunner::maybe_dispatch_async_request),
+	 * and REST requests are not admin context, so nothing an agent does
+	 * advances the queue. Dispatching the runner directly sends a
+	 * non-blocking loopback to admin-ajax.php, which IS admin context — so
+	 * that request, and each one it spawns on shutdown, keeps the chain
+	 * going without a browser and without WP-Cron.
+	 *
+	 * maybe_dispatch() self-guards: it no-ops unless there is pending work
+	 * due and no batch is already running.
+	 *
+	 * @return void
+	 */
+	private function kick_queue_runner() {
+		if ( ! class_exists( '\ActionScheduler' ) || ! class_exists( '\ActionScheduler_AsyncRequest_QueueRunner' ) ) {
+			return;
+		}
+
+		try {
+			$async = new \ActionScheduler_AsyncRequest_QueueRunner( \ActionScheduler::store() );
+			$async->maybe_dispatch();
+		} catch ( \Exception $e ) {
+			// Best effort: the job stays queued for WP-Cron either way.
+			return;
+		}
 	}
 
 	/**
@@ -372,18 +470,23 @@ class InfiniteUploadsAbilities {
 	 * @return array
 	 */
 	public function get_status() {
-		$connected = $this->api->has_token();
+		$connected     = $this->api->has_token();
+		$cloud_enabled = (bool) infinite_uploads_enabled();
+		$stats         = $this->iup_instance->get_sync_stats();
+		$has_data      = ! empty( $stats['is_data'] );
+		$remaining     = $this->get_remaining_counts();
 
 		$status = [
 			'connected'                  => $connected,
-			'cloud_serving_enabled'      => (bool) infinite_uploads_enabled(),
+			'cloud_serving_enabled'      => $cloud_enabled,
 			'image_optimization_enabled' => InfiniteUploadsHelper::is_image_optimization_enabled(),
 			'business_plan'              => false,
 			'plan'                       => null,
 			'cdn_url'                    => null,
 			'plugin_version'             => INFINITE_UPLOADS_VERSION,
-			'sync'                       => $this->iup_instance->get_sync_stats(),
-			'jobs'                       => $this->get_job_state(),
+			'sync'                       => $stats,
+			'jobs'                       => $this->get_job_state( $remaining, $has_data ),
+			'next_step'                  => $this->get_next_step( $connected, $has_data, $remaining['sync'], $cloud_enabled ),
 		];
 
 		if ( $connected ) {
@@ -532,6 +635,8 @@ class InfiniteUploadsAbilities {
 			as_schedule_single_action( time(), 'infinite-uploads-do-sync' );
 		}
 
+		$this->kick_queue_runner();
+
 		return [
 			// Queued, not started: the transfer runs later, in an Action
 			// Scheduler job driven by WP-Cron. See get_job_state().
@@ -557,6 +662,8 @@ class InfiniteUploadsAbilities {
 		if ( ! $already_queued ) {
 			as_schedule_single_action( time(), 'infinite-uploads-do-download' );
 		}
+
+		$this->kick_queue_runner();
 
 		return [
 			'queued'         => true,

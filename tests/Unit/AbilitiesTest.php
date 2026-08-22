@@ -2,10 +2,10 @@
 /**
  * Tests for InfiniteUploadsAbilities — registration surface and gates.
  *
- * Registration: the category is registered before the abilities, all seven
- * abilities register on the main site, only the site-agnostic three register
- * on a subsite, and everything is inert where the Abilities API doesn't
- * exist (WP < 6.9).
+ * Registration: the category registers on its own hook, all eight abilities
+ * register on the main site, only the site-agnostic three register on a
+ * subsite, rescan is the only one flagged destructive, and everything is
+ * inert where the Abilities API doesn't exist (WP < 6.9).
  *
  * Gates: sync/download/toggle/purge refuse cleanly (WP_Error with a stable
  * code) when the site is unconnected or the plan doesn't allow the action —
@@ -191,6 +191,42 @@ class AbilitiesTest extends TestCase {
 
 		$this->assertInstanceOf( WP_Error::class, $result );
 		$this->assertSame( 'iu_rescan_required', $result->get_error_code() );
+	}
+
+	/**
+	 * The next_step state machine is how an agent — in this conversation or a
+	 * different one days later — discovers that a finished sync is sitting
+	 * there waiting for someone to approve switching the site over. Enabling
+	 * is never automatic, so this signal is the only thing standing between a
+	 * completed transfer and a customer whose media never moves.
+	 *
+	 * @dataProvider next_step_cases
+	 */
+	public function test_next_step_reports_the_pending_action( bool $connected, bool $has_data, int $remaining, bool $enabled, bool $scanning, string $expected ): void {
+		Functions\when( 'get_site_option' )->justReturn( $scanning ? [ '/some/dir' ] : [] );
+
+		$method = $this->reflection->getMethod( 'get_next_step' );
+		$method->setAccessible( true );
+
+		$this->assertSame(
+			$expected,
+			$method->invoke( $this->abilities, $connected, $has_data, $remaining, $enabled )
+		);
+	}
+
+	public static function next_step_cases(): array {
+		return [
+			// connected, has_data, remaining, enabled, scanning, expected
+			'fresh install'          => [ false, false, 0, false, false, 'connect' ],
+			'connected but unscanned'=> [ true, false, 0, false, false, 'scan' ],
+			'scan still running'     => [ true, true, 5, false, true, 'scan' ],
+			'scanned, nothing synced'=> [ true, true, 900, false, false, 'sync' ],
+			'sync done, not switched'=> [ true, true, 0, false, false, 'enable' ],
+			'fully set up'           => [ true, true, 0, true, false, 'done' ],
+			// A site that never connected is told to connect even if it has
+			// stale scan data from a previous life.
+			'disconnected with data' => [ false, true, 0, false, false, 'connect' ],
+		];
 	}
 
 	public function test_sync_requires_connection(): void {
